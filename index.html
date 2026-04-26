@@ -3,28 +3,28 @@
 <html lang="zh">
 <head>
 <meta charset="utf-8"/>
-<meta content="全网最快的GPT5代充平台，支付宝/微信直接购买，3分钟全自动到账，稳定防封。" name="description"/>
+<meta content="ChatGPT Plus 快速开通中心提供 Plus 开通与自助激活服务，购买后充值到自己的 GPT 账号，支持自动到账、人工协助和其他 AI 会员咨询。" name="description"/>
 <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport"/>
-<title>ChatGPT Plus 极速充值中心 | 24小时自动发货 ⚡️</title>
+<title>ChatGPT Plus 快速开通中心 | 安全自动到账</title>
 <style>
     :root {
-      --primary: #8b5cf6;      /* 强调紫 */
-      --primary-dark: #7c3aed; /* 深紫强调 */
-      --accent: #a78bfa;       /* 亮紫 */
+      --primary: #14b8a6;      /* 旗舰青（Teal） */
+      --primary-dark: #0f766e; /* 深青强调 */
+      --accent: #2dd4bf;       /* 亮青点缀 */
       --gray-300: #cbd5e1;
       --gray-500: #64748b;
       --radius: 22px;
 
-      /* Brand Colors (Purple Theme) */
-      --brand-500:#8b5cf6; /* 主色 */
-      --brand-600:#7c3aed; /* hover/强调 */
-      --brand-glass: rgba(139, 92, 246, 0.18); /* 玻璃条/轻底 */
-      --brand-outline: rgba(196,181,253,.45);
-      --brand-outline-strong: rgba(196,181,253,.65);
-      --brand-shadow-soft: rgba(139,92,246,.18);
-      --brand-shadow-strong: rgba(139,92,246,.35);
-      --brand-tint: rgba(167,139,250,.18);
-      --brand-tint-strong: rgba(167,139,250,.28);
+      /* Brand Colors (Teal/Cyan Theme) */
+      --brand-500:#14b8a6; /* 主色 */
+      --brand-600:#0d9488; /* hover/强调 */
+      --brand-glass: rgba(20, 184, 166, 0.18); /* 玻璃条/轻底 */
+      --brand-outline: rgba(45, 212, 191, 0.45);
+      --brand-outline-strong: rgba(45, 212, 191, 0.65);
+      --brand-shadow-soft: rgba(20, 184, 166, 0.18);
+      --brand-shadow-strong: rgba(20, 184, 166, 0.35);
+      --brand-tint: rgba(45, 212, 191, 0.12);
+      --brand-tint-strong: rgba(45, 212, 191, 0.22);
 
       /* Neutral */
       --overlay:#0B1220;                    /* 深夜蓝弹窗/底栏背景 */
@@ -44,24 +44,19 @@
         "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", sans-serif;
       background:
         /* 大散景光斑 */
-        radial-gradient(260px 180px at 18% 22%, rgba(255,255,255,.12), transparent 70%),
-        radial-gradient(220px 160px at 68% 16%, rgba(255,255,255,.08), transparent 72%),
-        radial-gradient(180px 140px at 82% 42%, rgba(255,255,255,.07), transparent 75%),
-        radial-gradient(140px 120px at 32% 68%, rgba(255,255,255,.08), transparent 78%),
-        /* 霓虹紫光晕层 */
-        radial-gradient(1200px 700px at 12% -8%, rgba(167,139,250,.2), transparent 60%),
-        radial-gradient(1000px 600px at 90% 12%, rgba(124,58,237,.16), transparent 60%),
-        /* 深紫底色 */
-        linear-gradient(135deg, #120b2b 0%, #1a0f38 45%, #1f1144 100%);
+        radial-gradient(260px 180px at 18% 22%, rgba(20,184,166,.12), transparent 70%),
+        radial-gradient(220px 160px at 68% 16%, rgba(45,212,191,.08), transparent 72%),
+        radial-gradient(180px 140px at 82% 42%, rgba(255,255,255,.05), transparent 75%),
+        /* 深青蓝底色 */
+        linear-gradient(135deg, #042f2e 0%, #0f172a 45%, #020617 100%);
       min-height: 100vh;
       display: flex;
-      align-items: flex-start;
       justify-content: center;
+      align-items: flex-start;
+      padding: 26px 12px 120px; /* 底部留出空间，允许轻微滚动看到底部内容 */
       color: #fff;
       -webkit-text-size-adjust: 100%;
       -webkit-tap-highlight-color: transparent;
-    
-      padding: 26px 12px 120px;
     }
 
     /* 中心卡片 */
@@ -69,17 +64,17 @@
       width: 100%;
       max-width: 620px;
       background:
-        linear-gradient(180deg, rgba(139,92,246,.12) 0%, rgba(167,139,250,.08) 100%),
-        rgba(21,15,40,.85);
+        linear-gradient(180deg, rgba(20,184,166,.12) 0%, rgba(45,212,191,.05) 100%),
+        rgba(15, 23, 42, 0.85);
       border-radius: var(--radius);
-      box-shadow: 0 6px 36px rgba(0, 0, 0, 0.10);
+      box-shadow: 0 6px 36px rgba(0, 0, 0, 0.20);
       backdrop-filter: blur(16px) saturate(130%);
       -webkit-backdrop-filter: blur(16px) saturate(130%);
       overflow: hidden;
       border: 1px solid rgba(255,255,255,.35);
       position: relative;
     }
-  /* 金属渐变描边（双描边：外白、内金属） */
+  /* 金属渐变描边 */
   .card::before{
     content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
     border: 1px solid rgba(255,255,255,.45);
@@ -89,7 +84,7 @@
     padding:1px; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude;
-    background: linear-gradient(135deg, rgba(167,139,250,.9), rgba(147,112,219,.75), rgba(124,58,237,.85));
+    background: linear-gradient(135deg, rgba(45,212,191,.9), rgba(20,184,166,.75), rgba(13,148,136,.85));
   }
 
     /* 卡片 – 顶部彩条、标题、徽章 */
@@ -114,19 +109,12 @@
     }
     .brand-icon{ width: 32px; height: 32px; display:block; }
     .brand-name{ font-weight:900; color:#fff; letter-spacing:.02em; font-size:1.05rem; }
-    .brand-sub{ font-size:.85rem; color:#d1f4ff; opacity:.85; margin-left:6px; }
-    /* Hero 组合：统一节奏与层级 */
+    .brand-sub{ font-size:.85rem; color:#ccfbf1; opacity:.85; margin-left:6px; }
+    /* Hero 组合 */
     .hero{ display:flex; flex-direction:column; align-items:center; gap:8px; }
     .hero h1{ margin: 2px 0 0; }
     .hero-divider{ width:min(440px,88%); height:1px; background: rgba(255,255,255,.12); margin: 2px 0 0; border-radius:1px; }
-    .hero .notice-bar-top{ margin: 4px 0 0; font-size:.85rem; color:#cfeff6; }
-    .brand-title {
-      margin: 4px 0 10px;
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-align: center;
-    }
+    .hero .notice-bar-top{ margin: 4px 0 0; font-size:.85rem; color:#ccfbf1; }
     .badges {
       display: flex;
       flex-wrap: wrap;
@@ -139,7 +127,7 @@
     font-weight: 600;
     border-radius: 9999px;
     background: var(--white-85);
-    color:#1f2937;
+    color:#0f172a;
     border: 1px solid var(--surface-glass);
     display: inline-flex;
     align-items: center;
@@ -148,17 +136,6 @@
     width: 95px;
     justify-content: center;
     white-space: nowrap;
-  }
-  .badge.clickable {
-    background: linear-gradient(135deg, var(--brand-600) 0%, var(--brand-500) 100%);
-    border: 1px solid var(--brand-outline);
-    box-shadow: 0 2px 8px var(--brand-shadow-soft);
-    transition: all 0.2s ease;
-  }
-  .badge.clickable:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px var(--brand-shadow-strong);
-    background: linear-gradient(135deg, var(--brand-600) 0%, var(--brand-500) 100%);
   }
 
     /* 指标区域 */
@@ -184,61 +161,6 @@
       color: var(--gray-300);
     }
 
-    /* 白底表单区 */
-    .form-area {
-      background: #ffffff;
-      color: #000;
-      padding: 40px 40px 48px;
-    }
-
-    /* 步骤条 */
-    .steps {
-      display: flex;
-      justify-content: center;
-      gap: 16px;
-      margin-bottom: 32px;
-    }
-    .steps li {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: var(--gray-300);
-      color: var(--gray-500);
-      font-weight: 700;
-      display: grid;
-      place-items: center;
-      font-size: 0.9rem;
-    }
-    .steps li.active {
-      background: var(--primary);
-      color: #fff;
-    }
-
-    /* 表单控件 */
-    .field-label {
-      font-size: 0.9rem;
-      font-weight: 600;
-      margin-bottom: 6px;
-      display: block;
-    }
-    .input {
-      width: 100%;
-      padding: 14px 16px;
-      font-size: 0.95rem;
-      border: 2px solid var(--gray-300);
-      border-radius: 10px;
-      transition: border 0.25s;
-    }
-    .input:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
-    .hint {
-      margin-top: 6px;
-      font-size: 0.75rem;
-      color: var(--gray-500);
-    }
-
     /* CTA 按钮 */
     .btn {
       display: block;
@@ -256,7 +178,7 @@
     }
     .btn:hover {
       filter: brightness(1.06);
-      box-shadow: 0 8px 24px rgba(139,92,246,.35);
+      box-shadow: 0 8px 24px rgba(20, 184, 166, 0.35);
       transform: translateY(-1px);
     }
 
@@ -271,69 +193,54 @@
     /* 小屏优化 */
     @media (max-width: 480px) {
       .card-header { padding: 40px 24px 24px; }
-      .form-area   { padding: 32px 24px; }
       
-      /* 价格区域优化 */
-      .price {
-        margin-top: 8px;
-        gap: 6px;
-      }
-      .price-val {
-        font-size: 2.2rem;
-      }
-      .price-tag {
-        font-size: 0.75rem;
-        padding: 3px 8px;
-      }
+      .price { margin-top: 8px; gap: 6px; }
+      .price-val { font-size: 2.2rem; }
+      .price-tag { font-size: 0.75rem; padding: 3px 8px; }
       
-      /* 按钮组移动端优化 */
-      .button-group {
-        flex-direction: column;
-        gap: 8px;
-        margin: 20px 0 8px;
-      }
+
+
+
+
+.actions-gap{ height: 18px; }
+.actions-gap-sm{ height: 12px; }
+.secondary-actions.secondary-between{
+  display:flex;
+  justify-content:center;
+}
+.secondary-actions.secondary-between .btn-ai{
+  width: min(460px, 100%);
+  padding: .62rem 1.0rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,.04);
+  border: 1px dashed rgba(45,212,191,.40);
+  box-shadow: none;
+}
+.secondary-actions.secondary-between .btn-ai:hover{
+  background: rgba(255,255,255,.06);
+  border-color: rgba(45,212,191,.65);
+  transform: translateY(-1px);
+}
+.secondary-actions.secondary-between .btn-ai .sub{
+  font-size:.76rem;
+  opacity:.78;
+}
+
+
+      .button-group { flex-direction: column; gap: 8px; margin: 20px 0 8px; }
       .button-group .btn-buy,
-      .button-group .btn-recharge {
-        margin: 0;
-        padding: 16px 0;
-        font-size: 1.05rem;
-      }
+      .button-group .btn-recharge { margin: 0; padding: 16px 0; font-size: 1.05rem; }
       
-      /* 步骤优化 */
-      .steps-mini {
-        gap: 6px 8px;
-        margin: 8px 0 6px;
-      }
-      .step-pill {
-        font-size: 0.75rem;
-        padding: 5px 8px;
-      }
-      .steps-link {
-        font-size: 0.75rem;
-        margin-left: 4px;
-      }
+      .steps-mini { gap: 6px 8px; margin: 8px 0 6px; }
+      .step-pill { font-size: 0.75rem; padding: 5px 8px; }
+      .steps-link { font-size: 0.75rem; margin-left: 4px; }
       
-      /* 徽章优化 */
-      .badges {
-        gap: 8px;
-        margin-top: 16px;
-      }
-      .badge {
-        font-size: 0.7rem;
-        padding: 3px 8px;
-      }
+      .badges { gap: 8px; margin-top: 16px; }
+      .badge { font-size: 0.7rem; padding: 3px 8px; }
       
-      /* 统计优化 */
-      .stats {
-        gap: 16px;
-        margin: 24px 0 8px;
-      }
-      .stat-value {
-        font-size: 0.9rem;
-      }
-      .stat-label {
-        font-size: 0.7rem;
-      }
+      .stats { gap: 16px; margin: 24px 0 8px; }
+      .stat-value { font-size: 0.9rem; }
+      .stat-label { font-size: 0.7rem; }
     }
   
   /* ======== 价格 + CTA ======== */
@@ -367,7 +274,7 @@
     font-weight:800;
     letter-spacing:.02em;
     color:#fff;
-    background: linear-gradient(180deg, #a78bfa 0%, #8b5cf6 100%);
+    background: linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%); /* 青色渐变 */
     border:none;
     border-radius:14px;
     cursor:pointer;
@@ -375,7 +282,7 @@
     box-shadow:0 6px 14px var(--brand-shadow-soft);
     animation: none;
   }
-  .btn-buy:hover{ filter: brightness(1.05); transform: translateY(-2px); }
+  .btn-buy:hover{ filter: brightness(1.05); transform: translateY(-1px); }
   .btn-buy:active{ transform: translateY(0); }
   .btn-buy:focus-visible{ outline: 3px solid var(--brand-500); outline-offset: 2px; }
 
@@ -433,11 +340,11 @@
     margin:10px 0 4px;
     text-align:center;
     font-size:.82rem;
-    color:#cfeff6;
+    color:#ccfbf1;
     opacity:.95;
   }
   .note-link{
-    color:#bfdbfe;
+    color:#99f6e4;
     text-decoration:underline;
   }
   
@@ -459,22 +366,19 @@
   .cs-body p{ margin:10px 0; }
   .copy{
     margin-left:8px; padding:4px 8px; font-size:.78rem;
-    border-radius:8px; border:1px solid var(--brand-outline); background: var(--brand-tint); color:#1f1135; cursor:pointer;
+    border-radius:8px; border:1px solid var(--brand-outline); background: var(--brand-tint); color:#0f172a; cursor:pointer;
   }
   .qq-toggle-btn{
     width:100%; margin-top:8px; padding:6px 8px; font-size:.8rem;
     border:1px solid var(--brand-outline); background: var(--brand-tint); border-radius:6px;
-    cursor:pointer; color:#1f1135; transition:background .2s;
+    cursor:pointer; color:#0f172a; transition:background .2s;
   }
   .qq-toggle-btn:hover{ background: var(--brand-tint-strong); }
   .qq-content{ margin-top:8px; }
-  .qr{ display:block; width:100%; border-radius:10px; margin-top:8px; }
+  ./* removed:qr */{ display:block; width:100%; border-radius:10px; margin-top:8px; }
   
 
-  /* ======== 首屏精简：隐藏激活码验证区 ======== */
-  .form-area, .steps { display:none !important; }
   /* ===== CTA 强化 ===== */
-  /* 移除呼吸光晕动画，保持更克制的视觉 */
   @keyframes ctaPulse { 0%{opacity:1} 100%{opacity:1} }
 
   /* ===== 移动端浮窗 CTA ===== */
@@ -483,7 +387,7 @@
     display:none;
     text-align:center; font-weight:800; font-size:1.02rem; color:#fff;
     padding:14px 0; border-radius:14px; text-decoration:none;
-    background: linear-gradient(180deg, #a78bfa 0%, #8b5cf6 100%);
+    background: linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%);
     box-shadow:0 6px 14px var(--brand-shadow-soft);
   }
   @media (max-width: 640px){ .cta-sticky{ display:none; } }
@@ -503,17 +407,6 @@
   .steps-link{
     margin-left:6px; font-size:.78rem; color:#aef3ff; text-decoration:underline;
     text-underline-offset:2px;
-  }
-
-  .flow-mask{
-    position:fixed; inset:0; background:rgba(0,0,0,.35);
-    backdrop-filter: blur(2px);
-    display:none; align-items:center; justify-content:center; z-index:60;
-  }
-  .flow-mask.show{ display:flex; }
-  .flow-modal{
-    width:min(92vw,560px); background:#fff; color:#111; border-radius:16px;
-    box-shadow:0 24px 64px rgba(0,0,0,.25); overflow:hidden;
   }
   .flow-head{
     display:flex; justify-content:space-between; align-items:center;
@@ -584,8 +477,6 @@
     content: '💬';
     color: var(--brand-500);
   }
-  /* —— flow-modal 客服入口样式 —— */
-  .flow-support { margin-top:16px; padding-top:12px; border-top:1px solid #e5e7eb; }
   .flow-support .support-title {
     font-size:0.92rem; font-weight:600; color:#111827; margin-bottom:6px;
   }
@@ -594,16 +485,16 @@
   }
   .flow-support .copy-btn {
     margin-left:8px; padding:2px 6px; font-size:0.78rem;
-    border:1px solid rgba(99,102,241,.45); background: rgba(99,102,241,.18); color:#1f1135; border-radius:6px;
+    border:1px solid rgba(20,184,166,.45); background: rgba(20,184,166,.12); color:#fff; border-radius:6px;
     cursor:pointer; transition:background .2s;
   }
-  .flow-support .copy-btn:hover { background: rgba(99,102,241,.28); }
+  .flow-support .copy-btn:hover { background: rgba(20,184,166,.22); }
   .flow-qq-toggle-btn{
     width:100%; margin-top:8px; padding:6px 8px; font-size:.8rem;
-    border:1px solid rgba(99,102,241,.45); background: rgba(99,102,241,.18); color:#1f1135; border-radius:6px;
-    cursor:pointer; transition:background .2s;
+    border:1px solid rgba(20,184,166,.45); background: rgba(20,184,166,.12); border-radius:6px;
+    cursor:pointer; color:#fff; transition:background .2s;
   }
-  .flow-qq-toggle-btn:hover{ background: rgba(99,102,241,.28); }
+  .flow-qq-toggle-btn:hover{ background: rgba(20,184,166,.22); }
   .flow-qq-content{ margin-top:8px; }
   /* 成本暴涨通知样式 */
   .cost-notice {
@@ -641,7 +532,7 @@
     font-size: 1.1rem;
     font-weight: 700;
     margin-bottom: 12px;
-    color: #dbfbff;
+    color: #ccfbf1;
   }
   .cost-notice-main {
     display: flex;
@@ -682,10 +573,8 @@
   }
 
 
-  /* 手机端：把客服浮窗提到置底 CTA 之上 */
+  /* 手机端 */
   @media (max-width: 640px) {
-    
-    /* 成本通知移动端优化 */
     .cost-notice {
       padding: 12px 16px;
       margin: 12px 0;
@@ -721,8 +610,6 @@
       font-size: 0.8rem;
       flex-shrink: 0;
     }
-    
-    /* 复制按钮移动端优化 */
     .copy-inline {
       margin-left: 4px;
       padding: 2px 4px;
@@ -758,23 +645,33 @@
     }
   }
 
-
-
-/* 压缩首屏：隐藏大公告卡片，仅保留细公告条 */
-.cost-notice{ display:none !important; }
-  .notice-bar-top{
+.notice-bar-top{
   margin: 6px auto 2px;
   display:flex; align-items:center; justify-content:center;
   max-width:520px;
   padding:0; border-radius:0;
   background: transparent;
-  color:#cfeff6; font-weight:700; border: 0;
+  color:#ccfbf1; font-weight:700; border: 0;
   box-shadow: none;
   font-size:.92rem;
 }
 .small-risk{
-  margin:8px 0 2px; text-align:center; color: rgba(255,255,255,.9);
+  margin:8px 0 2px; text-align:center; color:rgba(255,255,255,.9);
   font-size:.9rem;
+}
+
+.capability-line{
+  margin: 8px auto 8px;
+  max-width: 460px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(45,212,191,.28);
+  background: rgba(255,255,255,.055);
+  color: rgba(204,251,241,.95);
+  font-size: .78rem;
+  font-weight: 800;
+  line-height: 1.45;
+  text-align: center;
 }
 
 /* 底部公告条 + 弹窗（保持与现有风格兼容） */
@@ -787,18 +684,18 @@
 }
   .sticky-note .cta-mini{
   all:unset; cursor:pointer; font-weight:800; padding:.45rem .8rem; border-radius:10px;
-  background: linear-gradient(180deg, #a78bfa 0%, #8b5cf6 100%);
+  background: linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%);
   color:#fff; border:1px solid var(--brand-outline);
 }
   .sticky-note .cta-outline{
   all:unset; cursor:pointer; font-weight:700; padding:.42rem .75rem; border-radius:10px;
-  border:1px solid var(--brand-outline); color:#ede9fe; background: var(--brand-tint);
+  border:1px solid var(--brand-outline); color:#ccfbf1; background: var(--brand-tint);
 }
-.modal-mask{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index: 1000; padding:16px; }
+.modal-mask{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:50; padding:16px; }
 .modal-mask.show{ display:flex; }
 .modal-card{ width:min(680px,96vw); background: linear-gradient(180deg, rgba(10,36,48,.92), rgba(9,30,40,.92)); color:#e6f7fb; border-radius:16px; padding:20px 20px 16px;
   border:1px solid var(--brand-outline); box-shadow:0 20px 60px rgba(0,0,0,.35); backdrop-filter: blur(8px) saturate(120%); -webkit-backdrop-filter: blur(8px) saturate(120%); position:relative; }
-.modal-card::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; padding:1px; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; background: linear-gradient(135deg, rgba(167,139,250,.85), rgba(147,112,219,.75), rgba(124,58,237,.75)); }
+.modal-card::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; padding:1px; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; background: linear-gradient(135deg, rgba(45,212,191,.85), rgba(20,184,166,.75), rgba(13,148,136,.75)); }
 .modal-card h3{ margin:.2rem 0 1rem; font-size:20px }
 .modal-card p{ line-height:1.7; margin:.4rem 0 1rem }
 .modal-footer{ display:flex; justify-content:flex-end; }
@@ -809,10 +706,33 @@
   margin: 6px auto 2px; display:flex; align-items:center; justify-content:center;
   max-width:520px; padding:0; border-radius:0;
   background: transparent;
-  color: #cfeff6; font-weight:700; border: 0;
+  color: #ccfbf1; font-weight:700; border: 0;
   box-shadow: none; font-size:.92rem;
 }
 .small-risk{ margin:8px 0 2px; text-align:center; color:rgba(255,255,255,.9); font-size:.9rem; }
+
+.account-check{
+  margin: 10px auto 8px;
+  max-width: 440px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(253,230,138,.42);
+  background: rgba(253,230,138,.12);
+  color: rgba(255,255,255,.9);
+  font-size: .78rem;
+  line-height: 1.45;
+  text-align: center;
+}
+.account-check strong{
+  color:#fde68a;
+}
+.account-check a{
+  color:#fde68a;
+  text-decoration:underline;
+  text-underline-offset:2px;
+  font-weight: 900;
+}
+
 /* 底部公告条（全宽） */
 .sticky-note{
   position:fixed; left:0; right:0; bottom:0; z-index:30;
@@ -823,48 +743,36 @@
 }
 .sticky-note .cta-mini{
   all:unset; cursor:pointer; font-weight:800; padding:.45rem .8rem; border-radius:10px;
-  background: linear-gradient(180deg, #a78bfa 0%, #8b5cf6 100%);
+  background: linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%);
   border:1px solid var(--brand-outline); color:#fff;
 }
 .sticky-note .cta-outline{
   all:unset; cursor:pointer; font-weight:700; padding:.42rem .75rem; border-radius:10px;
-  border:1px solid var(--brand-outline); color:#ede9fe; background: var(--brand-tint);
+  border:1px solid var(--brand-outline); color:#ccfbf1; background: var(--brand-tint);
 }
-/* 帮助中心 Modal */
-.help-mask{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:80; padding:16px; }
-.help-mask.show{ display:flex; }
-.help-card{
-  width:min(760px,96vw); max-height:min(88vh, 1200px); overflow:auto;
-  background: linear-gradient(180deg, rgba(10,36,48,.92), rgba(9,30,40,.92)); color:#e6f7fb; border-radius:16px; padding:16px 16px 12px;
-  border:1px solid var(--brand-outline); box-shadow:0 20px 60px rgba(0,0,0,.35); backdrop-filter: blur(8px) saturate(120%); -webkit-backdrop-filter: blur(8px) saturate(120%); position:relative;
-}
-.help-card::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; padding:1px; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; background: linear-gradient(135deg, rgba(167,139,250,.85), rgba(147,112,219,.75), rgba(124,58,237,.75)); }
 .help-close{ position:sticky; top:0; float:right; background:#111827; color:#fff; border:none; padding:.35rem .55rem; border-radius:8px; cursor:pointer; }
 .help-tabs{ display:flex; gap:.5rem; margin:.25rem 0 .75rem; }
   .help-tabs .tab{
   all:unset; cursor:pointer; padding:.48rem .8rem; border-radius:10px; font-weight:700;
-  color:#e5e7eb; border:1px solid rgba(99,102,241,.45); background: rgba(99,102,241,.12);
+  color:#e5e7eb; border:1px solid rgba(20,184,166,.45); background: rgba(20,184,166,.12);
 }
-  .help-tabs .tab.active{ background: rgba(99,102,241,.24); border-color: rgba(99,102,241,.65); }
+  .help-tabs .tab.active{ background: rgba(20,184,166,.24); border-color: rgba(20,184,166,.65); }
 .help-panels .panel{ display:none; }
 .help-panels .panel.active{ display:block; }
 .flow-steps{ padding-left:1.2rem; line-height:1.8; }
 .list{ padding-left:1.2rem; line-height:1.8; }
 .muted{ opacity:.8; }
 .visually-hidden{ position:absolute; width:1px; height:1px; margin:-1px; border:0; padding:0; clip:rect(0 0 0 0); overflow:hidden; }
-/* mobile: bottom sheet style */
-@media (max-width: 520px){
-  .help-card{ width:100%; max-width:100%; border-bottom-left-radius:0; border-bottom-right-radius:0; align-self:flex-end; }
 }
 /* 打开弹窗时禁止滚动 */
 .modal-open{ overflow:hidden; }
 
-.cost-notice{ display:none !important; }
 
 /* 统一“价格·涨价说明”弹窗：隐藏旧入口（全部并入统一弹窗） */
-#openPriceModal, #openFlowModal, #openSupportModal, #openPolicy, #openWhy, #openFlow { display:none !important; }
 /* 弹窗打开时，底部公告条降噪并禁点（小屏避免误触） */
 body.modal-open .sticky-note{ opacity:.6; pointer-events:none; }
+body.modal-open .trust-widget{ opacity:0; pointer-events:none; transform: translateY(8px); }
+body.modal-open .cta-sticky{ opacity:0; pointer-events:none; }
 /* 打开弹窗时禁止页面滚动 */
 body.modal-open{ overflow:hidden; }
 
@@ -878,7 +786,8 @@ body.modal-open{ overflow:hidden; }
 }
 .sticky-note .cta-mini{
   all:unset; cursor:pointer; font-weight:700; padding:.42rem .75rem; border-radius:10px;
-  border:1px solid rgba(255,255,255,.65); color:#fff;
+  background: linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%);
+  border:1px solid var(--brand-outline-strong); color:#fff;
 }
 .sticky-note .cta-outline{
   all:unset; cursor:pointer; font-weight:700; padding:.42rem .75rem; border-radius:10px;
@@ -886,14 +795,14 @@ body.modal-open{ overflow:hidden; }
 }
 
 /* 价格·涨价说明 弹窗 */
-.modal-mask{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index: 1000; padding:16px; }
+.modal-mask{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:70; padding:16px; }
 .modal-mask.show{ display:flex; }
 .modal-card{ width:min(720px,96vw); background: var(--overlay); color: var(--text-muted); border-radius:16px; padding:20px 20px 16px;
   border:1px solid var(--surface-glass); box-shadow:0 20px 60px rgba(0,0,0,.4); outline:0; }
 .modal-close{ position:absolute; transform:translate(670px,-10px); background:#111827; color:#fff; border:none; padding:.35rem .55rem; border-radius:8px; cursor:pointer; }
 .help-tabs{ display:flex; gap:.5rem; margin:.5rem 0 1rem; flex-wrap:wrap; }
 .help-tabs .tab-btn{
-  all:unset; cursor:pointer; padding:.35rem .7rem; border-radius:10px; font-weight:700; color:#cfeff6;
+  all:unset; cursor:pointer; padding:.35rem .7rem; border-radius:10px; font-weight:700; color:#ccfbf1;
   border:1px solid var(--brand-outline); background:var(--brand-tint);
 }
 .help-tabs .tab-btn.active{ color:#fff; background: var(--brand-tint-strong); border-color: var(--brand-outline-strong); }
@@ -921,11 +830,15 @@ body.modal-open{ overflow:hidden; }
 
 @media (max-width:480px){ .modal-close{ transform:translate(300px,-10px);} }
 
+/* 小链接颜色 */
+a#openWhyTop{ color:#aef3ff; text-decoration:underline; }
+a#openWhyTop:hover{ color:#fff; }
+
 /* === Recharge Guide (rg-) minimal styles === */
 .rg-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:999;padding:16px;}
 .rg-mask.show{display:flex;}
-.rg-card{width:min(560px,96vw);background:linear-gradient(180deg, rgba(10,36,48,.92), rgba(9,30,40,.92));color:#e6f7fb;border-radius:16px;padding:20px 20px 16px;border:1px solid var(--brand-outline);box-shadow:0 20px 60px rgba(0,0,0,.35);outline:0; backdrop-filter: blur(8px) saturate(120%); -webkit-backdrop-filter: blur(8px) saturate(120%); position:relative;}
-.rg-card::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; padding:1px; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; background: linear-gradient(135deg, rgba(167,139,250,.85), rgba(147,112,219,.75), rgba(124,58,237,.75)); }
+.rg-card{width:min(560px,96vw);background:linear-gradient(180deg, rgba(10,36,48,.92), rgba(9,30,40,.92));color:#e6f7fb;border:1px solid var(--brand-outline);box-shadow:0 20px 60px rgba(0,0,0,.35);outline:0; backdrop-filter: blur(8px) saturate(120%); -webkit-backdrop-filter: blur(8px) saturate(120%); position:relative;}
+.rg-card::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; padding:1px; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; background: linear-gradient(135deg, rgba(45,212,191,.85), rgba(20,184,166,.75), rgba(13,148,136,.75)); }
 .rg-title{margin:.2rem 0 1rem;font-size:1.1rem;font-weight:800;}
 .rg-close{position:absolute;transform:translate(500px,-10px);background:#111827;color:#fff;border:none;padding:.35rem .55rem;border-radius:8px;cursor:pointer;}
 .rg-body p{margin:.4rem 0;}
@@ -941,16 +854,16 @@ body.modal-open{ overflow:hidden; }
 /* === 充值系统选择弹窗 (rs-) === */
 .rs-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:999;padding:16px;}
 .rs-mask.show{display:flex;}
-.rs-card{width:min(520px,96vw);background:linear-gradient(180deg, rgba(10,36,48,.92), rgba(9,30,40,.92));color:#e6f7fb;border-radius:16px;padding:20px 20px 16px;border:1px solid var(--brand-outline);box-shadow:0 20px 60px rgba(0,0,0,.35);outline:0; backdrop-filter: blur(8px) saturate(120%); -webkit-backdrop-filter: blur(8px) saturate(120%); position:relative;}
-.rs-card::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; padding:1px; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; background: linear-gradient(135deg, rgba(167,139,250,.85), rgba(147,112,219,.75), rgba(124,58,237,.75)); }
-.rs-title{margin:.2rem 0 1rem;font-size:1.1rem;font-weight:800;text-align:center;}
+.rs-card{width:min(420px,92vw);max-height:80vh;overflow-y:auto;padding:14px 14px 12px;background:linear-gradient(180deg, rgba(10,36,48,.92), rgba(9,30,40,.92));color:#e6f7fb;border:1px solid var(--brand-outline);box-shadow:0 20px 60px rgba(0,0,0,.35);outline:0; backdrop-filter: blur(8px) saturate(120%); -webkit-backdrop-filter: blur(8px) saturate(120%); position:relative;}
+.rs-card::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; padding:1px; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; background: linear-gradient(135deg, rgba(45,212,191,.85), rgba(20,184,166,.75), rgba(13,148,136,.75)); }
+.rs-title{margin:.2rem 0 10px;font-size:1.1rem;font-weight:800;text-align:center;}
 .rs-close{position:absolute;transform:translate(470px,-10px);background:#111827;color:#fff;border:none;padding:.35rem .55rem;border-radius:8px;cursor:pointer;}
 .rs-body p{margin:.4rem 0;text-align:center;}
-    .rs-options{display:flex;flex-direction:column;gap:16px;margin:20px 0;max-width:400px;margin-left:auto;margin-right:auto;}
-    .rs-option{padding:20px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:14px;cursor:pointer;transition:all .2s ease;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.1);}
+    .rs-options{display:flex;flex-direction:column;gap:10px;margin:12px 0;max-width:400px;margin-left:auto;margin-right:auto;}
+    .rs-option{padding:12px 10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:14px;cursor:pointer;transition:all .2s ease;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.1);}
 .rs-option:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);transform:translateY(-2px);}
     .rs-option-title{font-weight:800;margin-bottom:8px;color:#fff;font-size:1.05rem;}
-    .rs-option-desc{font-size:.9rem;opacity:.85;margin-bottom:10px;color:#d1f4ff;}
+    .rs-option-desc{font-size:.82rem;opacity:.85;margin-bottom:6px;color:#d1f4ff;}
     .rs-option-url{font-size:.85rem;color:var(--brand-500);word-break:break-all;font-weight:600;}
 .rs-actions{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.9rem 0 .4rem;justify-content:center;}
 .rs-btn{all:unset;cursor:pointer;padding:.55rem .9rem;border-radius:10px;font-weight:800;}
@@ -965,7 +878,7 @@ body.modal-open{ overflow:hidden; }
   .rs-option{ padding:12px 8px; }
 }
 
-/* === 官方通知弹窗（proof-） === */
+/* === 平台通知弹窗（proof-） === */
 .proof-mask{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:120;padding:16px;}
 .proof-mask.show{display:flex;}
 .proof-card{width:min(860px,96vw);max-height:90vh;overflow:auto;background:#0b1220;color:rgba(255,255,255,.88);
@@ -995,128 +908,1754 @@ body.modal-open{ overflow:hidden; }
 #tab-price .open-proof-link{opacity:.85;text-decoration:underline;cursor:pointer;margin-left:.6rem;}
 @media (max-width:480px){ .proof-close{position:static;float:none;margin-left:auto;display:block;margin-bottom:.2rem;} }
 
-/* 统一"为什么不是更便宜"弹窗：隐藏旧入口（全部映射到新弹窗） */
-#openPriceModal, #openFlowModal, #openSupportModal, #openPolicy, #openWhy, #openFlow { display:none !important; }
-
-/* 打开弹窗时：禁滚动 & 底部条降噪禁点（小屏避免误触） */
-body.modal-open { overflow:hidden; }
-body.modal-open .sticky-note { opacity:.6; pointer-events:none; }
-
-/* === Other AI Entry === */
-.actions-gap{height:16px;}
-.actions-gap-sm{height:10px;}
-.secondary-actions.secondary-between{display:flex;justify-content:center;}
+/* === 其他 AI 会员入口（极简一致） === */
+.secondary-actions{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin: 10px 0 0;
+}
 .btn-ai{
-  width:min(480px,100%);
-  padding:12px 16px;
+  all:unset;
+  cursor:pointer;
+  font-weight:900;
+  padding:10px 14px;
   border-radius:14px;
-  background:rgba(255,255,255,.05);
-  border:1px dashed rgba(139,92,246,.45);
+  border:1px solid var(--brand-outline-strong);
+  background: rgba(255,255,255,.08);
+  color:#fff;
+  text-align:center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform .15s ease, background .2s ease, border-color .2s ease;
+}
+.btn-ai:hover{
+  background: rgba(255,255,255,.12);
+  border-color: rgba(45,212,191,.80);
+  transform: translateY(-1px);
+}
+.btn-ai .sub{
+  display:block;
+  font-size:.78rem;
+  font-weight:800;
+  opacity:.86;
+  margin-top:2px;
+  color:#ccfbf1;
+}
+.ai-assist-entry{
+  width:100%;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid rgba(45,212,191,.22);
+  background:rgba(255,255,255,.035);
+  color:rgba(255,255,255,.86);
+  text-align:left;
+  box-shadow:none;
+}
+.ai-assist-entry:hover{
+  background:rgba(255,255,255,.055);
+  border-color:rgba(45,212,191,.38);
+  transform:translateY(-1px);
+}
+.ai-assist-entry .entry-title{
+  display:block;
   color:#fff;
   font-weight:900;
+  font-size:.88rem;
+  margin-bottom:3px;
 }
-.btn-ai .sub{display:block;margin-top:4px;font-size:.78rem;opacity:.75}
+.ai-assist-entry .entry-sub{
+  display:block;
+  color:rgba(204,251,241,.78);
+  font-size:.76rem;
+  font-weight:800;
+}
+.ai-assist-entry .entry-cta{
+  display:inline-block;
+  margin-top:8px;
+  color:#ccfbf1;
+  font-size:.78rem;
+  font-weight:900;
+  text-decoration:underline;
+  text-underline-offset:2px;
+}
+.side-ai-entry{
+  width:100%;
+  margin-top:12px;
+  border:1px solid rgba(45,212,191,.36);
+  border-radius:12px;
+  background:rgba(20,184,166,.085);
+  color:rgba(255,255,255,.82);
+  padding:11px 10px;
+  text-align:left;
+  cursor:pointer;
+  transition:background .16s ease, border-color .16s ease, transform .16s ease;
+}
+.side-ai-entry:hover{
+  background:rgba(20,184,166,.12);
+  border-color:rgba(45,212,191,.52);
+  transform:translateY(-1px);
+}
+.side-ai-title{
+  display:block;
+  color:#fff;
+  font-size:.84rem;
+  font-weight:900;
+}
+.side-ai-sub{
+  display:block;
+  margin-top:3px;
+  color:rgba(204,251,241,.68);
+  font-size:.72rem;
+  line-height:1.35;
+}
+.side-ai-cta{
+  display:inline-flex;
+  margin-top:8px;
+  padding:4px 9px;
+  border-radius:8px;
+  border:1px solid rgba(45,212,191,.42);
+  color:#ccfbf1;
+  font-size:.72rem;
+  font-weight:900;
+  background:rgba(20,184,166,.08);
+}
+/* 弹窗内容 */
 
-/* === AI Modal === */
-.modal-card-wide{max-width:760px}
-.ai-section{margin-top:14px}
-.ai-section-title{font-weight:900;margin-bottom:8px;opacity:.9}
-.ai-items{display:flex;flex-direction:column;gap:10px}
+.ai-section{ margin-top: 10px; }
+.ai-section:first-of-type{ margin-top: 6px; }
+.ai-section-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-weight:900;
+  color: rgba(255,255,255,.92);
+  margin: 6px 0 8px;
+  font-size: .92rem;
+  opacity:.95;
+}
+.ai-section-title::after{
+  content:"";
+  flex:1;
+  height:1px;
+  background: rgba(255,255,255,.10);
+  border-radius:1px;
+}
+.ai-items{ display:grid; gap:10px; margin: 10px 0 4px; }
 .ai-item{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:12px;border-radius:14px;
-  background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.12);
-  transition:.2s;
+  position:relative;
+  padding:10px 10px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.06);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  transition: transform .16s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
+  outline: none;
 }
-.ai-item:hover{transform:translateY(-2px);border-color:rgba(139,92,246,.6)}
+.ai-item:hover,
+.ai-item:focus-within{
+  transform: translateY(-2px);
+  background: rgba(255,255,255,.085);
+  border-color: rgba(45,212,191,.35);
+  box-shadow: 0 10px 28px rgba(0,0,0,.28);
+}
+.ai-left{ min-width:0; }
+.ai-name{ font-weight:900; color:#fff; }
+.ai-meta{ margin-top:2px; font-size:.82rem; opacity:.85; color: rgba(255,255,255,.82); }
+
 .ai-pill{
-  margin-left:6px;padding:2px 8px;border-radius:999px;
-  font-size:.72rem;font-weight:900;
-  background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.6)
+  display:inline-flex;
+  align-items:center;
+  margin-left:8px;
+  padding:2px 8px;
+  font-size:.72rem;
+  font-weight:900;
+  border-radius:9999px;
+  border:1px solid rgba(45,212,191,.55);
+  background: rgba(20,184,166,.16);
+  color:#ccfbf1;
+  white-space:nowrap;
 }
+.ai-note2{
+  opacity:.92;
+  color: rgba(204,251,241,.92);
+  font-weight:700;
+}
+.ai-item.featured{
+  border-color: rgba(45,212,191,.35);
+  background: linear-gradient(180deg, rgba(45,212,191,.12), rgba(255,255,255,.06));
+  padding:12px 10px;
+}
+.ai-item.featured.main-pick{
+  border-color: rgba(45,212,191,.70);
+  background: linear-gradient(180deg, rgba(45,212,191,.18), rgba(255,255,255,.075));
+  box-shadow: 0 14px 34px rgba(20,184,166,.16);
+}
+.ai-section.more-platforms .ai-item{
+  opacity:.75;
+  padding:9px 10px;
+  background: rgba(255,255,255,.032);
+  border-color: rgba(255,255,255,.08);
+}
+.ai-section.more-platforms .ai-btn.primary{
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.18);
+}
+.more-ai-details{
+  margin-top:12px;
+  border:0;
+  background:transparent;
+}
+.more-ai-details summary{
+  padding:0;
+  color:rgba(255,255,255,.9);
+  font-size:.92rem;
+  font-weight:900;
+}
+.more-ai-details summary::after{
+  color:#ccfbf1;
+}
+.more-ai-details .ai-section{
+  margin-top:10px;
+}
+.ai-item.featured:hover,
+.ai-item.featured:focus-within{
+  border-color: rgba(45,212,191,.60);
+  box-shadow: 0 14px 34px rgba(20,184,166,.18), 0 10px 28px rgba(0,0,0,.28);
+}
+.ai-actions{ display:flex; gap:8px; flex-shrink:0; }
+.ai-tag{
+  display:inline-flex;
+  align-items:center;
+  padding:.32rem .6rem;
+  border-radius:999px;
+  font-size:.78rem;
+  font-weight:800;
+  color:#ccfbf1;
+  border:1px solid rgba(45,212,191,.45);
+  background: rgba(20,184,166,.14);
+  white-space:nowrap;
+}
+
+.ai-actions{ position:relative; }
 .ai-buy{
-  opacity:0;pointer-events:none;
-  padding:6px 10px;border-radius:10px;
-  border:1px solid rgba(139,92,246,.6);
-  background:linear-gradient(180deg,#8b5cf6,#7c3aed);
-  color:#fff;font-weight:900;
-  transition:.15s;
+  all:unset; cursor:pointer;
+  padding:6px 10px;
+  border-radius:10px;
+  font-size:.82rem;
+  font-weight:900;
+  border:1px solid rgba(45,212,191,.65);
+  color:#fff;
+  background: linear-gradient(180deg, var(--brand-600) 0%, var(--brand-500) 100%);
 }
-.ai-item:hover .ai-buy{opacity:1;pointer-events:auto}
-.ai-tip{margin-top:10px;font-size:.86rem;opacity:.8}
+.ai-item:focus-within .ai-tag{
+  opacity:0;
+}
+.ai-tip{
+  margin: 10px 0 0;
+  font-size: .86rem;
+  opacity: .86;
+  color: rgba(255,255,255,.85);
+}
+.ai-btn{
+  all:unset; cursor:pointer;
+  padding:6px 10px;
+  border-radius:10px;
+  font-size:.82rem;
+  font-weight:900;
+  border:1px solid rgba(255,255,255,.35);
+  color:#fff;
+  background: rgba(255,255,255,.06);
+  transition: transform .15s ease, filter .2s ease, background .2s ease;
+  white-space:nowrap;
+}
+.ai-btn:hover{ background: rgba(255,255,255,.10); transform: translateY(-1px); }
+.ai-btn.primary{
+  background: linear-gradient(180deg, var(--brand-600) 0%, var(--brand-500) 100%);
+  border-color: rgba(45,212,191,.65);
+}
+.ai-hint{
+  margin: 10px 0 0;
+  font-size: .86rem;
+  opacity: .82;
+  color: rgba(255,255,255,.80);
+  line-height: 1.6;
+}
+
+#aiModal .modal-card{
+  width:min(420px,92vw);
+  max-height:80vh;
+  overflow-y:auto;
+  padding:14px 14px 12px;
+}
+#aiModal .modal-card h3{
+  margin:.1rem 0 10px !important;
+  font-size:1.05rem;
+}
+#aiModal .ai-section-title{
+  margin:4px 0 6px;
+  font-size:.86rem;
+}
+#aiModal .ai-meta{
+  font-size:.8rem;
+}
+#aiModal .ai-pill{
+  padding:2px 7px;
+  font-size:.68rem;
+}
+#aiModal .ai-tip{
+  margin-top:8px;
+  font-size:.78rem;
+}
+#aiModal .modal-footer{
+  margin-top:10px !important;
+}
+.mobile-more-feedback{ display:none; }
+.mobile-mirror-link{ display:none; }
+#feedbackModal{
+  z-index:9999 !important;
+  background:rgba(0,0,0,.72) !important;
+}
+#feedbackModal.show{
+  display:flex !important;
+}
+#feedbackModal .modal-card{
+  width:min(420px,92vw);
+  max-height:80vh;
+  overflow-y:auto;
+  padding:14px 14px 12px;
+  position:relative;
+  z-index:10000;
+  background:linear-gradient(180deg, rgba(10,36,48,.96), rgba(9,30,40,.96));
+  border:1px solid rgba(45,212,191,.45);
+  box-shadow:0 24px 70px rgba(0,0,0,.55);
+}
+#feedbackModal .modal-close{
+  top:10px;
+  right:10px;
+  transform:none;
+}
+.feedback-modal-list{
+  display:grid;
+  gap:8px;
+  margin:10px 0 12px;
+}
+.feedback-modal-item{
+  padding:10px 10px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.05);
+  color:rgba(255,255,255,.88);
+  font-size:.86rem;
+  font-weight:800;
+}
+
+
+/* === RS modal overrides (match screenshot style) === */
+.rs-card{
+  border-radius: 18px;
+  overflow-y: auto;
+}
+.rs-title{ letter-spacing: .02em; }
+.rs-option-desc{ font-size:.82rem; opacity:.85; margin-bottom:6px; color:#d1f4ff; }
+.rs-option-url{ color:#a78bfa !important; } /* 紫色链接 */
+.rs-option{
+  padding: 12px 10px;
+  border-radius: 16px;
+}
+
+/* 客户案例部分 */
+.cases-section {
+  margin: 40px 0;
+  padding: 0 20px;
+}
+
+.cases-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 24px;
+  color: #fff;
+}
+.cases-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+.case-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+.case-content {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 12px;
+}
+.case-client {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+.case-name {
+  font-weight: 600;
+}
+.case-date {
+  opacity: 0.8;
+}
+
+/* 微信截图缩略图网格 */
+.cases-thumbnails {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 0 auto;
+  max-width: 600px;
+}
+.case-thumbnail {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+.case-thumbnail:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+  border-color: rgba(45, 212, 191, 0.5);
+}
+
+/* 右侧悬浮信任挂件 */
+.trust-widget.case-thumbnail {
+  position: fixed;
+  bottom: 120px;
+  right: 20px;
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.15), rgba(45, 212, 191, 0.1));
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  color: white;
+  text-decoration: none;
+  min-width: 60px;
+}
+
+.trust-widget.case-thumbnail:hover {
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.25), rgba(45, 212, 191, 0.2));
+  transform: translateY(-2px);
+  border-color: rgba(45, 212, 191, 0.5);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+.trust-icon {
+  font-size: 24px;
+  opacity: 0.9;
+}
+
+.trust-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .trust-widget.case-thumbnail {
+    bottom: 80px;
+    right: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    min-width: 50px;
+  }
+  .trust-icon {
+    font-size: 20px;
+  }
+  .trust-text {
+    font-size: 0.7rem;
+  }
+}
+.thumbnail-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  opacity: 0.9;
+}
+.thumbnail-text {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+.thumbnail-subtext {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 4px;
+  font-weight: normal;
+}
+.case-expand-button {
+  grid-column: 1 / -1;
+  padding: 24px;
+  background: rgba(20, 184, 166, 0.15);
+  border-color: rgba(45, 212, 191, 0.4);
+}
+.case-expand-button:hover {
+  background: rgba(20, 184, 166, 0.25);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(20, 184, 166, 0.2);
+}
+.case-expand-button .thumbnail-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+.case-expand-button .thumbnail-text {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.case-expand-button .thumbnail-subtext {
+  font-size: 0.85rem;
+}
+
+/* 轮播模态框 */
+.carousel-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+.carousel-modal.show {
+  display: flex;
+}
+.carousel-container {
+  width: min(520px, 92vw);
+  height: min(620px, 80vh);
+  background: #0b1220;
+  border-radius: 16px;
+  padding: 14px;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 60px rgba(0,0,0,.42);
+}
+.carousel-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #111827;
+  color: #fff;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  z-index: 10;
+}
+.carousel-slide {
+  width: 100%;
+  height: 100%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.carousel-slide.active {
+  display: flex;
+}
+.carousel-image {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.carousel-slide img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.carousel-caption {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  padding: 0 20px;
+}
+.carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.carousel-nav:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+.carousel-prev {
+  left: 20px;
+}
+.carousel-next {
+  right: 20px;
+}
+.carousel-dots {
+  position: absolute;
+  bottom: 60px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.carousel-dot.active {
+  background: rgba(45, 212, 191, 0.9);
+}
+
+/* 移动端响应式调整 */
+@media (max-width: 640px) {
+  body{
+    padding:16px 12px 88px;
+  }
+  .card-header{
+    padding:24px 20px 18px !important;
+  }
+  .brand-badge{
+    margin-bottom:10px;
+  }
+  .brand-sub{
+    display:none;
+  }
+  .hero h1,
+  .card-header h1{
+    font-size:1.72rem;
+    line-height:1.16;
+  }
+  .conversion-kicker{
+    margin-top:8px;
+    font-size:.82rem;
+  }
+  .conversion-kicker::before{
+    content:"";
+  }
+  .conversion-kicker{
+    font-size:0;
+  }
+  .conversion-kicker::after{
+    content:"无需账号密码 · 自动到账（约10秒）";
+    font-size:.86rem;
+  }
+  .hero-divider,
+  .pre-cta-trust,
+  .ability-strip,
+  .capability-line,
+  .price-note,
+  .purchase-flow,
+  .account-check,
+  .small-risk,
+  .steps-mini,
+  .buy-notes,
+  .badges,
+  .stats,
+  footer{
+    display:none !important;
+  }
+  .price{
+    margin:16px 0 14px;
+  }
+  .price-val{
+    font-size:3rem;
+  }
+  .price-tag{
+    display:none;
+  }
+  .button-group{
+    display:block;
+    margin:0 0 12px;
+  }
+  .button-group .btn-buy{
+    width:100%;
+    min-height:56px;
+    margin:0;
+    font-size:1rem;
+    border-radius:14px;
+  }
+  .button-group .btn-buy::before{
+    content:"";
+  }
+  .button-group .btn-recharge{
+    display:none;
+  }
+  .trust-metrics{
+    display:block;
+    margin:0;
+    text-align:center;
+  }
+  .compact-info-line{
+    font-size:0;
+  }
+  .compact-info-line::after{
+    content:"1000+用户 · 10秒到账 · 稳定交付";
+    color:rgba(204,251,241,.86);
+    font-size:.78rem;
+    font-weight:900;
+  }
+  .side-panel{
+    display:block;
+    position:static;
+    margin:18px auto 0;
+    max-width:620px;
+  }
+  .trust-panel{
+    display:none;
+  }
+  .faq-panel{
+    padding:16px;
+  }
+  .faq-panel::before{
+    content:"下单后进入自助激活系统完成充值\\A📌 充值到自己 GPT 账号（非直接使用）";
+    white-space:pre-line;
+    display:block;
+    margin:0 0 14px;
+    padding:12px;
+    border-radius:12px;
+    border:1px solid rgba(45,212,191,.20);
+    background:rgba(255,255,255,.035);
+    color:rgba(204,251,241,.84);
+    font-size:.82rem;
+    line-height:1.65;
+    font-weight:850;
+    text-align:center;
+  }
+  .mobile-mirror-link{
+    display:block;
+    margin:-6px 0 14px;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(45,212,191,.28);
+    background:rgba(45,212,191,.08);
+    color:#ccfbf1;
+    text-align:center;
+    font-size:.84rem;
+    font-weight:900;
+    text-decoration:none;
+  }
+  .faq-list{
+    gap:8px;
+  }
+  .faq-item{
+    padding:10px 11px;
+  }
+  .faq-item span{
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .side-feedback-list .side-feedback-item:nth-child(n+3){
+    display:none;
+  }
+  .mobile-more-feedback{
+    display:block;
+    width:100%;
+    margin-top:8px;
+    padding:8px;
+    border-radius:10px;
+    border:1px solid rgba(45,212,191,.24);
+    background:rgba(255,255,255,.035);
+    color:#ccfbf1;
+    font-size:.78rem;
+    font-weight:900;
+    text-align:center;
+    position:relative;
+    z-index:2;
+    pointer-events:auto;
+  }
+  .side-feedback{
+    margin-top:22px;
+  }
+  .side-ai-entry{
+    margin-top:14px;
+  }
+  .trust-widget.case-thumbnail{
+    display:none !important;
+  }
+  .cta-sticky{
+    display:flex !important;
+    align-items:center;
+    justify-content:center;
+    left:12px;
+    right:12px;
+    bottom:12px;
+    min-height:54px;
+    height:56px;
+    border-radius:14px;
+    background:linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%);
+    box-shadow:0 12px 26px rgba(20,184,166,.25);
+  }
+  .cta-sticky::before{
+    content:"¥188 ｜ ⚡ 立即开通";
+  }
+  .cta-sticky{
+    font-size:0;
+  }
+  .sticky-note{
+    display:none !important;
+  }
+  .cases-thumbnails {
+    display: flex;
+    gap: 12px;
+    max-width: 400px;
+  }
+  .case-thumbnail {
+    padding: 12px;
+  }
+  .thumbnail-icon {
+    font-size: 1.5rem;
+  }
+  .thumbnail-text {
+    font-size: 0.8rem;
+  }
+  .carousel-container {
+    width: min(420px, 92vw);
+    height: min(560px, 76vh);
+    padding: 12px;
+  }
+  .carousel-nav {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+  .carousel-prev {
+    left: 10px;
+  }
+  .carousel-next {
+    right: 10px;
+  }
+  .carousel-dots {
+    bottom: 50px;
+  }
+  .carousel-caption {
+    font-size: 0.8rem;
+    bottom: 15px;
+  }
+}
+
+/* ===== PC conversion layout overrides ===== */
+.landing-shell{
+  width:min(1280px, 100%);
+  display:grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(520px, 620px) minmax(260px, 1fr);
+  gap:22px;
+  align-items:start;
+}
+.side-panel{
+  position:sticky;
+  top:24px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:20px;
+  background:linear-gradient(180deg, rgba(20,184,166,.055), rgba(255,255,255,.025)), rgba(8,18,28,.66);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  box-shadow:0 12px 34px rgba(0,0,0,.16);
+  padding:20px;
+  opacity:.82;
+}
+.side-panel h2{
+  margin:0 0 14px;
+  font-size:1.18rem;
+  color:#fff;
+}
+.trust-list,
+.faq-list{
+  display:grid;
+  gap:10px;
+}
+.trust-item,
+.faq-item,
+.guarantee-card{
+  border:1px solid rgba(255,255,255,.075);
+  border-radius:14px;
+  background:rgba(255,255,255,.038);
+  padding:12px;
+}
+.trust-item strong,
+.faq-item strong,
+.guarantee-card strong{
+  display:block;
+  color:#fff;
+  font-size:.92rem;
+  margin-bottom:4px;
+}
+.trust-item span,
+.faq-item span,
+.guarantee-card span{
+  display:block;
+  color:rgba(255,255,255,.72);
+  font-size:.82rem;
+  line-height:1.55;
+}
+.guarantee-card{
+  margin-top:14px;
+  border-color:rgba(45,212,191,.34);
+  background:rgba(20,184,166,.12);
+}
+.landing-shell .card{
+  max-width:620px;
+  background:
+    linear-gradient(180deg, rgba(20,184,166,.18) 0%, rgba(45,212,191,.07) 100%),
+    rgba(15, 23, 42, 0.92);
+  border-color:rgba(125,255,239,.58);
+  box-shadow:0 24px 78px rgba(0,0,0,.36), 0 0 0 1px rgba(45,212,191,.16), 0 0 46px rgba(20,184,166,.13);
+}
+.landing-shell .card-header{
+  padding:40px 36px 30px;
+}
+.conversion-kicker{
+  margin:10px auto 0;
+  color:#ccfbf1;
+  font-weight:900;
+  font-size:.9rem;
+  text-align:center;
+}
+.price-note{
+  margin:-8px auto 14px;
+  text-align:center;
+  color:rgba(255,255,255,.68);
+  font-size:.78rem;
+  line-height:1.45;
+}
+.pre-cta-trust{
+  margin:4px 0 8px;
+  text-align:center;
+  color:#ccfbf1;
+  font-size:.88rem;
+  font-weight:900;
+}
+.ability-strip{
+  margin:8px 0;
+  padding:8px 10px;
+  border-radius:12px;
+  border:1px solid rgba(45,212,191,.28);
+  background:rgba(255,255,255,.045);
+  color:rgba(255,255,255,.84);
+  text-align:center;
+}
+.ability-strip strong{
+  display:block;
+  color:#ccfbf1;
+  font-size:.78rem;
+  margin-bottom:3px;
+}
+.ability-strip span{
+  display:block;
+  font-size:.78rem;
+  font-weight:850;
+  line-height:1.35;
+}
+.ability-strip small{
+  display:block;
+  margin-top:2px;
+  color:rgba(255,255,255,.58);
+  font-size:.66rem;
+}
+.trust-metrics{
+  margin:8px 0 4px;
+  text-align:center;
+}
+.compact-info-line{
+  color:rgba(255,255,255,.78);
+  font-size:.78rem;
+  line-height:1.55;
+  font-weight:800;
+}
+.landing-shell .price{
+  margin-top:10px;
+}
+.landing-shell .button-group{
+  grid-template-columns: 1fr;
+  display:grid;
+  gap:10px;
+}
+.landing-shell .button-group .btn-buy{
+  width:100%;
+  min-height:62px;
+  font-size:1.16rem;
+  background:linear-gradient(180deg, #5ef7df 0%, #22d3c5 46%, #14b8a6 100%);
+  box-shadow:0 16px 36px rgba(20,184,166,.36);
+}
+.landing-shell .button-group .btn-recharge{
+  width:100%;
+  min-height:46px;
+  padding:12px 0;
+  font-size:.95rem;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.20);
+  color:rgba(255,255,255,.82);
+  box-shadow:none;
+}
+.purchase-flow{
+  text-align:center;
+  margin:0 0 8px;
+}
+.flow-line{
+  color:rgba(204,251,241,.78);
+  font-size:.78rem;
+  line-height:1.5;
+  font-weight:900;
+}
+.landing-shell .secondary-actions.secondary-between{
+  margin-top:18px;
+}
+.landing-shell .secondary-actions.secondary-between .btn-ai{
+  width:100%;
+  max-width:100%;
+  opacity:.86;
+  background:rgba(255,255,255,.035);
+}
+.landing-shell .small-risk{
+  color:#ccfbf1;
+  font-size:.86rem;
+  line-height:1.5;
+}
+.landing-shell .steps-mini{
+  display:none;
+}
+.landing-shell .stats{
+  display:none;
+}
+.feedback-box{
+  margin:18px 0 0;
+  padding:14px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.11);
+  background:rgba(255,255,255,.052);
+}
+.feedback-title{
+  margin:0 0 10px;
+  color:#fff;
+  font-size:.95rem;
+  font-weight:900;
+  text-align:left;
+}
+.feedback-list{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:8px;
+}
+.feedback-item{
+  border-radius:12px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.08);
+  padding:10px;
+  color:rgba(255,255,255,.84);
+  font-size:.78rem;
+  line-height:1.45;
+}
+.feedback-item strong{
+  display:block;
+  color:#fde68a;
+  margin-bottom:4px;
+  font-size:.78rem;
+}
+.sticky-note{
+  justify-content:space-between !important;
+  padding:.75rem 1.1rem !important;
+}
+.sticky-note .sticky-actions{
+  display:flex;
+  gap:.6rem;
+  align-items:center;
+}
+.sticky-note .cta-mini,
+.sticky-note .cta-outline{
+  color:#fff !important;
+}
+@media (min-width: 961px){
+  body{
+    padding:20px 12px 76px;
+  }
+  .landing-shell{
+    max-width:1180px;
+    grid-template-columns:280px minmax(520px, 640px) 280px;
+    gap:20px;
+  }
+  .side-panel{
+    padding:14px;
+    border-color:rgba(255,255,255,.07);
+    background:linear-gradient(180deg, rgba(20,184,166,.04), rgba(255,255,255,.018)), rgba(7,17,27,.62);
+    opacity:.74;
+  }
+  .side-panel h2{
+    font-size:1rem;
+    margin-bottom:10px;
+  }
+  .trust-list,
+  .faq-list{
+    gap:8px;
+  }
+  .trust-panel .trust-list{
+    gap:12px;
+  }
+  .trust-item,
+  .faq-item{
+    min-height:64px;
+    padding:9px 10px;
+    border-radius:12px;
+  }
+  .faq-item{
+    min-height:68px;
+  }
+  .trust-item strong,
+  .faq-item strong{
+    font-size:.84rem;
+    margin-bottom:3px;
+  }
+  .trust-item span,
+  .faq-item span{
+    font-size:.74rem;
+    line-height:1.42;
+  }
+  .guarantee-card{
+    display:none;
+  }
+  .landing-shell .card{
+    max-width:640px;
+    max-height:calc(100vh - 110px);
+    overflow:visible;
+    border-color:rgba(125,255,239,.68);
+    box-shadow:0 26px 86px rgba(0,0,0,.42), 0 0 0 1px rgba(45,212,191,.20), 0 0 54px rgba(20,184,166,.18);
+  }
+  .landing-shell .card-header{
+    padding:28px 32px 24px;
+    padding-bottom:24px;
+  }
+  .landing-shell .hero{
+    gap:6px;
+  }
+  .landing-shell .brand-badge{
+    margin-bottom:8px;
+  }
+  .landing-shell .brand-icon{
+    width:28px;
+    height:28px;
+  }
+  .landing-shell .brand-name{
+    font-size:.98rem;
+  }
+  .landing-shell .brand-sub{
+    font-size:.78rem;
+  }
+  .landing-shell h1{
+    font-size:1.95rem;
+    line-height:1.18;
+  }
+  .landing-shell .conversion-kicker{
+    margin-top:6px;
+    font-size:.82rem;
+  }
+  .landing-shell .capability-line{
+    margin:8px auto 0;
+    max-width:500px;
+    padding:0;
+    font-size:.66rem;
+    line-height:1.35;
+    border-radius:12px;
+    border:0;
+    background:transparent;
+    color:rgba(204,251,241,.72);
+  }
+  .landing-shell .notice-bar-top{
+    margin:5px auto 0;
+    font-size:.78rem;
+  }
+  .landing-shell .hero-divider{
+    margin-top:0;
+  }
+  .landing-shell .trust-metrics{
+    margin:7px 0 3px;
+  }
+  .landing-shell .price{
+    margin:14px 0 6px;
+  }
+  .landing-shell .price-val{
+    font-size:3rem;
+  }
+  .landing-shell .price-tag{
+    font-size:.74rem;
+    padding:3px 8px;
+  }
+  .landing-shell .price-note{
+    margin:0 auto 10px;
+    font-size:.70rem;
+  }
+  .landing-shell .pre-cta-trust{
+    margin:0 0 7px;
+    font-size:.80rem;
+  }
+  .landing-shell .ability-strip{
+    min-height:46px;
+    margin:8px 0;
+    padding:7px 9px;
+  }
+  .landing-shell .ability-strip strong,
+  .landing-shell .ability-strip span{
+    font-size:.72rem;
+  }
+  .landing-shell .ability-strip small{
+    font-size:.62rem;
+  }
+  .landing-shell .button-group{
+    margin:0 0 10px;
+    gap:8px;
+  }
+  .landing-shell .button-group .btn-buy{
+    min-height:60px;
+    font-size:1.03rem;
+  }
+  .landing-shell .button-group .btn-recharge{
+    min-height:44px;
+    padding:10px 0;
+    font-size:.86rem;
+  }
+  .landing-shell .purchase-flow{
+    margin:0 0 7px;
+  }
+  .landing-shell .compact-info-line,
+  .landing-shell .flow-line{
+    font-size:.72rem;
+    line-height:1.45;
+  }
+  .landing-shell .account-check{
+    margin:10px auto 8px;
+    padding:7px 9px;
+    font-size:.70rem;
+    line-height:1.34;
+    border-color:rgba(253,230,138,.24);
+    background:rgba(253,230,138,.065);
+  }
+  .landing-shell .account-check a{
+    display:inline-block;
+    margin-top:3px;
+  }
+  .landing-shell .actions-gap,
+  .landing-shell .actions-gap-sm,
+  .landing-shell .steps-mini,
+  .landing-shell .buy-notes,
+  .landing-shell .secondary-actions,
+  .landing-shell footer,
+  .landing-shell .feedback-box{
+    display:none !important;
+  }
+  .landing-shell .secondary-actions.ai-assist-wrap{
+    display:flex !important;
+    margin-top:10px;
+  }
+  .landing-shell .ai-assist-entry{
+    padding:9px 12px;
+  }
+  .landing-shell .ai-assist-entry .entry-title{
+    font-size:.80rem;
+  }
+  .landing-shell .ai-assist-entry .entry-sub,
+  .landing-shell .ai-assist-entry .entry-cta{
+    font-size:.70rem;
+  }
+  .landing-shell .small-risk{
+    margin:8px 0 0;
+    font-size:.74rem;
+  }
+  .landing-shell .badges{
+    display:none;
+  }
+  .landing-shell .badge{
+    width:auto;
+    min-width:86px;
+    padding:4px 8px;
+    font-size:.68rem;
+  }
+  .faq-pay-note{
+    margin:9px 0 0;
+    color:rgba(255,255,255,.55);
+    font-size:.72rem;
+    line-height:1.45;
+  }
+  .side-feedback{
+    margin-top:16px;
+  }
+  .side-feedback-title{
+    margin:0 0 8px;
+    font-size:.9rem;
+    color:#fff;
+    font-weight:900;
+  }
+  .side-feedback-list{
+    display:grid;
+    gap:8px;
+  }
+  .side-feedback-item{
+    border:1px solid rgba(255,255,255,.07);
+    border-radius:12px;
+    background:rgba(255,255,255,.038);
+    min-height:46px;
+    padding:9px 10px;
+    color:rgba(255,255,255,.76);
+    font-size:.74rem;
+    line-height:1.4;
+  }
+  .side-record-btn{
+    width:100%;
+    margin-top:9px;
+    border:1px solid rgba(45,212,191,.28);
+    border-radius:11px;
+    background:rgba(20,184,166,.10);
+    color:#ccfbf1;
+    padding:9px 8px;
+    cursor:pointer;
+    font-weight:900;
+    font-size:.78rem;
+  }
+  .trust-widget.case-thumbnail{
+    display:none;
+  }
+  .sticky-note{
+    min-height:56px;
+    padding:.45rem .9rem !important;
+    flex-wrap:nowrap;
+  }
+  .sticky-note .note-text{
+    white-space:nowrap;
+  }
+  .sticky-note .sticky-actions{
+    flex-shrink:0;
+  }
+  .sticky-note .cta-mini,
+  .sticky-note .cta-outline{
+    padding:.42rem .72rem;
+    font-size:.86rem;
+  }
+}
+@media (max-width: 1023px){
+  .landing-shell{
+    display:block;
+    width:100%;
+  }
+  .side-panel{
+    display:none;
+  }
+  .landing-shell .card{
+    max-width:620px;
+    margin:0 auto;
+  }
+  .landing-shell .card-header{
+    padding:40px 24px 24px;
+  }
+  .trust-metrics{
+    grid-template-columns:repeat(2, minmax(0,1fr));
+  }
+  .purchase-flow{
+    grid-template-columns:repeat(2, minmax(0,1fr));
+  }
+  .sticky-note{
+    justify-content:center !important;
+  }
+}
+@media (max-width:480px){
+  .trust-metrics{
+    grid-template-columns:repeat(2, minmax(0,1fr));
+    gap:7px;
+  }
+  .metric-card{
+    min-height:60px;
+  }
+  .purchase-flow{
+    grid-template-columns:repeat(2, minmax(0,1fr));
+  }
+  .feedback-list{
+    grid-template-columns:1fr;
+  }
+  .sticky-note .sticky-actions{
+    width:100%;
+    justify-content:center;
+  }
+}
+
+/* ===== Final mobile checkout layout ===== */
+@media (max-width:640px){
+  body{
+    padding:16px 12px 104px !important;
+  }
+  .landing-shell{
+    display:flex !important;
+    flex-direction:column;
+    width:100%;
+  }
+  .landing-shell .card{
+    order:1;
+    width:100%;
+    max-width:620px;
+    margin:0 auto;
+  }
+  .landing-shell .trust-panel{
+    order:2;
+    display:block !important;
+    position:static;
+    margin:14px auto 0;
+    width:100%;
+    max-width:620px;
+    padding:16px;
+  }
+  .landing-shell .faq-panel{
+    order:3;
+    display:block !important;
+    position:static;
+    margin:14px auto 0;
+    width:100%;
+    max-width:620px;
+    padding:16px;
+  }
+  .card-header{
+    padding:24px 20px 18px !important;
+  }
+  .brand-badge{
+    margin-bottom:10px;
+  }
+  .brand-sub{
+    display:none !important;
+  }
+  .card-header h1{
+    font-size:1.72rem;
+    line-height:1.16;
+  }
+  .conversion-kicker{
+    margin-top:8px;
+    font-size:0 !important;
+  }
+  .conversion-kicker::before{
+    content:none !important;
+  }
+  .conversion-kicker::after{
+    content:"无需账号密码 · 自动到账（约10秒）";
+    font-size:.86rem;
+  }
+  .hero-divider,
+  .pre-cta-trust,
+  .ability-strip,
+  .capability-line,
+  .price-note,
+  .purchase-flow,
+  .account-check,
+  .small-risk,
+  .steps-mini,
+  .buy-notes,
+  .badges,
+  .stats,
+  .feedback-box,
+  footer{
+    display:none !important;
+  }
+  .price{
+    margin:16px 0 14px;
+  }
+  .price-val{
+    font-size:3rem;
+  }
+  .price-tag{
+    display:none !important;
+  }
+  .price-note{
+    display:block !important;
+    margin:-6px auto 12px;
+    color:rgba(204,251,241,.78);
+    font-size:12px;
+    line-height:1.5;
+    text-align:center;
+  }
+  .button-group{
+    display:grid;
+    gap:10px;
+    margin:0 0 12px;
+  }
+  .button-group .btn-buy{
+    width:100%;
+    min-height:56px;
+    margin:0;
+    border-radius:14px;
+    font-size:1rem;
+  }
+  .button-group .btn-recharge{
+    display:block !important;
+    width:100%;
+    min-height:48px;
+    margin:0;
+    padding:12px 0;
+    border-radius:14px;
+    font-size:.95rem;
+    color:rgba(255,255,255,.9);
+    background:rgba(255,255,255,.055);
+    border:1px solid rgba(255,255,255,.20);
+    box-shadow:none;
+  }
+  .trust-metrics{
+    display:block !important;
+    margin:0;
+    text-align:center;
+  }
+  .compact-info-line{
+    font-size:0 !important;
+  }
+  .compact-info-line::after{
+    content:"1000+用户 · 10秒到账 · 稳定交付";
+    color:rgba(204,251,241,.86);
+    font-size:.78rem;
+    font-weight:900;
+  }
+  .faq-panel::before{
+    content:"下单后进入自助激活系统完成充值\A📌 充值到自己 GPT 账号（非直接使用）";
+    white-space:pre-line;
+    display:block;
+    margin:0 0 14px;
+    padding:12px;
+    border-radius:12px;
+    border:1px solid rgba(45,212,191,.20);
+    background:rgba(255,255,255,.035);
+    color:rgba(204,251,241,.84);
+    font-size:.82rem;
+    line-height:1.65;
+    font-weight:850;
+    text-align:center;
+  }
+  .faq-item span{
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .side-feedback{
+    margin-top:22px;
+  }
+  .side-feedback-list .side-feedback-item:nth-child(n+3){
+    display:none;
+  }
+  .side-ai-entry{
+    margin-top:14px;
+  }
+  .side-record-btn.case-thumbnail{
+    display:none !important;
+  }
+  .trust-widget.case-thumbnail{
+    display:none !important;
+  }
+  .sticky-note{
+    display:none !important;
+  }
+  .cta-sticky{
+    display:grid !important;
+    grid-template-columns:auto 1fr 1fr;
+    gap:8px;
+    align-items:center;
+    justify-content:center;
+    position:fixed;
+    left:12px;
+    right:12px;
+    bottom:12px;
+    height:56px;
+    padding:8px;
+    border-radius:14px;
+    font-size:16px !important;
+    font-weight:900;
+    color:#fff;
+    z-index:80;
+    background:rgba(11,18,32,.92);
+    border:1px solid rgba(45,212,191,.25);
+    box-shadow:0 12px 26px rgba(0,0,0,.28);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+  }
+  .cta-sticky::before{
+    content:none !important;
+  }
+  .cta-sticky .mobile-price{
+    color:#fff;
+    font-size:15px;
+    font-weight:950;
+    white-space:nowrap;
+  }
+  .cta-sticky .mobile-action{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:40px;
+    border-radius:10px;
+    font-size:14px;
+    font-weight:950;
+    line-height:1;
+  }
+  .cta-sticky .mobile-buy{
+    background:linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%);
+    color:#fff;
+  }
+  .cta-sticky .mobile-wechat{
+    background:rgba(3,20,22,.24);
+    color:#fff;
+    border:1px solid rgba(255,255,255,.28);
+  }
+}
+
+/* ===== Site theme restore: purple ===== */
+:root{
+  --primary:#8b5cf6;
+  --primary-dark:#7c3aed;
+  --accent:#a78bfa;
+  --brand-500:#8b5cf6;
+  --brand-600:#7c3aed;
+  --brand-glass:rgba(139,92,246,.18);
+  --brand-outline:rgba(196,181,253,.45);
+  --brand-outline-strong:rgba(196,181,253,.65);
+  --brand-shadow-soft:rgba(139,92,246,.18);
+  --brand-shadow-strong:rgba(139,92,246,.35);
+  --brand-tint:rgba(167,139,250,.18);
+  --brand-tint-strong:rgba(167,139,250,.28);
+}
+body{
+  background:
+    radial-gradient(260px 180px at 18% 22%, rgba(255,255,255,.12), transparent 70%),
+    radial-gradient(220px 160px at 68% 16%, rgba(255,255,255,.08), transparent 72%),
+    radial-gradient(140px 120px at 32% 68%, rgba(167,139,250,.14), transparent 78%),
+    radial-gradient(1200px 700px at 12% -8%, rgba(167,139,250,.20), transparent 60%),
+    radial-gradient(1000px 600px at 90% 12%, rgba(124,58,237,.16), transparent 60%),
+    linear-gradient(135deg, #120b2b 0%, #1a0f38 45%, #1f1144 100%) !important;
+}
+.card,.modal-card,.rs-card,.rg-card,#feedbackModal .modal-card{
+  background:linear-gradient(180deg, rgba(139,92,246,.14), rgba(167,139,250,.07)), rgba(21,15,40,.88) !important;
+  border-color:rgba(196,181,253,.35) !important;
+}
+.side-panel,.trust-item,.faq-item,.side-feedback,.side-ai-entry,.ability-strip,.account-check,.mobile-mirror-link{
+  border-color:rgba(196,181,253,.28) !important;
+  background:rgba(167,139,250,.07) !important;
+}
+.btn-buy,.cta-mini,.ai-btn.primary,.ai-buy,.sticky-note .cta-mini,.cta-sticky .mobile-buy,.proof-btn-primary,.rs-btn-primary,.rg-btn-primary{
+  background:linear-gradient(180deg, #a78bfa 0%, #8b5cf6 100%) !important;
+  border-color:rgba(196,181,253,.65) !important;
+}
+.price-tag,.ai-pill,.compact-info-line::after,.mobile-mirror-link,.account-check a,.brand-sub,.side-ai-cta{ color:#ddd6fe !important; }
+.brand-icon stop:first-child{ stop-color:#a78bfa !important; }
+.brand-icon stop:last-child{ stop-color:#8b5cf6 !important; }
+.carousel-dot.active{ background:rgba(167,139,250,.95) !important; }
+
 </style>
 </head>
 <body>
+<div class="landing-shell">
+<aside class="side-panel trust-panel" aria-label="为什么选择我们">
+<h2>为什么选择我们？</h2>
+<div class="trust-list">
+<div class="trust-item"><strong>自助开通流程</strong><span>购买后进入激活系统，按提示完成充值。</span></div>
+<div class="trust-item"><strong>到账速度清晰</strong><span>通常约 10 秒到账，异常情况可处理。</span></div>
+<div class="trust-item"><strong>不索要密码</strong><span>仅需必要信息，不需要提供账号密码。</span></div>
+<div class="trust-item"><strong>客服在线协助</strong><span>9:00–24:00 可咨询支付与到账问题。</span></div>
+<div class="trust-item"><strong>异常有回应</strong><span>未完成可联系客服补单或继续处理。</span></div>
+</div>
+<button aria-label="查看其他 AI 平台会员充值" class="side-ai-entry" id="openAiModal" type="button">
+<span class="side-ai-title">🤖 其他 AI 会员代开</span>
+<span class="side-ai-sub">ChatGPT Pro / Claude / Grok</span>
+<span class="side-ai-cta">查看服务</span>
+</button>
+</aside>
 <main class="card">
 <header class="card-header">
 <div class="hero">
-<div class="brand-badge" aria-label="光年升级计划 官方充值平台">
-  <svg class="brand-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
-    <defs>
-      <linearGradient id="lg" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#c4b5fd"/>
-        <stop offset="1" stop-color="#8b5cf6"/>
-      </linearGradient>
-    </defs>
-    <path d="M30 8 L40 8 L40 18" fill="none" stroke="url(#lg)" stroke-width="4" stroke-linecap="round"/>
-    <path d="M40 8 L25 23" fill="none" stroke="url(#lg)" stroke-width="4" stroke-linecap="round"/>
-    <path d="M14 10 L14 36" stroke="#aef3ff" stroke-width="4" stroke-linecap="round"/>
-    <path d="M8 22 L26 22" stroke="#aef3ff" stroke-width="4" stroke-linecap="round"/>
-    <path d="M10 36 C16 30, 22 28, 28 28" stroke="#aef3ff" stroke-width="4" stroke-linecap="round" fill="none"/>
-  </svg>
-  <div>
-    <span class="brand-name">极速充值中心</span>
-    <span class="brand-sub">· 官方充值平台</span>
-  </div>
+<div aria-label="光年升级计划 平台充值平台" class="brand-badge">
+<svg aria-hidden="true" class="brand-icon" role="img" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<lineargradient id="lg" x1="0" x2="1" y1="1" y2="0">
+<stop offset="0" stop-color="#2dd4bf"></stop>
+<stop offset="1" stop-color="#14b8a6"></stop>
+</lineargradient>
+</defs>
+<path d="M30 8 L40 8 L40 18" fill="none" stroke="url(#lg)" stroke-linecap="round" stroke-width="4"></path>
+<path d="M40 8 L25 23" fill="none" stroke="url(#lg)" stroke-linecap="round" stroke-width="4"></path>
+<path d="M14 10 L14 36" stroke="#ccfbf1" stroke-linecap="round" stroke-width="4"></path>
+<path d="M8 22 L26 22" stroke="#ccfbf1" stroke-linecap="round" stroke-width="4"></path>
+<path d="M10 36 C16 30, 22 28, 28 28" stroke="#ccfbf1" stroke-linecap="round" stroke-width="4"></path>
+</svg>
+<div>
+<span class="brand-name">极速充值中心</span>
+<span class="brand-sub">· 快速开通中心</span>
 </div>
-<h1>GPT Plus 极速自动充值 🚀</h1>
-<div class="notice-bar-top">📢 当前价 ¥188 ｜ 官方通道更稳</div>
+</div>
+<h1>ChatGPT Plus 快速开通中心</h1>
+<div class="conversion-kicker">⚡ 自助购买 · 自动到账 · 人工协助处理</div>
 <div class="hero-divider"></div>
-</div>
-<div class="cost-notice">
-<div class="cost-notice-icon">📢</div>
-<div class="cost-notice-content">
-<div class="cost-notice-title">重要价格调整通知</div>
-<div class="cost-notice-main">
-<div class="cost-notice-item">
-<span class="cost-notice-label">💰 成本变化：</span>
-              全球成本上涨，价格调整至 <strong>¥188</strong>
-</div>
-<div class="cost-notice-item">
-<span class="cost-notice-label">⚠️ 风险提醒：</span>
-              低价警惕黑卡，避免封号
-            </div>
-<div class="cost-notice-item">
-<span class="cost-notice-label">📈 后续趋势：</span>
-              价格可能继续上涨，详情咨询微信
-            </div>
-<div class="cost-notice-item">
-<span class="cost-notice-label">💬 人工微信：</span>
-<strong id="wechatId">Jiage01888</strong>
-<button class="copy-inline" onclick="copyText('wechatId')">复制</button>
-</div>
-</div>
-</div>
 </div>
 <div class="price">
 <span class="price-val">¥188</span>
-<span class="price-tag">月付·标准版</span>
+<span class="price-tag">稳定到账价</span>
 </div>
+<div class="price-note">官方订阅约 ¥145<br>+ 支付 / 风控 / 稳定通道成本<br>👉 为保证稳定到账与账号安全</div>
+<div class="pre-cta-trust">✔ 无需账号密码 · 稳定到账 · 全程可控</div>
 <div class="button-group">
-  <button aria-label="立即购买卡密" class="btn-buy" id="buyBtn">🛒 立即购买 (¥188)</button>
-  <button class="btn-recharge" id="rechargeBtn">💳 进入自动充值系统</button>
+<button aria-label="立即开通 ChatGPT Plus" class="btn-buy" id="buyBtn">⚡ 立即开通（10秒到账）</button>
+<button class="btn-recharge" id="rechargeBtn">进入自助激活系统</button>
 </div>
-
-<div class="actions-gap" aria-hidden="true"></div>
-<div class="secondary-actions secondary-between">
-  <button class="btn-ai" id="openAiModal" aria-label="查看其他 AI 官方会员充值">
-    🤖 其他 AI 官方会员（可选）
-    <span class="sub">GPT Pro · Claude · Super Grok</span>
-  </button>
+<div class="ability-strip" aria-label="开通后可用能力">
+<strong>开通后可用能力</strong>
+<span>🖼️ GPT Image 2 图片生成 · 💻 Codex 编程助手</span>
+<small>具体额度以账号内实际显示为准</small>
 </div>
-<div class="actions-gap-sm" aria-hidden="true"></div>
-<p class="small-risk">⚠ 警惕低价黑卡，避免封号风险</p>
+<div class="trust-metrics" aria-label="服务数据">
+<div class="compact-info-line">1000+用户 · 近30天稳定 · 10秒到账 · 人工支持</div>
+</div>
+<div class="purchase-flow" aria-label="购买流程">
+<div class="flow-line">下单 → 填写 → 自动充值 → 完成</div>
+</div>
+<div class="account-check">
+📌 充值到你自己的 GPT 账号（非直接使用）<br>
+<a href="https://gptuse.xyz/" target="_blank" rel="noopener">无法访问 GPT？👉 查看镜像服务</a>
+</div>
+<div aria-hidden="true" class="actions-gap"></div>
+<p class="small-risk">到账异常？系统自动处理，客服协助解决</p>
 <div class="steps-mini">
 <span class="step-pill">1 下单卡密</span>
 <span class="step-pill">2 进入网站充值</span>
@@ -1124,49 +2663,216 @@ body.modal-open .sticky-note { opacity:.6; pointer-events:none; }
 <a class="steps-link" href="#" id="openFlow">查看流程</a>
 </div>
 <ul class="buy-notes">
-<li>官方 iOS 通道·微信直充·5分钟自动到帐</li>
-<li>无需提供账号密码，支持新老账号</li>
-<li>可开票，需要开票请先联系人工，勿直接购买</li>
+<li>购买卡密后进入系统激活，充值到你自己的 ChatGPT 账号</li>
+<li>无需提供账号密码（按指引操作），支持新老账号</li>
+<li>如需发票/对公，请先联系人工确认后再下单</li>
 </ul>
 <div class="badges">
-<span class="badge">📱 官方 iOS 通道</span>
-<span class="badge">🛡️ 无需提供密码</span>
-<span class="badge">🔒 降低封号风险</span>
+<span class="badge">🔒 无需密码</span>
+<span class="badge">⚙ 按指引操作</span>
+<span class="badge">🛡 稳定交付</span>
 </div>
 <div class="stats">
 <div class="stat">
-<div class="stat-value">50,000+</div>
-<div class="stat-label">服务用户</div>
+<div class="stat-value">1000+</div>
+<div class="stat-label">用户已开通</div>
 </div>
 <div class="stat">
-<div class="stat-value">99.9%</div>
-<div class="stat-label">充值成功（近30天）</div>
+<div class="stat-value">近30天</div>
+<div class="stat-label">稳定交付</div>
 </div>
 <div class="stat">
-<div class="stat-value">9:00–24:00</div>
-<div class="stat-label">人工在线</div>
+<div class="stat-value">10秒</div>
+<div class="stat-label">平均到账</div>
 </div>
 </div>
-</header>
-<section class="form-area">
-<ol class="steps">
-<li class="active">1</li>
-<li>2</li>
-<li>3</li>
-</ol>
-<label class="field-label" for="code">激活码</label>
-<input class="input" id="code" name="code" placeholder="请输入激活码，例如：GPT-DEMO-1234-ABCD" type="text"/>
-<p class="hint">激活码由字母、数字和横线组成，不区分大小写</p>
-<button class="btn" onclick="submitCode()">验证激活码</button>
+<section class="feedback-box" aria-label="真实用户反馈">
+<p class="feedback-title">真实用户反馈</p>
+<div class="feedback-list">
+<div class="feedback-item"><strong>⭐</strong>“10秒到账，比自己折腾简单太多了”</div>
+<div class="feedback-item"><strong>⭐</strong>“第二次买了，很稳”</div>
+<div class="feedback-item"><strong>⭐</strong>“不用提供密码，这点很安心”</div>
+</div>
 </section>
+</header>
+
+
+<!-- 轮播模态框 -->
+<div class="carousel-modal" id="carouselModal">
+  <div class="carousel-container">
+    <button class="carousel-close" id="carouselClose">×</button>
+
+    <div class="carousel-slide active" data-slide="1">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 1.jpg" alt="客户案例 1" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #1</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="2">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 2.jpg" alt="客户案例 2" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #2</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="3">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 3.jpg" alt="客户案例 3" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #3</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="4">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 4.jpg" alt="客户案例 4" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #4</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="5">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 5.jpg" alt="客户案例 5" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #5</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="6">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 6.jpg" alt="客户案例 6" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #6</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="7">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 7.jpg" alt="客户案例 7" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #7</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="8">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 8.jpg" alt="客户案例 8" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #8</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="9">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 9.jpg" alt="客户案例 9" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #9</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="10">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 10.jpg" alt="客户案例 10" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #10</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="11">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 11.jpg" alt="客户案例 11" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #11</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="12">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 12.jpg" alt="客户案例 12" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #12</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="13">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 13.jpg" alt="客户案例 13" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #13</div>
+    </div>
+
+    <div class="carousel-slide" data-slide="14">
+      <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;">
+        <img src="客户案例 14.jpg" alt="客户案例 14" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+      </div>
+      <div class="carousel-caption">客户反馈截图 #14</div>
+    </div>
+
+    <button class="carousel-nav carousel-prev" id="carouselPrev">‹</button>
+    <button class="carousel-nav carousel-next" id="carouselNext">›</button>
+
+    <div class="carousel-dots">
+      <button class="carousel-dot active" data-slide="1"></button>
+      <button class="carousel-dot" data-slide="2"></button>
+      <button class="carousel-dot" data-slide="3"></button>
+      <button class="carousel-dot" data-slide="4"></button>
+      <button class="carousel-dot" data-slide="5"></button>
+      <button class="carousel-dot" data-slide="6"></button>
+      <button class="carousel-dot" data-slide="7"></button>
+      <button class="carousel-dot" data-slide="8"></button>
+      <button class="carousel-dot" data-slide="9"></button>
+      <button class="carousel-dot" data-slide="10"></button>
+      <button class="carousel-dot" data-slide="11"></button>
+      <button class="carousel-dot" data-slide="12"></button>
+      <button class="carousel-dot" data-slide="13"></button>
+      <button class="carousel-dot" data-slide="14"></button>
+    </div>
+  </div>
+</div>
+
 <footer>
-      <div style="margin-bottom:10px;">全网最快的自动充值系统，支持支付宝/微信；3分钟极速到账。</div>
-      <a href="/blog/" style="color: rgba(255,255,255,0.6); text-decoration: none; font-size: 0.85rem; border-bottom: 1px solid rgba(139, 92, 246, 0.4); padding-bottom: 2px; transition: all 0.2s;" onmouseover="this.style.color='#fff';this.style.borderColor='#8b5cf6'" onmouseout="this.style.color='rgba(255,255,255,0.6)';this.style.borderColor='rgba(139, 92, 246, 0.4)'">
-        ⚡️ 充值失败解决方案 / 帮助中心
+<div style="margin-bottom:10px;">面向国内用户的会员订阅代充/代开服务，采用应用内订阅代付方式；自动化处理，三步完成。</div>
+<a href="/blog/" onmouseout="this.style.color='rgba(255,255,255,0.6)';this.style.borderColor='rgba(20, 184, 166, 0.4)'" onmouseover="this.style.color='#fff';this.style.borderColor='#14b8a6'" style="color: rgba(255,255,255,0.6); text-decoration: none; font-size: 0.85rem; border-bottom: 1px solid rgba(20, 184, 166, 0.4); padding-bottom: 2px; transition: all 0.2s;">
+        📚 Plus 订阅指南 & 使用说明
       </a>
+<div style="font-size:12px;opacity:0.6;margin-top:14px;line-height:1.6;">
+  声明：本站为第三方数字服务平台，与 OpenAI 或 ChatGPT 官方无任何隶属关系。页面中提及的产品名称仅用于说明服务适配对象。
+</div>
 </footer>
 </main>
-<div aria-hidden="true" class="cs-drawer" id="csDrawer">
+<aside class="side-panel faq-panel" aria-label="常见问题">
+<h2>常见问题</h2>
+<a class="mobile-mirror-link" href="https://gptuse.xyz/" target="_blank" rel="noopener">👉 无法访问 GPT？查看镜像服务</a>
+<div class="faq-list">
+<div class="faq-item"><strong>下单后怎么操作？</strong><span>购买后进入自助激活系统，按页面提示填写信息。</span></div>
+<div class="faq-item"><strong>没有 GPT 账号能用吗？</strong><span>这是充值到你自己的 GPT 账号，不是直接购买即用。</span></div>
+<div class="faq-item"><strong>多久能看到 Plus？</strong><span>通常很快到账，极少数情况不超过 2 分钟。</span></div>
+<div class="faq-item"><strong>没到账会怎么处理？</strong><span>系统会自动重试，客服可协助补单或处理。</span></div>
+<div class="faq-item"><strong>可以用什么支付？</strong><span>支持微信、支付宝支付。</span></div>
+</div>
+<div class="side-feedback">
+<p class="side-feedback-title">用户反馈</p>
+<div class="side-feedback-list">
+<div class="side-feedback-item">⭐ 刚刚｜10秒到账，比自己折腾简单多了</div>
+<div class="side-feedback-item">⭐ 今天｜第二次买了，很稳</div>
+<div class="side-feedback-item">⭐ 新用户｜不用提供密码，这点很安心</div>
+<button class="mobile-more-feedback" onclick="event.preventDefault();event.stopPropagation();document.getElementById('feedbackModal')?.classList.add('show');document.getElementById('feedbackModal')?.setAttribute('aria-hidden','false');document.body.classList.add('modal-open');" type="button">查看更多反馈</button>
+</div>
+<button class="side-record-btn case-thumbnail" data-slide="1" type="button">查看真实交付记录</button>
+</div>
+</aside>
+</div>
+<div aria-hidden="true" class="modal-mask" id="feedbackModal">
+<div aria-labelledby="feedbackTitle" class="modal-card" role="dialog" tabindex="-1">
+<button aria-label="关闭" class="modal-close" id="feedbackClose">×</button>
+<h3 id="feedbackTitle" style="margin:.1rem 0 10px;">真实用户反馈</h3>
+<p style="margin:0 0 8px;opacity:.82;font-size:.86rem;">近期部分开通反馈</p>
+<div class="feedback-modal-list">
+<div class="feedback-modal-item">⭐ 刚刚｜10秒到账，比自己折腾简单多了</div>
+<div class="feedback-modal-item">⭐ 今天｜第二次买了，很稳</div>
+<div class="feedback-modal-item">⭐ 新用户｜不用提供密码，这点很安心</div>
+<div class="feedback-modal-item">⭐ 昨天｜按提示操作，很快就完成</div>
+<div class="feedback-modal-item">⭐ 老用户｜客服回复快，异常也能处理</div>
+</div>
+<div class="modal-footer" style="margin-top:10px;gap:.6rem;">
+<button class="cta-mini" id="feedbackCopyWx" type="button">💬 复制微信咨询</button>
+<button class="cta-outline" id="feedbackBack" type="button">返回页面</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="cs-drawer" id="/* removed:csDrawer */">
 <div class="cs-head">
 <strong>联系人工</strong>
 <button aria-label="关闭" id="csClose">✕</button>
@@ -1175,1790 +2881,569 @@ body.modal-open .sticky-note { opacity:.6; pointer-events:none; }
 <p>微信：<b id="wx">Jiage01888</b>
 <button class="copy" onclick="copyText('wx')">复制</button></p>
 <div class="qq-toggle">
-<button class="qq-toggle-btn" id="qqToggle">微信联系不上时，请联系QQ</button>
-<div class="qq-content" id="qqContent" style="display: none;">
-<p>QQ：<b id="qq">1852634132</b>
+<button class="qq-toggle-btn" id="/* removed:qqToggle */">微信联系不上时，请联系/* removed:QQ */</button>
+<div class="qq-content" id="/* removed:qqContent */" style="display: none;">
+<p>/* removed:QQ */：<b id="qq">1852634132</b>
 <button class="copy" onclick="copyText('qq')">复制</button></p>
 </div>
 </div>
 </div>
 </div>
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
 <script>
 var _hmt = _hmt || [];
 (function() {
-  var hm = document.createElement("script");
-  hm.src = "https://hm.baidu.com/hm.js?8da1b6039025ccb7673c067c21447e58";
-  var s = document.getElementsByTagName("script")[0]; 
-  s.parentNode.insertBefore(hm, s);
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?707cb0fe41fad23ba42b49fef402f68b";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
 })();
 </script>
 
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-    function submitCode() {
-      const code = document.getElementById("code").value.trim();
-      if (!code) {
-        alert("请先填写激活码");
-        return;
-      }
-      // 跳转到激活码验证页面
-      window.location.href = `chongzhi.pro`;
-    }
-
-    
-    // Fixing the logic to open purchase page on button click
-    document.getElementById('buyBtn').addEventListener('click', function () {
-        window.open('https://fe.dtyuedan.cn/shop/jiage', '_blank', 'noopener');
-    });
-    
-      // 改为新窗口打开购买链接
-      window.open('https://fe.dtyuedan.cn/shop/jiage', '_blank', 'noopener');
-    });
-
-    const drawer = document.getElementById('csDrawer');
-    const closeBtn = document.getElementById('csClose');
-    const qqToggle = document.getElementById('qqToggle');
-    const qqContent = document.getElementById('qqContent');
-
-    function toggleDrawer(show){
-      if(show){ drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); }
-      else    { drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); }
-    }
-    closeBtn && closeBtn.addEventListener('click', ()=> toggleDrawer(false));
-    
-    // QQ折叠展开功能
-    qqToggle && qqToggle.addEventListener('click', ()=> {
-      const isHidden = qqContent.style.display === 'none';
-      qqContent.style.display = isHidden ? 'block' : 'none';
-      qqToggle.textContent = isHidden ? '收起QQ联系方式' : '微信联系不上时，请联系QQ';
-    });
-    
-    
-
-    function copyText(id){
-      const text = (document.getElementById(id)?document.getElementById(id).textContent:'') || '';
-      navigator.clipboard.writeText(text).then(()=> {
-        if(window.Toastify){ Toastify({ text: '已复制：' + text, duration: 1500 }).showToast(); }
-        else alert('已复制：' + text);
-      });
-    }
-    window.copyText = copyText;
-  </script>
-<a aria-label="¥188 立即购买" class="cta-sticky" href="#" role="button" id="mobileBuyBtn">¥188 立即购买</a>
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-    
-    const openFlow = document.getElementById('openFlow');
-    const flowMask = document.getElementById('flowMask');
-    const closeFlow = document.getElementById('closeFlow');
-
-    openFlow && openFlow.addEventListener('click', (e) => {
-        e.preventDefault();
-        flowMask && flowMask.classList.add('show');
-        flowMask && flowMask.setAttribute('aria-hidden', 'false');
-    });
-    closeFlow && closeFlow.addEventListener('click', () => {
-        flowMask && flowMask.classList.remove('show');
-        flowMask && flowMask.setAttribute('aria-hidden', 'true');
-    });
-    flowMask && flowMask.addEventListener('click', (e) => {
-        if (e.target === flowMask) {
-            flowMask.classList.remove('show');
-            flowMask.setAttribute('aria-hidden', 'true');
-        }
-    });
-    
-    const flowMask = document.getElementById('flowMask');
-    const closeFlow = document.getElementById('closeFlow');
-    openFlow && openFlow.addEventListener('click', (e)=>{ e.preventDefault(); flowMask && flowMask.classList.add('show'); flowMask && flowMask.setAttribute('aria-hidden','false'); });
-    closeFlow && closeFlow.addEventListener('click', ()=>{ flowMask && flowMask.classList.remove('show'); flowMask && flowMask.setAttribute('aria-hidden','true'); });
-    flowMask && flowMask.addEventListener('click', (e)=>{ if(e.target===flowMask){ flowMask.classList.remove('show'); flowMask.setAttribute('aria-hidden','true'); }});
-    
-    
-    
-    // 充值流程弹窗中的QQ折叠展开功能
-    const flowQqToggle = document.getElementById('flowQqToggle');
-    const flowQqContent = document.getElementById('flowQqContent');
-    flowQqToggle && flowQqToggle.addEventListener('click', ()=> {
-      const isHidden = flowQqContent.style.display === 'none';
-      flowQqContent.style.display = isHidden ? 'block' : 'none';
-      flowQqToggle.textContent = isHidden ? '收起QQ联系方式' : '微信联系不上时，请联系QQ';
-    });
-  </script>
+<a aria-label="¥188 立即开通或复制微信" class="cta-sticky" href="#" id="mobileBuyBtn" role="button">
+<span class="mobile-price">¥188</span>
+<span class="mobile-action mobile-buy">立即开通</span>
+<span class="mobile-action mobile-wechat">复制微信</span>
+</a>
+<button class="trust-widget case-thumbnail" data-slide="1" aria-label="查看客户案例">
+  <div class="trust-icon">📸</div>
+  <div class="trust-text">真实交付记录</div>
+</button>
 <div class="sticky-note" id="bottomNote">
-  <span class="note-text">📌 当前价 <strong>¥188</strong> ｜ 客服微信：<strong id="wxid">Jiage01888</strong></span>
-  
-    <button class="cta-mini" id="copyWeChat" onclick="copyText('wechatId')">复制微信</button>
-    复制微信</button>
-  <button class="cta-outline" id="openWhyFooter" type="button">为什么不是更便宜</button>
-  <a data-open="rechargeGuide" style="opacity:.75;text-decoration:underline;margin-left:.5rem;display:none;">
+<span class="note-text">📌 当前价格 <strong>¥188</strong> ｜ 客服微信 <strong id="wxid">Jiage01888</strong> <span class="sticky-consult">👉 支持咨询后再下单</span></span>
+<span class="sticky-actions">
+<button class="cta-mini" id="stickyBuyBtn" type="button">⚡ 立即开通</button>
+<button class="cta-outline" id="copyWeChat">💬 联系客服 / 复制微信</button>
+<button class="cta-outline" id="openWhyFooter" style="display:none;">为什么不是更便宜</button>
+</span>
+<a data-open="/* removed:rechargeGuide */" style="opacity:.75;text-decoration:underline;margin-left:.5rem;display:none;">
     已购买·去激活
   </a>
 </div>
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-// 复制微信 + 弹窗逻辑
-(function(){
-  function copy(text){
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      return navigator.clipboard.writeText(text);
-    } else {
-      alert('微信号：'+text+'\n请长按复制');
-      return Promise.resolve();
-    }
-  }
-  var wx = (document.getElementById('wxid') && document.getElementById('wxid').textContent) || 'Jiage01888';
-  var b1 = document.getElementById('copyWeChat');
-  var b2 = document.getElementById('modalCopyWeChat');
-  if(b1){ b1.addEventListener('click', function(){ copy(wx).then(function(){ b1.textContent='已复制'; setTimeout(function(){ b1.textContent='复制微信'; },1600) }) }); }
-  if(b2){ b2.addEventListener('click', function(){ copy(wx).then(function(){ b2.textContent='已复制'; setTimeout(function(){ b2.textContent='复制微信：'+wx; },1600) }) }); }
-  var openBtn = document.getElementById('openPriceModal');
-  var modal = document.getElementById('priceModal');
-  var closeBtn = document.getElementById('closePriceModal');
-  if(openBtn && modal){
-    openBtn.addEventListener('click', function(){ modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); });
-  }
-  if(closeBtn && modal){
-    closeBtn.addEventListener('click', function(){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); });
-    modal.addEventListener('click', function(e){ if(e.target===modal){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); } });
-  }
-})();</script>
-
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-(function(){
-  function $(s){ return document.querySelector(s); }
-  function $all(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); }
-  var body = document.body;
-  var helpMask = $('#helpModal');
-  var helpCard = helpMask ? helpMask.querySelector('.help-card') : null;
-  var helpClose = $('#helpClose');
-  var tabs = $all('.help-tabs .tab');
-  var panels = $all('.help-panels .panel');
-  var lastFocus = null;
-
-  function setTab(name){
-    tabs.forEach(function(t){
-      var active = t.getAttribute('data-tab') === name;
-      t.classList.toggle('active', active);
-      t.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-    panels.forEach(function(p){
-      var show = p.getAttribute('data-panel') === name;
-      p.classList.toggle('active', show);
-      p.setAttribute('aria-hidden', show ? 'false' : 'true');
-    });
-    try { localStorage.setItem('help_tab', name); } catch(e){}
-  }
-
-  function openHelp(defaultTab){
-    lastFocus = document.activeElement;
-    var saved = null; try { saved = localStorage.getItem('help_tab'); } catch(e){}
-    var tab = defaultTab || saved || 'flow';
-    setTab(tab);
-    helpMask.classList.add('show');
-    helpMask.setAttribute('aria-hidden','false');
-    body.classList.add('modal-open');
-    (helpCard || helpMask).focus({preventScroll:true});
-  }
-
-  function closeHelp(){
-    helpMask.classList.remove('show');
-    helpMask.setAttribute('aria-hidden','true');
-    body.classList.remove('modal-open');
-    if(lastFocus && typeof lastFocus.focus === 'function'){ lastFocus.focus(); }
-  }
-
-  // Tab click
-  tabs.forEach(function(t){ t.addEventListener('click', function(){ setTab(t.getAttribute('data-tab')); }); });
-
-  // Triggers
-  var openTop = $('#openHelpModal');
-  var openBottom = $('#openHelpModalBottom');
-  if(openTop){ openTop.addEventListener('click', function(e){ e.preventDefault(); openHelp('flow'); }); }
-  if(openBottom){ openBottom.addEventListener('click', function(){ openHelp('flow'); }); }
-
-
-  // Close mechanics
-  if(helpClose) helpClose.addEventListener('click', closeHelp);
-  if(helpMask) helpMask.addEventListener('click', function(e){ if(e.target===helpMask) closeHelp(); });
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && helpMask.classList.contains('show')) closeHelp(); });
-
-  // Copy WeChat buttons (bottom bar + help panel)
-  function isMobile(){ return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); }
-  function copy(text){
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      return navigator.clipboard.writeText(text);
-    } else { alert('微信号：'+text+'\\n请手动复制'); return Promise.resolve(); }
-  }
-  var wechat = (document.getElementById('wxid') && document.getElementById('wxid').textContent) || (document.getElementById('helpWx') && document.getElementById('helpWx').textContent) || 'Jiage01888';
-  var copyBtns = [ document.getElementById('copyWeChat'), document.getElementById('copyWeChatHelp') ].filter(Boolean);
-  copyBtns.forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var text = btn.textContent;
-      copy(wechat).then(function(){
-        btn.textContent = '已复制';
-        setTimeout(function(){ btn.textContent = text; }, 1600);
-        if(isMobile()){ setTimeout(function(){ try{ window.location.href='weixin://'; }catch(e){} }, 300); }
-      });
-    });
-  });
-
-  // Expose for debug
-  window.helpCenter = { open: openHelp, close: closeHelp, setTab: setTab };
-})();
-</script>
-<div class="modal-mask" id="whyModal" aria-hidden="true">
-  <div class="modal-card" role="dialog" aria-labelledby="whyTitle" tabindex="-1">
-    <button class="modal-close" id="whyClose" aria-label="关闭">×</button>
-    <h3 id="whyTitle" style="margin:.2rem 0 1rem">为什么不是更便宜</h3>
-
-    <nav class="help-tabs" role="tablist" aria-label="为什么不是更便宜">
-      <button role="tab" id="tabbtn-price" class="tab-btn active" data-tab="price" aria-selected="true" aria-controls="tab-price">价格构成</button>
-      <button role="tab" id="tabbtn-flow" class="tab-btn" data-tab="flow" aria-selected="false" aria-controls="tab-flow">充值流程</button>
-      <button role="tab" id="tabbtn-support" class="tab-btn" data-tab="support" aria-selected="false" aria-controls="tab-support">客服微信</button>
-    </nav>
-
-    <section id="tab-price" class="tab-panel active" role="tabpanel" aria-labelledby="tabbtn-price">
-      <p>官方订阅价 <strong>19.99 美元</strong>（或等值货币）。</p>
-      <ul>
-        <li>🍎 苹果通道与支付手续费</li>
-        <li>🔒 账号维护与风控成本（避免黑卡、降低封号风险）</li>
-        <li>👩‍💻 人工客服与售后保障</li>
-      </ul>
-      <p>综合以上成本，本站价格为 <strong>¥188</strong>。若整体成本上涨，价格可能相应调整。</p>
-      <a class="open-proof-link" id="openOfficialProof">查看官方通知 / 展开说明</a>
-      <div class="modal-footer">
-        <a href="#" class="cta-outline" id="modalBuyP">去购买</a>
-        <button class="cta-mini" id="modalCopyWxP">复制微信：<span class="wx">Jiage01888</span></button>
-      </div>
-    </section>
-
-    <section id="tab-flow" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-flow" hidden>
-      <ul class="flow-steps">
-        <li>① 下单获取卡密</li>
-        <li>② 获取账号充值信息（无需提供账号密码）</li>
-        <li>③ 约 5 分钟到账</li>
-      </ul>
-      <p class="hint">提示：若遇到账延迟，请先勿重复下单，联系人工处理。</p>
-      <div class="modal-footer">
-        <a href="#" class="cta-outline" id="modalBuyF">去购买</a>
-        <button class="cta-mini" id="modalCopyWxF">复制微信：<span class="wx">Jiage01888</span></button>
-      </div>
-    </section>
-
-    <section id="tab-support" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-support" hidden>
-      <p>微信：<strong class="wx">Jiage01888</strong></p>
-      <p class="hint">人工在线：9:00–24:00（其他时段尽量回复）</p>
-      <div class="modal-footer">
-        <a href="#" class="cta-outline" id="modalBuyS">去购买</a>
-        <button class="cta-mini" id="modalCopyWxS">复制微信：<span class="wx">Jiage01888</span></button>
-      </div>
-    </section>
-  </div>
+<div aria-hidden="true" class="modal-mask" id="whyModal">
+<div aria-labelledby="whyTitle" class="modal-card" role="dialog" tabindex="-1">
+<button aria-label="关闭" class="modal-close" id="whyClose">×</button>
+<h3 id="whyTitle" style="margin:.2rem 0 1rem">为什么不是更便宜？</h3>
+<nav aria-label="为什么不是更便宜" class="help-tabs" role="tablist">
+<button aria-controls="tab-price" aria-selected="true" class="tab-btn active" data-tab="price" id="tabbtn-price" role="tab">价格构成</button>
+<button aria-controls="tab-flow" aria-selected="false" class="tab-btn" data-tab="flow" id="tabbtn-flow" role="tab">充值流程</button>
+<button aria-controls="tab-support" aria-selected="false" class="tab-btn" data-tab="support" id="tabbtn-support" role="tab">客服微信</button>
+</nav>
+<section aria-labelledby="tabbtn-price" class="tab-panel active" id="tab-price" role="tabpanel">
+<p>官方订阅约 <strong>¥145</strong>，但实际开通还包含：</p>
+<ul>
+<li>支付手续费（跨区支付 / 汇率损耗）</li>
+<li>风控与稳定通道（降低封号风险）</li>
+<li>自动处理系统与售后支持</li>
+</ul>
+<p>👉 我们的价格 = 稳定到账 + 账号安全</p>
+<p>如果只追求低价，常见问题包括：</p>
+<ul>
+<li>异常来源导致封号</li>
+<li>充值失败无人处理</li>
+</ul>
+<p>所以我们只做稳定交付通道。</p>
+<a class="open-proof-link" id="openOfficialProof">查看平台通知 / 展开说明</a>
+<div class="modal-footer">
+<a class="cta-outline" href="#" id="modalBuyP">去购买</a>
+<button class="cta-mini" id="modalCopyWxP">复制微信：<span class="wx">Jiage01888</span></button>
 </div>
-
-<div class="rg-mask" id="rechargeGuide" aria-hidden="true">
-  <div class="rg-card" role="dialog" aria-labelledby="rgTitle" tabindex="-1">
-    <button class="rg-close" id="rgClose" aria-label="关闭">×</button>
-    <h3 class="rg-title" id="rgTitle">充值网站指引</h3>
-
-    <div class="rg-body">
-      <p>已在发卡网完成购买并获得卡密后，请前往充值网站填写卡密，完成激活。</p>
-      <p class="rg-hint">通常约 <strong>5 分钟</strong>到账；如遇延迟，请先勿重复下单，加微信处理。</p>
-
-      <div class="rg-actions">
-        <button class="rg-btn rg-btn-primary" id="rgOpen">打开充值网站</button>
-      </div>
-    </div>
-  </div>
+</section>
+<section aria-labelledby="tabbtn-flow" class="tab-panel" hidden="" id="tab-flow" role="tabpanel">
+<ul class="flow-steps">
+<li>① 下单获取 Plus 充值卡密</li>
+<li>② 进入充值系统，按指引激活到自己的 ChatGPT 账号（无需提供账号密码）</li>
+<li>③ 约 5 分钟到账</li>
+</ul>
+<p class="hint">提示：若遇到账延迟，请先勿重复下单，联系人工处理。</p>
+<div class="modal-footer">
+<a class="cta-outline" href="#" id="modalBuyF">去购买</a>
+<button class="cta-mini" id="modalCopyWxF">复制微信：<span class="wx">Jiage01888</span></button>
 </div>
-
-<div class="rs-mask" id="rechargeSystemModal" aria-hidden="true">
-  <div class="rs-card" role="dialog" aria-labelledby="rsTitle" tabindex="-1">
-    <button class="rs-close" id="rsClose" aria-label="关闭">×</button>
-    <h3 class="rs-title" id="rsTitle">选择充值网站激活</h3>
-
-    <div class="rs-body">
-      <p>说明：</p>
-      <ul style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
-        <li>购买了自动充值1卡密 → 进入网站1激活</li>
-        <li>购买了自动充值2卡密 → 进入网站2激活</li>
-      </ul>
-      
-      <div class="rs-options">
-        <div class="rs-option" data-url="https://ow800.com/auto">
-          <div class="rs-option-title">自动充值1</div>
-          <div class="rs-option-desc">点击进入激活网站</div>
-          <div class="rs-option-url">https://ow800.com/auto</div>
-        </div>
-        <div class="rs-option" data-url="https://ow800.com/auto">
-          <div class="rs-option-title">自动充值2</div>
-          <div class="rs-option-desc">点击进入激活网站</div>
-          <div class="rs-option-url">https://ow800.com/auto</div>
-        </div>
-      </div>
-      
-      <div class="rs-actions">
-        <button class="rs-btn rs-btn-ghost" id="rsCancel">取消</button>
-      </div>
-    </div>
-  </div>
+</section>
+<section aria-labelledby="tabbtn-support" class="tab-panel" hidden="" id="tab-support" role="tabpanel">
+<p>微信：<strong class="wx">Jiage01888</strong></p>
+<p class="hint">人工在线：9:00–24:00（其他时段尽量回复）</p>
+<div class="modal-footer">
+<a class="cta-outline" href="#" id="modalBuyS">去购买</a>
+<button class="cta-mini" id="modalCopyWxS">复制微信：<span class="wx">Jiage01888</span></button>
 </div>
-
-<div class="proof-mask" id="officialProof" aria-hidden="true">
-  <div class="proof-card" role="dialog" aria-labelledby="proofTitle" tabindex="-1">
-    <button class="proof-close" id="proofClose" aria-label="关闭">×</button>
-    <h3 class="proof-title" id="proofTitle">官方价格通知 & 合规说明</h3>
-
-    <section class="proof-sec" id="proof-official">
-      <h4>官方价格通知（摘要）</h4>
-      <ul class="proof-list">
-        <li>官方订阅价 <strong>19.99 美元/月</strong>（自 <strong>2025-09-16</strong> 起分批执行）。</li>
-        <li>本站走 <strong>苹果官方通道</strong>，价格含 <strong>通道费 / 风控 / 售后</strong>。</li>
-      </ul>
-      <p>→ <strong>定价 ¥188</strong>（如整体成本上调，将同步调整）。</p>
-
-      <div class="proof-actions">
-        <button class="proof-btn proof-btn-ghost" id="toggleProofImg">查看官方通知截图</button>
-      </div>
-
-      <div class="proof-imgwrap" id="proofImgWrap">
-        <button class="img-close" id="imgClose" aria-label="关闭图片">×</button>
-        <img class="proof-img" id="proofImg" src="gpt 图片.png" alt="官方价格通知截图">
-      </div>
-    </section>
-
-    <section class="proof-sec" id="proof-forex">
-      <h4>关于"低汇率国家"的说明</h4>
-      <ul class="proof-list">
-        <li>低价多为 <strong>跨区礼品卡/黑卡</strong>，<strong>不稳定、风险高</strong>。</li>
-        <li>易回滚/拒付，易触发风控，售后不可控。</li>
-      </ul>
-      <p class="proof-hint">目前没有 <strong>长期可复用</strong> 的低汇率方案；我们仅提供 <strong>官方通道</strong>，含 <strong>售后与风险处置</strong>。</p>
-    </section>
-
-    <section class="proof-sec">
-      <div class="proof-actions">
-        <button class="proof-btn proof-btn-ghost" id="proofCopyWx">复制微信：<span class="wx">Jiage01888</span></button>
-        <a class="proof-btn proof-btn-primary" id="proofGoBuy" href="#" rel="noopener">去购买</a>
-      </div>
-    </section>
-  </div>
+</section>
+</div>
+</div>
+<div aria-hidden="true" class="modal-mask" id="aiModal">
+<div aria-labelledby="aiTitle" class="modal-card" role="dialog" tabindex="-1">
+<button aria-label="关闭" class="modal-close" id="aiClose">×</button>
+<h3 id="aiTitle" style="margin:.2rem 0 .6rem">其他 AI 平台会员代开</h3>
+<p style="margin:0 0 10px; opacity:.85; font-size:.86rem;">只需要选一个即可 👇</p>
+<div class="ai-section">
+<div class="ai-section-title">✨ 推荐方案</div>
+<div class="ai-items" role="list">
+<div aria-label="GPT Pro 主推" class="ai-item featured main-pick" role="listitem" tabindex="0">
+<div class="ai-left">
+<div class="ai-name">🚀 GPT Pro（推荐） <span class="ai-pill">🔥 最多人选择</span></div>
+<div class="ai-meta">最多人选择 / 性价比方案</div>
+</div>
+<div class="ai-actions">
+<button class="ai-buy ai-btn primary" data-url="https://fe.dtyuedan.cn/shop/jiage">立即开通</button>
+</div>
+</div>
+<div aria-label="GPT Pro 200刀 进阶" class="ai-item featured" role="listitem" tabindex="0">
+<div class="ai-left">
+<div class="ai-name">💎 GPT Pro 200刀 <span class="ai-pill">💎 长期使用</span></div>
+<div class="ai-meta">长期使用 / 进阶方案</div>
+</div>
+<div class="ai-actions">
+<button class="ai-buy ai-btn primary" data-url="https://fe.dtyuedan.cn/shop/jiage">查看方案</button>
+</div>
+</div>
+</div>
+</div>
+<details class="more-ai-details">
+<summary>更多 AI（按需选择）</summary>
+<div class="ai-section more-platforms">
+<div class="ai-items" role="list">
+<div aria-label="Claude Pro 1个月 ¥188" class="ai-item" role="listitem" tabindex="0">
+<div class="ai-left">
+<div class="ai-name">Claude Pro</div>
+<div class="ai-meta">1个月 · ¥188 · 稳定交付</div>
+</div>
+<div class="ai-actions">
+<button class="ai-buy ai-btn primary" data-url="https://fe.dtyuedan.cn/shop/jiage">选择</button>
+</div>
+</div>
+<div aria-label="Claude Max 100刀 / 200刀 咨询" class="ai-item" role="listitem" tabindex="0">
+<div class="ai-left">
+<div class="ai-name">Claude Max 100刀 / 200刀</div>
+<div class="ai-meta">按需选择 · 需要可咨询</div>
+</div>
+<div class="ai-actions">
+<button class="ai-buy ai-btn primary" data-url="https://fe.dtyuedan.cn/shop/jiage">选择</button>
+</div>
+</div>
+<div aria-label="Super Grok 1个月 ¥228" class="ai-item" role="listitem" tabindex="0">
+<div class="ai-left">
+<div class="ai-name">Super Grok</div>
+<div class="ai-meta">1个月 · ¥228 · 稳定交付</div>
+</div>
+<div class="ai-actions">
+<button class="ai-buy ai-btn primary" data-url="https://fe.dtyuedan.cn/shop/jiage">选择</button>
+</div>
+</div>
+</div>
+</div>
+</details>
+<div class="ai-tip">提示：如需人工协助，复制微信联系人工。</div>
+<div class="modal-footer" style="margin-top:12px; gap:.6rem;">
+<button class="cta-mini" id="aiCopyWx">💬 联系客服（微信）</button>
+<a class="cta-outline" href="#" id="aiGoGpt">← 返回开通 Plus</a>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="proof-mask" id="officialProof">
+<div aria-labelledby="proofTitle" class="proof-card" role="dialog" tabindex="-1">
+<button aria-label="关闭" class="proof-close" id="proofClose">×</button>
+<h3 class="proof-title" id="proofTitle">平台价格说明 &amp; 服务声明</h3>
+<section class="proof-sec" id="proof-official">
+<h4>平台价格说明（摘要）</h4>
+<ul class="proof-list">
+<li>官方订阅约 <strong>¥145</strong>，实际开通还包含支付、风控与稳定通道成本。</li>
+<li>本站价格包含 <strong>稳定通道 / 自动处理系统 / 售后支持</strong>。</li>
+</ul>
+<p>→ <strong>定价 ¥188</strong>（如整体成本上调，将同步调整）。</p>
+<div class="proof-actions">
+<button class="proof-btn proof-btn-ghost" id="toggleProofImg">查看平台通知截图</button>
+</div>
+<div class="proof-imgwrap" id="proofImgWrap">
+<button aria-label="关闭图片" class="img-close" id="imgClose">×</button>
+<img alt="官方价格通知截图" class="proof-img" id="proofImg" src="gpt 图片.png"/>
+</div>
+</section>
+<section class="proof-sec" id="proof-forex">
+<h4>关于"低汇率国家"的说明</h4>
+<ul class="proof-list">
+<li>低价多为 <strong>跨区礼品卡/黑卡</strong>，<strong>不稳定、风险高</strong>。</li>
+<li>易回滚/拒付，易触发风控，售后不可控。</li>
+</ul>
+<p class="proof-hint">目前没有 <strong>长期可复用</strong> 的低价方案；我们仅提供 <strong>稳定交付方式</strong>，含 <strong>售后与风险处置</strong>。</p>
+</section>
+<section class="proof-sec">
+<div class="proof-actions">
+<button class="proof-btn proof-btn-ghost" id="proofCopyWx">复制微信：<span class="wx">Jiage01888</span></button>
+<a class="proof-btn proof-btn-primary" href="#" id="proofGoBuy" rel="noopener">去购买</a>
+</div>
+</section>
+</div>
 </div>
 
 
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
+<!-- === 自动充值系统选择弹窗（rechargeSystemModal）=== -->
+<div aria-hidden="true" class="rs-mask" id="rechargeSystemModal">
+<div aria-labelledby="rsTitle" class="rs-card" role="dialog" tabindex="-1">
+<button aria-label="关闭" class="rs-close" id="rsClose">×</button>
+<h3 class="rs-title" id="rsTitle">选择充值网站激活</h3>
+<div class="rs-body" style="margin: 6px 0 10px;">
+<div style="font-weight:800; opacity:.9; margin-bottom:6px;">说明：</div>
+<ul style="margin:0; padding-left: 1.15rem; line-height: 1.7; opacity:.88;">
+<li>购买了自动充值1卡密 → 进入网站1激活</li>
+<li>购买了自动充值2卡密 → 进入网站2激活</li>
+</ul>
+</div>
+<div class="rs-options" role="list" style="margin-top:14px;">
+<button aria-label="进入自动充值 1" class="rs-option" data-url="https://ow800.com/auto" role="listitem" type="button">
+<div class="rs-option-title">自动充值1</div>
+<div class="rs-option-desc">点击进入激活网站</div>
+<div class="rs-option-url">https://ow800.com/auto</div>
+</button>
+<button aria-label="进入自动充值 2" class="rs-option" data-url="https://ow800.com/auto" role="listitem" type="button">
+<div class="rs-option-title">自动充值2</div>
+<div class="rs-option-desc">点击进入激活网站</div>
+<div class="rs-option-url">https://ow800.com/auto</div>
+</button>
+</div>
+<div class="rs-actions" style="margin-top:16px; justify-content:center;">
+<button class="rs-btn rs-btn-ghost" id="rsCancel" type="button">取消</button>
+</div>
+</div>
+</div>
+<!-- === /自动充值系统选择弹窗 === -->
 <script>
 (function(){
-  function $(s){ return document.querySelector(s); }
-  function $all(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); }
-  function lockScroll(on){ document.body.classList[on?'add':'remove']('modal-open'); }
-  function isMobile(){ return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); }
-  function copyText(t){
-    if(navigator.clipboard && navigator.clipboard.writeText){ return navigator.clipboard.writeText(t); }
-    alert('微信号：'+t+'\\n请手动复制'); return Promise.resolve();
+  const BUY_URL = 'https://fe.dtyuedan.cn/shop/jiage';
+  const WX_ID = (document.getElementById('wxid')?.textContent || 'Jiage01888').trim();
+
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+  // --- tiny toast ---
+  function toast(msg){
+    const el = document.createElement('div');
+    el.textContent = msg;
+    el.style.cssText = [
+      'position:fixed','left:50%','bottom:110px','transform:translateX(-50%)',
+      'background:rgba(0,0,0,.78)','color:#fff','padding:10px 14px',
+      'border-radius:12px','font-size:14px','z-index:99999',
+      'max-width:80vw','text-align:center','box-shadow:0 10px 30px rgba(0,0,0,.35)',
+      'opacity:0','transition:opacity .15s ease'
+    ].join(';');
+    document.body.appendChild(el);
+    requestAnimationFrame(()=>{ el.style.opacity='1'; });
+    setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(), 220); }, 1400);
   }
 
-  var modal = $('#whyModal');
-  var card  = modal ? modal.querySelector('.modal-card') : null;
-  var closeBtn = $('#whyClose');
-  var tabBtns = $all('.help-tabs .tab-btn');
-  var panels = { price: $('#tab-price'), flow: $('#tab-flow'), support: $('#tab-support') };
-  var wxEl = $('#wxid'); var wx = wxEl ? (wxEl.textContent || 'Jiage01888') : 'Jiage01888';
-  var lastFocus = null;
-  var FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
-
-  function setTab(name){
-    tabs.forEach(function(b){
-      var active = b.dataset.tab === name;
-      b.classList.toggle('active', active);
-      b.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-    panels.forEach(function(p){
-      var show = p.dataset.panel === name;
-      p.classList.toggle('active', show);
-      p.setAttribute('aria-hidden', show ? 'false' : 'true');
-    });
-    try { localStorage.setItem('why_tab', name); } catch(e){}
-  }
-
-  function openWhy(defaultTab){
-    var tab = defaultTab || localStorage.getItem('why_tab') || 'price';
-    setTab(tab);
-    lastFocus = document.activeElement;
-    modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
-    lockScroll(true);
-    (card||modal).focus({preventScroll:true});
-  }
-
-  function closeWhy(){
-    modal.classList.remove('show'); modal.setAttribute('aria-hidden','true');
-    lockScroll(false);
-    if(lastFocus && typeof lastFocus.focus === 'function'){ lastFocus.focus(); }
-  }
-
-  function trapFocus(e){
-    if(!modal.classList.contains('show') || e.key!=='Tab') return;
-    var f = modal.querySelectorAll(FOCUSABLE); if(!f.length) return;
-    var first=f[0], last=f[f.length-1];
-    if(e.shiftKey){ if(document.activeElement===first){ last.focus(); e.preventDefault(); } }
-    else{ if(document.activeElement===last){ first.focus(); e.preventDefault(); } }
-  }
-
-  // 页签点击 & 左右方向键切换
-  tabBtns.forEach(function(btn, idx){
-    btn.addEventListener('click', function(){ setTab(btn.dataset.tab); });
-    btn.addEventListener('keydown', function(e){
-      if(e.key==='ArrowRight' || e.key==='ArrowLeft'){
-        var i = idx + (e.key==='ArrowRight'?1:-1);
-        if(i<0) i=tabBtns.length-1; if(i>=tabBtns.length) i=0;
-        var next=tabBtns[i]; next.focus(); setTab(next.dataset.tab); e.preventDefault();
+  // --- copy ---
+  async function copyToClipboard(text){
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+      }else{
+        const ta=document.createElement('textarea');
+        ta.value=text; ta.setAttribute('readonly','');
+        ta.style.position='fixed'; ta.style.left='-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
       }
-    });
-  });
-
-  // 入口：顶部小链接 → 默认"流程"；底部按钮 → 默认"价格"
-  var openTop = $('#openWhyTop');
-  var openBottom = $('#openWhyFooter');
-  if(openTop)    openTop.addEventListener('click', function(e){ e.preventDefault(); openWhy('price'); });
-  if(openBottom) openBottom.addEventListener('click', function(e){ e.preventDefault(); openWhy('price'); });
-
-  // 将旧入口映射到新弹窗（兜底）
-  var map = { openPriceModal:'price', openFlowModal:'flow', openSupportModal:'support', openPolicy:'price', openWhy:'price', openFlow:'flow' };
-  Object.keys(map).forEach(function(id){ var el=document.getElementById(id); if(el){ el.addEventListener('click', function(e){ e.preventDefault(); openWhy(map[id]); }); } });
-
-  // 关闭 & 可访问性
-  if(closeBtn) closeBtn.addEventListener('click', closeWhy);
-  if(modal) modal.addEventListener('click', function(e){ if(e.target===modal) closeWhy(); });
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && modal.classList.contains('show')) closeWhy(); trapFocus(e); });
-
-  // 复制微信（底部 + 弹窗）
-  function bindCopy(id){
-    var btn=document.getElementById(id); if(!btn) return;
-    btn.addEventListener('click', function(){
-      copyText(wx).then(function(){
-        var old=btn.textContent; btn.textContent='已复制，去微信添加';
-        setTimeout(function(){ btn.textContent=old; },1600);
-        if(isMobile()){ setTimeout(function(){ try{ location.href='weixin://'; }catch(e){} }, 300); }
-      });
-    });
-  }
-  bindCopy('copyWeChat'); bindCopy('modalCopyWxP'); bindCopy('modalCopyWxF'); bindCopy('modalCopyWxS');
-
-  // 为三个页签的"去购买卡密"按钮添加跳转逻辑
-  var modalBuyP = document.getElementById('modalBuyP'); // 价格构成页签
-  var modalBuyF = document.getElementById('modalBuyF'); // 充值流程页签
-  var modalBuyS = document.getElementById('modalBuyS'); // 客服微信页签
-  
-  var buyUrl = 'https://yk.dtyuedan.cn//details/9AC78762'; // 与立即购买按钮相同的链接（保留作备用）
-  
-  if(modalBuyP){
-    modalBuyP.addEventListener('click', function(e){
-      e.preventDefault();
-      window.open('https://fe.dtyuedan.cn/shop/jiage', '_blank', 'noopener');
-    });
-  }
-  
-  if(modalBuyF){
-    modalBuyF.addEventListener('click', function(e){
-      e.preventDefault();
-      window.open('https://fe.dtyuedan.cn/shop/jiage', '_blank', 'noopener');
-    });
-  }
-  
-  if(modalBuyS){
-    modalBuyS.addEventListener('click', function(e){
-      e.preventDefault();
-      window.open('https://fe.dtyuedan.cn/shop/jiage', '_blank', 'noopener');
-    });
-  }
-
-
-  // 导出以便调试
-  window.openWhy = openWhy;
-})();
-</script>
-
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-(function(){
-  // 常量：充值网址（可按需改）
-  var RG_URL = (["https://","chongzhi",".","pro"].join(""));
-
-  // 工具
-  function $(s){ return document.querySelector(s); }
-  function copyText(t){
-    if(navigator.clipboard && navigator.clipboard.writeText){ return navigator.clipboard.writeText(t); }
-    var ta = document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); }catch(e){}
-    document.body.removeChild(ta); return Promise.resolve();
-  }
-  function lockScroll(on){ document.body.classList[on?'add':'remove']('modal-open'); } // 不改变你站点样式，仅控制滚动
-
-  // 元素
-  var modal = $('#rechargeGuide');
-  var card  = modal ? modal.querySelector('.rg-card') : null;
-  var closeBtn = $('#rgClose');
-  var btnOpen  = $('#rgOpen');
-  var lastFocus = null;
-
-  // 打开/关闭
-  function openRechargeGuide(){
-    lastFocus = document.activeElement;
-    modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
-    lockScroll(true);
-    (card||modal).focus({preventScroll:true});
-  }
-  function closeRechargeGuide(){
-    modal.classList.remove('show'); modal.setAttribute('aria-hidden','true');
-    lockScroll(false);
-    if(lastFocus && typeof lastFocus.focus==='function'){ try{ lastFocus.focus(); }catch(e){} }
-  }
-
-  // 事件
-  if(closeBtn) closeBtn.addEventListener('click', closeRechargeGuide);
-  if(modal) modal.addEventListener('click', function(e){ if(e.target===modal) closeRechargeGuide(); });
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && modal.classList.contains('show')) closeRechargeGuide(); });
-
-  if(btnOpen){
-    btnOpen.addEventListener('click', function(){
-      window.open(RG_URL, '_blank', 'noopener');
-    });
-  }
-
-  // 暴露全局函数，供你在现有按钮/链接上直接调用
-  window.openRechargeGuide = openRechargeGuide;
-
-  // （可选兜底）如果页面上本来就有某个元素想触发，可给它加 data-open="rechargeGuide"
-  var autoTriggers = document.querySelectorAll('[data-open="rechargeGuide"]');
-  autoTriggers.forEach(function(el){ el.addEventListener('click', function(e){ e.preventDefault(); openRechargeGuide(); }); });
-})();
-</script>
-
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-(function(){
-  function $(s){ return document.querySelector(s); }
-  function copyText(t){
-    if(navigator.clipboard && navigator.clipboard.writeText){ return navigator.clipboard.writeText(t); }
-    var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); }catch(e){}
-    document.body.removeChild(ta); return Promise.resolve();
-  }
-  function lockScroll(on){ document.body.classList[on?'add':'remove']('modal-open'); }
-
-  var modal = $('#outOfStockModal');
-  var card = modal ? modal.querySelector('.modal-card') : null;
-  var closeBtn = $('#outOfStockClose');
-  var copyBtn = $('#copyWeChatOutOfStock');
-  var closeBtn2 = $('#closeOutOfStockModal');
-  var mobileBuyBtn = $('#mobileBuyBtn');
-  var lastFocus = null;
-  var WX = 'Jiage01888';
-
-  function openOutOfStockModal(){
-    lastFocus = document.activeElement;
-    modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
-    lockScroll(true);
-    (card||modal).focus({preventScroll:true});
-  }
-  
-  function closeOutOfStockModal(){
-    modal.classList.remove('show'); modal.setAttribute('aria-hidden','true');
-    lockScroll(false);
-    if(lastFocus && typeof lastFocus.focus==='function'){ try{ lastFocus.focus(); }catch(e){} }
-  }
-
-  // 关闭按钮事件
-  if(closeBtn) closeBtn.addEventListener('click', closeOutOfStockModal);
-  if(closeBtn2) closeBtn2.addEventListener('click', closeOutOfStockModal);
-  if(modal) modal.addEventListener('click', function(e){ if(e.target===modal) closeOutOfStockModal(); });
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && modal.classList.contains('show')) closeOutOfStockModal(); });
-
-  // 复制微信按钮
-  if(copyBtn){
-    copyBtn.addEventListener('click', function(){
-      copyText(WX).then(function(){
-        var old = copyBtn.textContent;
-        copyBtn.textContent = '已复制';
-        setTimeout(function(){ copyBtn.textContent = old; }, 1600);
-        // 移动端尝试拉起微信
-        try{ if(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)){ setTimeout(function(){ location.href='weixin://'; }, 300); } }catch(_){}
-      });
-    });
-  }
-
-  // 移动端购买按钮事件
-  if(mobileBuyBtn){
-    mobileBuyBtn.addEventListener('click', function(e){
-      e.preventDefault();
-      window.open('https://fe.dtyuedan.cn/shop/jiage', '_blank', 'noopener');
-    });
-  }
-
-  // 导出函数
-  window.openOutOfStockModal = openOutOfStockModal;
-})();
-</script>
-
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-(function(){
-  function $(s){ return document.querySelector(s); }
-  function $all(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); }
-  function lockScroll(on){ document.body.classList[on?'add':'remove']('modal-open'); }
-
-  var modal = $('#rechargeSystemModal');
-  var card = modal ? modal.querySelector('.rs-card') : null;
-  var closeBtn = $('#rsClose');
-  var cancelBtn = $('#rsCancel');
-  var rechargeBtn = $('#rechargeBtn');
-  var options = $all('.rs-option');
-  var lastFocus = null;
-
-  function openRechargeSystemModal(){
-    lastFocus = document.activeElement;
-    modal.classList.add('show'); 
-    modal.setAttribute('aria-hidden','false');
-    lockScroll(true);
-    (card||modal).focus({preventScroll:true});
-  }
-  
-  function closeRechargeSystemModal(){
-    modal.classList.remove('show'); 
-    modal.setAttribute('aria-hidden','true');
-    lockScroll(false);
-    if(lastFocus && typeof lastFocus.focus==='function'){ try{ lastFocus.focus(); }catch(e){} }
-  }
-
-  // 直接跳转到指定充值站点
-  if(rechargeBtn){
-    rechargeBtn.addEventListener('click', function(e){
-      e.preventDefault();
-      window.open('https://ow800.com/auto', '_blank', 'noopener');
-    });
-  }
-
-  // 关闭弹窗
-  if(closeBtn) closeBtn.addEventListener('click', closeRechargeSystemModal);
-  if(cancelBtn) cancelBtn.addEventListener('click', closeRechargeSystemModal);
-  if(modal) modal.addEventListener('click', function(e){ if(e.target===modal) closeRechargeSystemModal(); });
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && modal.classList.contains('show')) closeRechargeSystemModal(); });
-
-  // 点击选项跳转到对应网站
-  options.forEach(function(option){
-    option.addEventListener('click', function(){
-      var url = option.getAttribute('data-url');
-      if(url){
-        window.open(url, '_blank', 'noopener');
-        closeRechargeSystemModal();
-      }
-    });
-  });
-
-  // 导出函数
-  window.openRechargeSystemModal = openRechargeSystemModal;
-})();
-
-
-
-/* === Other AI Modal Logic === */
-(function() {
-  function ready(fn) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', fn);
-    } else {
-      fn();
-    }
-  }
-
-  ready(function() {
-    var BUY_URL = 'https://fe.dtyuedan.cn/shop/jiage';
-    var modal = document.getElementById('aiModal');
-    var openBtn = document.getElementById('openAiModal');
-    var closeBtn = document.getElementById('aiClose');
-    var copyBtn = document.getElementById('aiCopyWx');
-    var goMain = document.getElementById('aiGoMain');
-
-    if (!modal || !openBtn) return;
-
-    function lock(on) {
-      if (on) document.body.classList.add('modal-open');
-      else document.body.classList.remove('modal-open');
-    }
-
-    function open() {
-      modal.classList.add('show');
-      modal.setAttribute('aria-hidden', 'false');
-      lock(true);
-      // focus
-      var card = modal.querySelector('.modal-card');
-      if (card && card.focus) card.focus();
-    }
-
-    function close() {
-      modal.classList.remove('show');
-      modal.setAttribute('aria-hidden', 'true');
-      lock(false);
-    }
-
-    openBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      open();
-    });
-
-    if (closeBtn) closeBtn.addEventListener('click', close);
-
-    modal.addEventListener('click', function(e) {
-      if (e.target === modal) close();
-    });
-
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && modal.classList.contains('show')) close();
-    });
-
-    // Buy buttons
-    var buyBtns = modal.querySelectorAll('.ai-buy');
-    for (var i=0; i<buyBtns.length; i++) {
-      (function(btn) {
-        btn.addEventListener('click', function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          var url = btn.getAttribute('data-url') || BUY_URL;
-          window.open(url, '_blank', 'noopener');
-        });
-      })(buyBtns[i]);
-    }
-
-    // keyboard enter/space on item
-    var items = modal.querySelectorAll('.ai-item');
-    for (var j=0; j<items.length; j++) {
-      (function(item) {
-        item.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            var btn = item.querySelector('.ai-buy');
-            if (btn) btn.click();
-          }
-        });
-      })(items[j]);
-    }
-
-    function getWx() {
-      var el = document.getElementById('wxid') || document.getElementById('wxId');
-      return el ? (el.textContent || '').trim() : '';
-    }
-
-    if (copyBtn) {
-      copyBtn.addEventListener('click', function() {
-        var wx = getWx();
-        if (!wx) wx = '请联系人工';
-        // try clipboard
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(wx).then(function() {
-            var old = copyBtn.textContent;
-            copyBtn.textContent = '已复制';
-            setTimeout(function(){ copyBtn.textContent = old; }, 1500);
-          });
-        } else {
-          // fallback
-          var ta = document.createElement('textarea');
-          ta.value = wx;
-          document.body.appendChild(ta);
-          ta.select();
-          try { document.execCommand('copy'); } catch(err) {}
-          document.body.removeChild(ta);
-          var old2 = copyBtn.textContent;
-          copyBtn.textContent = '已复制';
-          setTimeout(function(){ copyBtn.textContent = old2; }, 1500);
-        }
-      });
-    }
-
-    if (goMain) {
-      goMain.addEventListener('click', function(e) {
-        e.preventDefault();
-        close();
-        try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch(err) { window.scrollTo(0,0); }
-      });
-    }
-  });
-})();
-
-</script>
-<div class="modal-mask" id="aiModal" aria-hidden="true">
-  <div class="modal-card modal-card-wide" role="dialog" aria-labelledby="aiTitle" tabindex="-1">
-    <button class="modal-close" id="aiClose" aria-label="关闭">×</button>
-    <h3 id="aiTitle">其他 AI 官方会员充值</h3>
-
-    <div class="ai-section">
-      <div class="ai-section-title">✨ 推荐方案</div>
-      <div class="ai-items">
-        <div class="ai-item featured" tabindex="0">
-          <div class="ai-left">
-            <div class="ai-name">🚀 GPT Pro 100刀 <span class="ai-pill">热门</span></div>
-            <div class="ai-meta">官方会员 · ¥750 ｜ 高阶用户推荐</div>
-          </div>
-          <button class="ai-buy" data-url="https://fe.dtyuedan.cn/shop/jiage">点击购买</button>
-        </div>
-
-        <div class="ai-item featured" tabindex="0">
-          <div class="ai-left">
-            <div class="ai-name">💎 GPT Pro 200刀 <span class="ai-pill">推荐</span></div>
-            <div class="ai-meta">官方会员 · ¥1680 · 官方通道</div>
-          </div>
-          <button class="ai-buy" data-url="https://fe.dtyuedan.cn/shop/jiage">点击购买</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="ai-section">
-      <div class="ai-section-title">更多选项</div>
-      <div class="ai-items">
-        <div class="ai-item" tabindex="0">
-          <div class="ai-left">
-            <div class="ai-name">Claude Pro</div>
-            <div class="ai-meta">1个月 · ¥188</div>
-          </div>
-          <button class="ai-buy" data-url="https://fe.dtyuedan.cn/shop/jiage">点击购买</button>
-        </div>
-
-        <div class="ai-item" tabindex="0">
-          <div class="ai-left">
-            <div class="ai-name">Claude Max 100刀</div>
-            <div class="ai-meta">会员订阅 · ¥880</div>
-          </div>
-          <button class="ai-buy" data-url="https://fe.dtyuedan.cn/shop/jiage">点击购买</button>
-        </div>
-
-        <div class="ai-item" tabindex="0">
-          <div class="ai-left">
-            <div class="ai-name">Claude Max 200刀</div>
-            <div class="ai-meta">会员订阅 · ¥1880</div>
-          </div>
-          <button class="ai-buy" data-url="https://fe.dtyuedan.cn/shop/jiage">点击购买</button>
-        </div>
-
-        <div class="ai-item" tabindex="0">
-          <div class="ai-left">
-            <div class="ai-name">Super Grok</div>
-            <div class="ai-meta">1个月 · ¥228</div>
-          </div>
-          <button class="ai-buy" data-url="https://fe.dtyuedan.cn/shop/jiage">点击购买</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="ai-tip">提示：如需人工协助，请复制微信联系。</div>
-
-    <div class="modal-footer">
-      <button class="cta-mini" id="aiCopyWx">复制微信</button>
-      <a href="#" class="cta-outline" id="aiGoMain">我只想充 GPT Plus</a>
-    </div>
-  </div>
-</div>
-
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-/* === Fallback: ensure “为什么不是更便宜” always opens (ES5) === */
-(function () {
-  function ready(fn){
-    if(document.readyState === 'loading'){
-      document.addEventListener('DOMContentLoaded', fn);
-    } else { fn(); }
-  }
-  ready(function(){
-    var openBtn = document.getElementById('openWhyFooter');
-    var modal = document.getElementById('whyModal');
-    var closeBtn = document.getElementById('whyClose');
-
-    if(!openBtn || !modal){ return; }
-
-    // Some pages wrap buttons in forms; ensure no submit side-effects
-    try { openBtn.setAttribute('type','button'); } catch(e){}
-
-    function addClass(el, cls){
-      if(!el) return;
-      if(el.classList) el.classList.add(cls);
-      else if((' ' + el.className + ' ').indexOf(' ' + cls + ' ') === -1) el.className += ' ' + cls;
-    }
-    function removeClass(el, cls){
-      if(!el) return;
-      if(el.classList) el.classList.remove(cls);
-      else el.className = (' ' + el.className + ' ').replace(' ' + cls + ' ', ' ').trim();
-    }
-
-    function open(){
-      addClass(modal, 'show');
-      modal.setAttribute('aria-hidden','false');
-      // 强兜底：即使样式没生效也直接显示
-      modal.style.display = 'flex';
-      addClass(document.body, 'modal-open');
-    }
-    function close(){
-      removeClass(modal, 'show');
-      modal.setAttribute('aria-hidden','true');
-      modal.style.display = 'none';
-      removeClass(document.body, 'modal-open');
-    }
-
-    openBtn.onclick = function(ev){
-      if(ev && ev.preventDefault) ev.preventDefault();
-      open();
+      toast('已复制：' + text);
+      return true;
+    }catch(e){
+      toast('复制失败，请手动复制：' + text);
       return false;
-    };
-
-    if(closeBtn){
-      closeBtn.onclick = function(ev){
-        if(ev && ev.preventDefault) ev.preventDefault();
-        close();
-        return false;
-      };
     }
+  }
 
-    // click on mask closes
-    modal.onclick = function(ev){
-      ev = ev || window.event;
-      var target = ev.target || ev.srcElement;
-      if(target === modal){ close(); }
-    };
+  function openNew(url){
+    window.open(url, '_blank', 'noopener');
+  }
 
-    // ESC closes
-    document.addEventListener('keydown', function(ev){
-      ev = ev || window.event;
-      var key = ev.key || ev.keyCode;
-      if((key === 'Escape' || key === 27) && ((' ' + modal.className + ' ').indexOf(' show ') !== -1)){
-        close();
-      }
-    });
-
-    // ensure modal is above any fixed footer
-    modal.style.zIndex = '2000';
+  // --- buy buttons ---
+  $('#buyBtn')?.addEventListener('click', (e)=>{ e.preventDefault(); openNew(BUY_URL); });
+  $('#mobileBuyBtn')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    if(e.target.closest?.('.mobile-wechat')){
+      $('#copyWeChat')?.click();
+      return;
+    }
+    openNew(BUY_URL);
   });
-})();
-</script>
+  $('#stickyBuyBtn')?.addEventListener('click', (e)=>{ e.preventDefault(); openNew(BUY_URL); });
 
+  // --- bottom copy wx ---
+  $('#copyWeChat')?.addEventListener('click', async (e)=>{ e.preventDefault(); await copyToClipboard(WX_ID); });
 
-
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
+  // ========== Modal helpers ==========
+  function openMask(mask){
+    if(!mask) return;
+    mask.classList.add('show');
+    mask.setAttribute('aria-hidden','false');
+    // focus dialog if present
+    const dlg = mask.querySelector('[role="dialog"]');
+    setTimeout(()=> dlg?.focus?.(), 0);
+    document.body.classList.add('modal-open');
+  }
+  function hasOpenMask(){
+    return !!document.querySelector('.modal-mask.show, .proof-mask.show, .rs-mask.show, .rg-mask.show, .carousel-modal.show');
+  }
+  function closeMask(mask){
+    if(!mask) return;
+    mask.classList.remove('show');
+    mask.setAttribute('aria-hidden','true');
+    if(!hasOpenMask()){
+      document.body.classList.remove('modal-open');
+    }
+  }
+  function bindMaskClose(mask, closeSelectors){
+    if(!mask) return;
+    // click mask background
+    mask.addEventListener('click', (e)=>{
+      if(e.target === mask) closeMask(mask);
     });
-});
+    // close buttons
+    closeSelectors.forEach(sel=>{
+      mask.querySelector(sel)?.addEventListener('click', (e)=>{ e.preventDefault(); closeMask(mask); });
+    });
+    // ESC
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape' && mask.classList.contains('show')) closeMask(mask);
+    });
+  }
 
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-(function() {
-  const buyBtns = document.querySelectorAll('.ai-buy');
-
-  buyBtns.forEach(btn => {
-    btn.addEventListener('click', function() {
+  // ========== Recharge System Modal ==========
+  const rsMask = $('#rechargeSystemModal');
+  $('#rechargeBtn')?.addEventListener('click', (e)=>{ e.preventDefault(); window.open('https://ow800.com/auto','_blank','noopener'); });
+  bindMaskClose(rsMask, ['#rsClose', '#rsCancel']);
+  $$('.rs-option', rsMask || document).forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.preventDefault();
       const url = btn.getAttribute('data-url');
-      if (url) {
-        window.open(url, '_blank', 'noopener');
+      if(url) openNew(url);
+      closeMask(rsMask);
+    });
+  });
+
+  // ========== AI Modal ==========
+  const aiMask = $('#aiModal');
+  $('#openAiModal')?.addEventListener('click', (e)=>{ e.preventDefault(); openMask(aiMask); });
+  bindMaskClose(aiMask, ['#aiClose']);
+  // ai buy links
+  $$('.ai-buy', aiMask || document).forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const url = btn.getAttribute('data-url');
+      if(url) openNew(url);
+    });
+  });
+  $('#aiCopyWx')?.addEventListener('click', async (e)=>{ e.preventDefault(); await copyToClipboard(WX_ID); });
+  $('#aiGoGpt')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    closeMask(aiMask);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // ========== Feedback Modal ==========
+  const feedbackMask = $('#feedbackModal');
+  bindMaskClose(feedbackMask, ['#feedbackClose', '#feedbackBack']);
+  $('#feedbackCopyWx')?.addEventListener('click', async (e)=>{
+    e.preventDefault();
+    await copyToClipboard(WX_ID);
+  });
+  $('.mobile-more-feedback')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    openMask(feedbackMask);
+  });
+
+  // ========== Why/Flow/Support Modal (tabs) ==========
+  const whyMask = $('#whyModal');
+  function showWhyTab(tab){
+    if(!whyMask) return;
+    const tabs = ['price','flow','support'];
+    tabs.forEach(t=>{
+      const btn = $('#tabbtn-' + t, whyMask);
+      const panel = $('#tab-' + t, whyMask);
+      const active = (t === tab);
+      btn?.classList.toggle('active', active);
+      btn?.setAttribute('aria-selected', active ? 'true' : 'false');
+      if(panel){
+        if(active){
+          panel.classList.add('active');
+          panel.hidden = false;
+        }else{
+          panel.classList.remove('active');
+          panel.hidden = true;
+        }
       }
     });
-  });
-})();
-</script>
+  }
+  function openWhy(tab='price'){
+    showWhyTab(tab);
+    openMask(whyMask);
+  }
+  // Openers
+  $('#openWhyFooter')?.addEventListener('click', (e)=>{ e.preventDefault(); openWhy('price'); });
+  $('#openFlow')?.addEventListener('click', (e)=>{ e.preventDefault(); openWhy('flow'); });
 
-
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
+  // Tabs click
+  $$('.help-tabs [data-tab]', whyMask || document).forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      showWhyTab(btn.getAttribute('data-tab') || 'price');
     });
-});
+  });
 
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
+  // Close
+  bindMaskClose(whyMask, ['#whyClose']);
 
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
+  // why modal buy buttons
+  ['#modalBuyP','#modalBuyF','#modalBuyS'].forEach(sel=>{
+    $(sel, whyMask || document)?.addEventListener('click', (e)=>{ e.preventDefault(); openNew(BUY_URL); });
+  });
 
-</script>
+  // why modal copy wx buttons (with toast)
+  ['#modalCopyWxP','#modalCopyWxF','#modalCopyWxS'].forEach(sel=>{
+    $(sel, whyMask || document)?.addEventListener('click', async (e)=>{ e.preventDefault(); await copyToClipboard(WX_ID); });
+  });
 
-<script>
+  // “查看平台通知 / 展开说明” -> 打开平台通知弹窗（officialProof）
+  const proofMask = $('#officialProof');
+  if(proofMask){
+    bindMaskClose(proofMask, ['#proofClose']);
+    $('#openOfficialProof')?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      openMask(proofMask);
+    });
+
+    // 平台通知弹窗：复制微信 / 去购买
+    $('#proofCopyWx', proofMask)?.addEventListener('click', async (e)=>{
+      e.preventDefault();
+      await copyToClipboard(WX_ID);
+    });
+    $('#proofGoBuy', proofMask)?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      openNew(BUY_URL);
+    });
+
+    // 平台通知截图：打开/关闭
+    const imgWrap = $('#proofImgWrap', proofMask);
+    const openImgBtn = $('#toggleProofImg', proofMask);
+    const closeImgBtn = $('#imgClose', proofMask);
+    const showImg = ()=>{ if(imgWrap){ imgWrap.classList.add('show'); } };
+    const hideImg = ()=>{ if(imgWrap){ imgWrap.classList.remove('show'); } };
+    openImgBtn?.addEventListener('click', (e)=>{ e.preventDefault(); showImg(); });
+    closeImgBtn?.addEventListener('click', (e)=>{ e.preventDefault(); hideImg(); });
+    // 点击遮罩区域（非图片）也关闭
+    imgWrap?.addEventListener('click', (e)=>{
+      if(e.target === imgWrap) hideImg();
+    });
+  } else {
+    // 如果没有平台通知弹窗 DOM，则保持静默
+    $('#openOfficialProof')?.addEventListener('click', (e)=>{
+      e.preventDefault();
+      toast('暂无更多说明');
+    });
+  }
+
+})();
+
+// 轮播功能
 (function() {
-  // Function to show corresponding content based on button clicked
-  const priceButton = document.querySelector('button#priceButton');
-  const flowButton = document.querySelector('button#flowButton');
-  const wechatButton = document.querySelector('button#wechatButton');
+  const carouselModal = document.getElementById('carouselModal');
+  const carouselClose = document.getElementById('carouselClose');
+  const carouselPrev = document.getElementById('carouselPrev');
+  const carouselNext = document.getElementById('carouselNext');
+  const slides = document.querySelectorAll('.carousel-slide');
+  const dots = document.querySelectorAll('.carousel-dot');
+  const thumbnails = document.querySelectorAll('.case-thumbnail');
 
-  const priceContent = document.querySelector('.price-content');
-  const flowContent = document.querySelector('.flow-content');
-  const wechatContent = document.querySelector('.wechat-content');
+  let currentSlide = 1;
+  const totalSlides = slides.length;
 
-  // Function to hide all sections
-  function hideAllSections() {
-    priceContent.style.display = 'none';
-    flowContent.style.display = 'none';
-    wechatContent.style.display = 'none';
+  // 显示指定幻灯片
+  function showSlide(n) {
+    if (n < 1) n = totalSlides;
+    if (n > totalSlides) n = 1;
+
+    currentSlide = n;
+
+    // 隐藏所有幻灯片
+    slides.forEach(slide => {
+      slide.classList.remove('active');
+    });
+
+    // 显示当前幻灯片
+    document.querySelector(`.carousel-slide[data-slide="${n}"]`)?.classList.add('active');
+
+    // 更新指示点
+    dots.forEach(dot => {
+      dot.classList.remove('active');
+      if (parseInt(dot.getAttribute('data-slide')) === n) {
+        dot.classList.add('active');
+      }
+    });
   }
 
-  // Show content when button is clicked
-  priceButton && priceButton.addEventListener('click', function() {
-    hideAllSections();
-    priceContent.style.display = 'block';
+  // 下一张
+  function nextSlide() {
+    showSlide(currentSlide + 1);
+  }
+
+  // 上一张
+  function prevSlide() {
+    showSlide(currentSlide - 1);
+  }
+
+  // 打开轮播模态框
+  function openCarousel(slideNumber = 1) {
+    if (!carouselModal) return;
+    carouselModal.classList.add('show');
+    document.body.classList.add('modal-open');
+    showSlide(slideNumber);
+  }
+
+  // 关闭轮播模态框
+  function closeCarousel() {
+    carouselModal.classList.remove('show');
+    document.body.classList.remove('modal-open');
+  }
+
+  // 缩略图点击事件
+  thumbnails.forEach(thumb => {
+    thumb.addEventListener('click', () => {
+      const slideNumber = parseInt(thumb.getAttribute('data-slide'));
+      openCarousel(slideNumber);
+    });
+  });
+  // 导航按钮事件
+  carouselPrev?.addEventListener('click', prevSlide);
+  carouselNext?.addEventListener('click', nextSlide);
+  carouselClose?.addEventListener('click', closeCarousel);
+
+  // 指示点点击事件
+  dots.forEach(dot => {
+    dot.addEventListener('click', () => {
+      const slideNumber = parseInt(dot.getAttribute('data-slide'));
+      showSlide(slideNumber);
+    });
   });
 
-  flowButton && flowButton.addEventListener('click', function() {
-    hideAllSections();
-    flowContent.style.display = 'block';
+  // 键盘导航
+  document.addEventListener('keydown', (e) => {
+    if (!carouselModal.classList.contains('show')) return;
+
+    if (e.key === 'Escape') {
+      closeCarousel();
+    } else if (e.key === 'ArrowLeft') {
+      prevSlide();
+    } else if (e.key === 'ArrowRight') {
+      nextSlide();
+    }
   });
 
-  wechatButton && wechatButton.addEventListener('click', function() {
-    hideAllSections();
-    wechatContent.style.display = 'block';
-  });
-
-  // Handle copy to clipboard for WeChat button
-  const copyWxBtn = document.getElementById('aiCopyWx');
-  if(copyWxBtn) {
-    copyWxBtn.addEventListener('click', function() {
-      const wx = 'Jiage01888';  // Replace this with actual WeChat ID
-      navigator.clipboard.writeText(wx).then(function() {
-        copyWxBtn.textContent = '已复制';
-        setTimeout(function() {
-          copyWxBtn.textContent = '复制微信';
-        }, 1500);
-      });
-    });
-  }
-})();
-</script>
-
-
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-(function() {
-  const priceButton = document.getElementById('priceButton');
-  const flowButton = document.getElementById('flowButton');
-  const wechatButton = document.getElementById('wechatButton');
-
-  const priceContent = document.getElementById('price-content');
-  const flowContent = document.getElementById('flow-content');
-  const wechatContent = document.getElementById('wechat-content');
-
-  function hideAllSections() {
-    priceContent.style.display = 'none';
-    flowContent.style.display = 'none';
-    wechatContent.style.display = 'none';
-  }
-
-  // Hide all sections initially
-  hideAllSections();
-
-  // Show content when button is clicked
-  if(priceButton) {
-    priceButton.addEventListener('click', function() {
-      hideAllSections();
-      priceContent.style.display = 'block';
-    });
-  }
-
-  if(flowButton) {
-    flowButton.addEventListener('click', function() {
-      hideAllSections();
-      flowContent.style.display = 'block';
-    });
-  }
-
-  if(wechatButton) {
-    wechatButton.addEventListener('click', function() {
-      hideAllSections();
-      wechatContent.style.display = 'block';
-    });
-  }
-
-  // Handle copy to clipboard for WeChat button
-  const copyWxBtn = document.getElementById('aiCopyWx');
-  if(copyWxBtn) {
-    copyWxBtn.addEventListener('click', function() {
-      const wx = 'Jiage01888';  // Replace this with actual WeChat ID
-      navigator.clipboard.writeText(wx).then(function() {
-        copyWxBtn.textContent = '已复制';
-        setTimeout(function() {
-          copyWxBtn.textContent = '复制微信';
-        }, 1500);
-      });
-    });
-  }
-})();
-</script>
-
-
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-(function() {
-  const priceButton = document.getElementById('priceButton');
-  const flowButton = document.getElementById('flowButton');
-  const wechatButton = document.getElementById('wechatButton');
-
-  const priceContent = document.getElementById('price-content');
-  const flowContent = document.getElementById('flow-content');
-  const wechatContent = document.getElementById('wechat-content');
-
-  // Function to hide all sections
-  function hideAllSections() {
-    priceContent.style.display = 'none';
-    flowContent.style.display = 'none';
-    wechatContent.style.display = 'none';
-  }
-
-  // Show content when a button is clicked
-  priceButton && priceButton.addEventListener('click', function() {
-    hideAllSections();
-    priceContent.style.display = 'block';
-  });
-
-  flowButton && flowButton.addEventListener('click', function() {
-    hideAllSections();
-    flowContent.style.display = 'block';
-  });
-
-  wechatButton && wechatButton.addEventListener('click', function() {
-    hideAllSections();
-    wechatContent.style.display = 'block';
+  // 点击模态框背景关闭
+  carouselModal?.addEventListener('click', (e) => {
+    if (e.target === carouselModal) {
+      closeCarousel();
+    }
   });
 })();
-</script>
-
-
-
-<script>
-// Function to hide all content sections
-function hideAllSections() {
-    const sections = document.querySelectorAll('.content-section');
-    sections.forEach(section => section.style.display = 'none');
-}
-
-// Show content based on button click
-document.getElementById('priceButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('price-content').style.display = 'block';
-});
-
-document.getElementById('flowButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('flow-content').style.display = 'block';
-});
-
-document.getElementById('wechatButton').addEventListener('click', function() {
-    hideAllSections();
-    document.getElementById('wechat-content').style.display = 'block';
-});
-
-// Handle copy WeChat ID
-document.getElementById('copyWeChat').addEventListener('click', function() {
-    const wxId = 'Jiage01888'; // Replace with actual ID
-    navigator.clipboard.writeText(wxId).then(() => {
-        alert('微信号已复制！');
-    });
-});
-
-// Handle modal opening and closing
-document.getElementById('openPriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.add('show');
-});
-
-document.getElementById('closePriceModal').addEventListener('click', function() {
-    document.getElementById('priceModal').classList.remove('show');
-});
-
-</script>
-
-<script>
-(function() {
-  const priceButton = document.getElementById('priceButton');
-  const flowButton = document.getElementById('flowButton');
-  const wechatButton = document.getElementById('wechatButton');
-
-  const priceContent = document.getElementById('price-content');
-  const flowContent = document.getElementById('flow-content');
-  const wechatContent = document.getElementById('wechat-content');
-
-  // Function to hide all sections
-  function hideAllSections() {
-    priceContent.style.display = 'none';
-    flowContent.style.display = 'none';
-    wechatContent.style.display = 'none';
-  }
-
-  // Show content when button is clicked
-  if(priceButton) priceButton.addEventListener('click', function() { hideAllSections(); priceContent.style.display = 'block'; });
-  if(flowButton) flowButton.addEventListener('click', function() { hideAllSections(); flowContent.style.display = 'block'; });
-  if(wechatButton) wechatButton.addEventListener('click', function() { hideAllSections(); wechatContent.style.display = 'block'; });
-})();
-</script>
-
-</body>
+</script></body>
 </html>
