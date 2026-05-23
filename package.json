@@ -1,0 +1,8 @@
+{
+  "name": "gptccc",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "new:blog": "node scripts/new-blog-post.js"
+  }
+}
