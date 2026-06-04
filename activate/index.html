@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>站内充值中心｜嘉哥 GPTC.cc</title>
+  <meta name="description" content="嘉哥 GPTC.cc 站内充值中心：先验证卡密，再粘贴充值密钥，最后确认充值到自己的 ChatGPT 账号。">
+  <link rel="canonical" href="https://www.gptc.cc/activate/">
+  <meta property="og:title" content="站内充值中心｜嘉哥 GPTC.cc">
+  <meta property="og:description" content="已购买卡密后，直接在嘉哥 GPTC.cc 站内完成账号识别与充值确认。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.gptc.cc/activate/">
+  <style>
+    :root {
+      --bg: #f5f8fc;
+      --panel: #ffffff;
+      --line: #dbe4ee;
+      --text: #172033;
+      --muted: #64748b;
+      --accent: #0f766e;
+      --accent-2: #14b8a6;
+      --brand-blue: #2563eb;
+      --brand-purple: #7c3aed;
+      --success: #16a34a;
+      --soft: #eef5ff;
+      --warning: #fff7ed;
+      --warning-line: #fdba74;
+      --shadow: 0 20px 48px rgba(15, 23, 42, 0.08);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.09), transparent 24%),
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 28%),
+        var(--bg);
+      min-height: 100vh;
+    }
+    a { color: inherit; }
+    .wrap { width: min(980px, calc(100% - 28px)); margin: 28px auto 48px; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .brand {
+      text-decoration: none;
+      font-weight: 950;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #0f172a;
+    }
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: #0f766e;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 950;
+    }
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .mini-btn {
+      text-decoration: none;
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      border: 1px solid var(--line);
+      color: #334155;
+      font-weight: 800;
+      font-size: 14px;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(37, 99, 235, 0.08));
+      border: 1px solid rgba(15, 118, 110, 0.14);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 28px 24px;
+      margin-bottom: 20px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: #ecfdf5;
+      color: #0f766e;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    h1 {
+      margin: 14px 0 10px;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 1.05;
+    }
+    .hero p {
+      margin: 0;
+      max-width: 780px;
+      color: #475569;
+      font-size: 17px;
+      line-height: 1.7;
+    }
+    .hero-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--line);
+      color: #334155;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      padding: 18px;
+      background: #fbfdff;
+      border-bottom: 1px solid var(--line);
+    }
+    .step {
+      border: 2px solid #d7e1f1;
+      border-radius: 16px;
+      background: #f8fbff;
+      min-height: 92px;
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      text-align: center;
+    }
+    .step.active { border-color: #4f8dff; background: #eef4ff; }
+    .step.done { border-color: #86efac; background: #f0fdf4; }
+    .num {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      color: #fff;
+      background: #cbd5e1;
+    }
+    .step.active .num { background: var(--brand-blue); }
+    .step.done .num { background: var(--success); }
+    .step strong { font-size: 17px; }
+    .step span { color: var(--muted); font-size: 13px; }
+    .content { padding: 24px; }
+    .stage { display: none; }
+    .stage.active { display: block; }
+    .notice {
+      margin-bottom: 20px;
+      padding: 16px 18px;
+      border-radius: 14px;
+      background: var(--soft);
+      border: 1px solid #bfdbfe;
+      color: #1e3a8a;
+    }
+    .notice strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 18px;
+    }
+    .field { display: grid; gap: 8px; }
+    .field label { font-size: 15px; font-weight: 800; }
+    .field small { color: var(--muted); line-height: 1.6; }
+    input, textarea {
+      width: 100%;
+      border: 1px solid #cdd9e8;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font: inherit;
+      color: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 220px; resize: vertical; line-height: 1.65; }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    button, .link-btn {
+      border: 0;
+      border-radius: 14px;
+      min-height: 48px;
+      padding: 0 20px;
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .primary { color: #fff; background: linear-gradient(135deg, var(--brand-blue), var(--brand-purple)); }
+    .secondary { color: #0f172a; background: #f8fafc; border: 1px solid var(--line); }
+    .green { color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+    .tip-box {
+      margin-top: 18px;
+      padding: 16px 18px;
+      border-radius: 14px;
+      background: var(--warning);
+      border: 1px solid var(--warning-line);
+      color: #9a3412;
+      line-height: 1.7;
+    }
+    .tip-box strong { display: block; margin-bottom: 6px; }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .info-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fbfdff;
+      padding: 18px;
+    }
+    .info-card h3 { margin: 0 0 12px; font-size: 20px; }
+    .kvs { display: grid; gap: 0; border-top: 1px solid var(--line); }
+    .kv {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .kv span:first-child { color: var(--muted); font-weight: 700; }
+    .checkbox {
+      margin-top: 16px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      color: #334155;
+    }
+    .checkbox input {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      padding: 0;
+    }
+    .progress {
+      margin-top: 12px;
+      padding: 16px 18px;
+      border-radius: 14px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+    .progress strong { display: block; margin-bottom: 4px; }
+    .result-ok {
+      border: 1px solid #bbf7d0;
+      background: #f0fdf4;
+      color: #166534;
+    }
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .foot {
+      margin-top: 16px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    @media (max-width: 860px) {
+      .two-col, .stepper { grid-template-columns: 1fr; }
+      .step { min-height: 78px; }
+      .content, .hero { padding: 20px; }
+      .kv { flex-direction: column; gap: 6px; }
+      .topbar { flex-direction: column; align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <a class="brand" href="/">
+        <span class="brand-mark">嘉</span>
+        <span>嘉哥 GPTC.cc</span>
+      </a>
+      <div class="top-actions">
+        <a class="mini-btn" href="/">返回开通首页</a>
+        <a class="mini-btn" href="https://fe.dtyuedan.cn/shop/jiage">先购买 Plus 卡密</a>
+      </div>
+    </div>
+
+    <section class="hero">
+      <span class="eyebrow">站内充值中心 · 不再跳到外部充值页</span>
+      <h1>ChatGPT Plus 站内自助充值</h1>
+      <p>先验证卡密，再登录 GPT 获取充值密钥，最后在嘉哥 GPTC.cc 站内确认充值。整个流程优先保持简洁、清楚、到账状态可查。</p>
+      <div class="hero-pills">
+        <span class="pill">充值到自己的 GPT 账号</span>
+        <span class="pill">无需提供账号密码</span>
+        <span class="pill">支付仍在原发卡网完成</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="stepper">
+        <div class="step active" id="step-1">
+          <div class="num">1</div>
+          <strong>验证卡密</strong>
+          <span>先确认卡密可用于当前产品</span>
+        </div>
+        <div class="step" id="step-2">
+          <div class="num">2</div>
+          <strong>获取密钥</strong>
+          <span>登录 GPT 后复制完整 JSON</span>
+        </div>
+        <div class="step" id="step-3">
+          <div class="num">3</div>
+          <strong>确认充值</strong>
+          <span>检查账号信息并提交任务</span>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="stage active" id="stage-1">
+          <div class="notice" id="step1Notice">
+            <strong>第 1 步：先验证卡密</strong>
+            这里会先校验卡密是否可用。验证通过后，再进入下一步获取充值密钥。
+          </div>
+          <div class="field">
+            <label for="cardInfo">验证卡密：卡密</label>
+            <input id="cardInfo" placeholder="请输入你购买后的 Plus 卡密">
+            <small>第一版优先支持 ChatGPT Plus 产品。卡密可用后，系统会继续识别账号信息。</small>
+          </div>
+          <div class="btn-row">
+            <button class="primary" type="button" id="verifyCardBtn" onclick="verifyCard()">验证卡密</button>
+            <a class="link-btn secondary" href="https://fe.dtyuedan.cn/shop/jiage">去购买卡密</a>
+          </div>
+        </div>
+
+        <div class="stage" id="stage-2">
+          <div class="notice" id="step2Notice">
+            <strong>第 2 步：获取充值密钥</strong>
+            先登录 GPT，再点击获取充值密钥，把返回的完整 JSON 全选复制回这里。
+          </div>
+          <div class="two-col">
+            <div>
+              <div class="field">
+                <label>操作步骤</label>
+                <div class="btn-row" style="margin-top:0">
+                  <a class="link-btn green" href="#" onclick="return false;">点我登录 GPT</a>
+                  <a class="link-btn primary" href="#" onclick="return false;">点我获取充值密钥</a>
+                </div>
+                <small>这两个按钮正式版会替换成你的真实链接。用户拿到返回值后，把完整 JSON 粘贴回来即可。</small>
+              </div>
+              <div class="field">
+                <label for="secretJson">请粘贴完整充值密钥（JSON）</label>
+                <textarea id="secretJson" placeholder='请粘贴类似 {"userEmail":"...","userGptToken":"...","fullAuthData":{...}} 的完整 JSON'></textarea>
+                <small>不要删减任何字段。系统会自动识别账号邮箱、账户 ID、计划类型和登录方式。</small>
+              </div>
+              <div class="btn-row">
+                <button class="secondary" type="button" onclick="goStep(1)">返回上一步</button>
+                <button class="primary" type="button" id="parseSecretBtn" onclick="parseSecret()">校验账号信息</button>
+              </div>
+            </div>
+            <div>
+              <div class="info-card">
+                <h3>这一页在做什么</h3>
+                <div class="kvs">
+                  <div class="kv"><span>输入</span><span>完整 JSON 密钥</span></div>
+                  <div class="kv"><span>识别</span><span>邮箱、昵称、账户类型</span></div>
+                  <div class="kv"><span>后端</span><span>校验后才允许确认充值</span></div>
+                </div>
+              </div>
+              <div class="tip-box">
+                <strong>嘉哥提示</strong>
+                这一页的设计重点是让用户不需要理解 token，只需要把系统返回的 JSON 完整复制回来。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage" id="stage-3">
+          <div class="notice" id="step3Notice">
+            <strong>第 3 步：确认充值</strong>
+            系统已经识别出账号信息。确认无误后，再提交充值任务到上游处理系统。
+          </div>
+          <div class="two-col">
+            <div class="info-card">
+              <h3>确认充值信息</h3>
+              <div class="kvs">
+                <div class="kv"><span>账号昵称</span><span id="confirmName">-</span></div>
+                <div class="kv"><span>账号邮箱</span><span id="confirmEmail">-</span></div>
+                <div class="kv"><span>账户 ID</span><span id="confirmAccountId">-</span></div>
+                <div class="kv"><span>账户类型</span><span id="confirmStructure">-</span></div>
+                <div class="kv"><span>账户计划</span><span id="confirmPlan">-</span></div>
+                <div class="kv"><span>登录方式</span><span id="confirmProvider">-</span></div>
+                <div class="kv"><span>密钥过期时间</span><span id="confirmExpires">-</span></div>
+                <div class="kv"><span>卡密</span><span id="confirmCard">-</span></div>
+                <div class="kv"><span>用户 ID</span><span id="confirmUserId">-</span></div>
+                <div class="kv"><span>产品类型</span><span>ChatGPT Plus（productId=3）</span></div>
+                <div class="kv"><span>来源站点</span><span id="confirmSource">gptc.cc</span></div>
+              </div>
+              <label class="checkbox">
+                <input type="checkbox" id="overwriteRecharge">
+                <span>覆盖充值<br><small>勾选后，即使账户当前已有 Plus，也继续充值并开启新的一个月。</small></span>
+              </label>
+              <div class="btn-row">
+                <button class="secondary" type="button" onclick="goStep(2)">返回修改</button>
+                <button class="green" type="button" id="confirmRechargeBtn" onclick="confirmRecharge()">确认充值</button>
+              </div>
+              <div class="progress" id="progressBox" style="display:none;">
+                <strong>任务已提交，正在处理中</strong>
+                系统正在向上游提交充值任务，请不要重复点击。
+              </div>
+              <div class="progress result-ok" id="resultBox" style="display:none;">
+                <strong>状态已更新</strong>
+                这里会展示最终结果。
+              </div>
+            </div>
+            <div>
+              <div class="info-card">
+                <h3>正式上线结构</h3>
+                <div class="kvs">
+                  <div class="kv"><span>当前页面</span><span>`/activate/`</span></div>
+                  <div class="kv"><span>接口前缀</span><span>`/api/recharge/*`</span></div>
+                  <div class="kv"><span>状态查询</span><span>`/api/recharge/status/:orderId`</span></div>
+                </div>
+              </div>
+              <div class="footer-note">
+                如果页面一直显示处理中，请不要连续重复提交。优先保存账号邮箱、卡密和页面提示，再联系客服协助核查。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <p class="foot">声明：本站为第三方数字服务平台，并非 OpenAI 或 ChatGPT 官方网站。页面中提及的产品名称仅用于说明服务适配对象。</p>
+  </div>
+
+  <script>
+    let currentOrderId = "";
+
+    async function postJson(url, payload) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      return response.json();
+    }
+
+    function setNotice(id, title, message, mode = "info") {
+      const el = document.getElementById(id);
+      el.classList.remove("result-ok");
+      el.style.background = "";
+      el.style.borderColor = "";
+      el.style.color = "";
+      if (mode === "success") {
+        el.classList.add("result-ok");
+      } else if (mode === "error") {
+        el.style.background = "#fff1f2";
+        el.style.borderColor = "#fda4af";
+        el.style.color = "#9f1239";
+      }
+      el.innerHTML = `<strong>${title}</strong>${message}`;
+    }
+
+    function goStep(step) {
+      document.querySelectorAll(".stage").forEach((node) => node.classList.remove("active"));
+      document.querySelectorAll(".step").forEach((node) => {
+        node.classList.remove("active");
+        node.classList.remove("done");
+      });
+      document.getElementById("stage-" + step).classList.add("active");
+      for (let i = 1; i <= 3; i += 1) {
+        const el = document.getElementById("step-" + i);
+        if (i < step) el.classList.add("done");
+        if (i === step) el.classList.add("active");
+      }
+    }
+
+    async function verifyCard() {
+      const cardInfo = document.getElementById("cardInfo").value.trim();
+      const button = document.getElementById("verifyCardBtn");
+      button.disabled = true;
+      button.textContent = "验证中...";
+      try {
+        const data = await postJson("/api/recharge/verify-card", { cardInfo });
+        const upstream = data.upstream?.data || data.upstream || {};
+        if (!data.success) {
+          setNotice("step1Notice", "卡密验证失败", data.message || "请检查卡密后重试。", "error");
+          return;
+        }
+        const pass = upstream.success !== false || upstream.errorCode !== 3000;
+        if (!pass) {
+          setNotice("step1Notice", "卡密不可用", upstream.message || "当前卡密无法用于充值。", "error");
+          return;
+        }
+        setNotice("step1Notice", "卡密验证通过", "卡密可继续使用，进入下一步获取充值密钥。", "success");
+        document.getElementById("confirmCard").textContent = cardInfo;
+        goStep(2);
+      } catch (error) {
+        setNotice("step1Notice", "卡密验证失败", error.message || "网络请求异常。", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "验证卡密";
+      }
+    }
+
+    async function parseSecret() {
+      const secretJsonText = document.getElementById("secretJson").value;
+      const button = document.getElementById("parseSecretBtn");
+      button.disabled = true;
+      button.textContent = "识别中...";
+      try {
+        const data = await postJson("/api/recharge/parse-secret", { secretJsonText });
+        if (!data.success) {
+          setNotice("step2Notice", "密钥识别失败", data.message || "请确认粘贴的是完整 JSON。", "error");
+          return;
+        }
+        document.getElementById("confirmName").textContent = data.data.userName || "-";
+        document.getElementById("confirmEmail").textContent = data.data.userEmail || "-";
+        document.getElementById("confirmAccountId").textContent = data.data.accountId || "-";
+        document.getElementById("confirmStructure").textContent = data.data.accountStructure || "-";
+        document.getElementById("confirmPlan").textContent = data.data.accountPlanType || "-";
+        document.getElementById("confirmProvider").textContent = data.data.authProvider || "-";
+        document.getElementById("confirmExpires").textContent = data.data.expires || "-";
+        document.getElementById("confirmUserId").textContent = data.data.userId || "-";
+        setNotice("step2Notice", "账号信息识别成功", `已识别账号邮箱：${data.data.userEmail}，账户计划：${data.data.accountPlanType || "-"}，可以进入确认充值。`, "success");
+        goStep(3);
+      } catch (error) {
+        setNotice("step2Notice", "密钥识别失败", error.message || "网络请求异常。", "error");
+      } finally {
+        button.disabled = false;
+        button.textContent = "校验账号信息";
+      }
+    }
+
+    async function confirmRecharge() {
+      const button = document.getElementById("confirmRechargeBtn");
+      const progressBox = document.getElementById("progressBox");
+      const resultBox = document.getElementById("resultBox");
+      const payload = {
+        cardInfo: document.getElementById("cardInfo").value.trim(),
+        secretJsonText: document.getElementById("secretJson").value,
+        productId: 3,
+        overwriteRecharge: document.getElementById("overwriteRecharge").checked,
+        siteSource: "gptc"
+      };
+      button.disabled = true;
+      button.textContent = "提交中...";
+      progressBox.style.display = "block";
+      resultBox.style.display = "none";
+      try {
+        const data = await postJson("/api/recharge/confirm", payload);
+        if (!data.success) {
+          setNotice("step3Notice", "充值提交失败", data.message || "请稍后重试。", "error");
+          progressBox.style.display = "none";
+          return;
+        }
+        currentOrderId = data.data.orderId;
+        progressBox.innerHTML = `<strong>任务已提交，正在处理中</strong>本地订单号：${data.data.orderId}<br>上游任务号：${data.data.taskId || "待返回"}<br>请不要重复点击，系统会自动查询状态。`;
+        pollStatus();
+      } catch (error) {
+        setNotice("step3Notice", "充值提交失败", error.message || "网络请求异常。", "error");
+        progressBox.style.display = "none";
+      } finally {
+        button.disabled = false;
+        button.textContent = "确认充值";
+      }
+    }
+
+    async function pollStatus() {
+      if (!currentOrderId) return;
+      const resultBox = document.getElementById("resultBox");
+      const progressBox = document.getElementById("progressBox");
+      try {
+        const response = await fetch(`/api/recharge/status/${encodeURIComponent(currentOrderId)}`);
+        const data = await response.json();
+        if (!data.success) return;
+        if (data.data.status === "processing" || data.data.status === "created") {
+          setTimeout(pollStatus, 3000);
+          return;
+        }
+        if (data.data.status === "success") {
+          resultBox.classList.add("result-ok");
+          resultBox.innerHTML = `<strong>充值成功</strong>${data.data.message || "上游已返回成功状态。"}<br>订单号：${data.data.orderId}`;
+        } else {
+          resultBox.classList.remove("result-ok");
+          resultBox.style.background = "#fff1f2";
+          resultBox.style.borderColor = "#fda4af";
+          resultBox.style.color = "#9f1239";
+          resultBox.innerHTML = `<strong>充值失败</strong>${data.data.message || "上游返回失败状态。"}<br>订单号：${data.data.orderId}`;
+        }
+        progressBox.style.display = "none";
+        resultBox.style.display = "block";
+      } catch {
+        setTimeout(pollStatus, 4000);
+      }
+    }
+  </script>
+</body>
+</html>
