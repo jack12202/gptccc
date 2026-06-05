@@ -36,14 +36,16 @@ jobs:
       - name: Verify production homepage
         run: |
           curl -fsSL https://gptc.cc/ > /tmp/gptccc-home.html
-          grep -q "购买 Plus 卡密" /tmp/gptccc-home.html
+          grep -q '<link rel="canonical" href="https://gptc.cc/">' /tmp/gptccc-home.html
+          grep -q '<title>ChatGPT Plus / Pro 充值升级服务 | GPTC.cc</title>' /tmp/gptccc-home.html
 
       - name: Verify blog index
         run: |
           curl -fsSL https://gptc.cc/blog/ > /tmp/gptccc-blog.html
-          grep -q "<title>" /tmp/gptccc-blog.html
+          grep -q '<link rel="canonical" href="https://gptc.cc/blog/">' /tmp/gptccc-blog.html
+          grep -q '<title>GPTC.cc 充值升级指南｜Plus / Pro 开通、支付失败、续费失败</title>' /tmp/gptccc-blog.html
 
       - name: Verify activate page
         run: |
           curl -fsSL https://gptc.cc/activate/ > /tmp/gptccc-activate.html
-          grep -q "站内充值中心" /tmp/gptccc-activate.html
+          grep -q '<title>站内充值中心｜嘉哥 GPTC.cc</title>' /tmp/gptccc-activate.html
