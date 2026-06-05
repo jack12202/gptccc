@@ -127,8 +127,8 @@ class PanelClient {
     if (result?.data?.token) {
       this.token = result.data.token;
     }
-    if (!this.token) {
-      throw new Error(`1Panel login did not return a token: ${JSON.stringify(result)}`);
+    if (!this.token && this.cookies.size === 0) {
+      throw new Error(`1Panel login did not return session credentials: ${JSON.stringify(result)}`);
     }
   }
 
