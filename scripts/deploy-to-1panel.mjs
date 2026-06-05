@@ -177,7 +177,8 @@ async function main() {
   const staticFiles = [
     "index.html",
     "robots.txt",
-    "sitemap.xml"
+    "sitemap.xml",
+    "activate/index.html"
   ].map(file => path.join(repoRoot, file));
 
   const blogFiles = walkTextFiles(path.join(repoRoot, "blog"));

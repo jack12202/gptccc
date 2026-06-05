@@ -226,6 +226,11 @@
       align-items: center;
       justify-content: center;
     }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      filter: grayscale(0.1);
+    }
     .primary { color: #fff; background: linear-gradient(135deg, var(--brand-blue), var(--brand-purple)); }
     .secondary { color: #0f172a; background: #f8fafc; border: 1px solid var(--line); }
     .green { color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
@@ -380,10 +385,10 @@
               <div class="field">
                 <label>操作步骤</label>
                 <div class="btn-row" style="margin-top:0">
-                  <a class="link-btn green" href="#" onclick="return false;">点我登录 GPT</a>
-                  <a class="link-btn primary" href="#" onclick="return false;">点我获取充值密钥</a>
+                  <a class="link-btn green" href="https://chatgpt.com/auth/login" target="_blank" rel="noopener noreferrer">点我登录 GPT</a>
+                  <a class="link-btn primary" href="https://chatgpt.com/api/auth/session" target="_blank" rel="noopener noreferrer">点我获取充值密钥</a>
                 </div>
-                <small>这两个按钮正式版会替换成你的真实链接。用户拿到返回值后，把完整 JSON 粘贴回来即可。</small>
+                <small>请先登录 GPT，再打开充值密钥页面，把返回的完整 JSON 全选复制回来。</small>
               </div>
               <div class="field">
                 <label for="secretJson">请粘贴完整充值密钥（JSON）</label>
@@ -397,16 +402,16 @@
             </div>
             <div>
               <div class="info-card">
-                <h3>这一页在做什么</h3>
+                <h3>操作说明</h3>
                 <div class="kvs">
                   <div class="kv"><span>输入</span><span>完整 JSON 密钥</span></div>
                   <div class="kv"><span>识别</span><span>邮箱、昵称、账户类型</span></div>
-                  <div class="kv"><span>后端</span><span>校验后才允许确认充值</span></div>
+                  <div class="kv"><span>下一步</span><span>确认账号信息后再充值</span></div>
                 </div>
               </div>
               <div class="tip-box">
-                <strong>嘉哥提示</strong>
-                这一页的设计重点是让用户不需要理解 token，只需要把系统返回的 JSON 完整复制回来。
+                <strong>复制提醒</strong>
+                请把返回内容完整复制回来，不要手动删减、改写或只复制其中一部分。
               </div>
             </div>
           </div>
@@ -415,31 +420,23 @@
         <div class="stage" id="stage-3">
           <div class="notice" id="step3Notice">
             <strong>第 3 步：确认充值</strong>
-            系统已经识别出账号信息。确认无误后，再提交充值任务到上游处理系统。
+            请确认邮箱和卡密无误，再提交充值任务。
           </div>
           <div class="two-col">
             <div class="info-card">
               <h3>确认充值信息</h3>
               <div class="kvs">
-                <div class="kv"><span>账号昵称</span><span id="confirmName">-</span></div>
-                <div class="kv"><span>账号邮箱</span><span id="confirmEmail">-</span></div>
-                <div class="kv"><span>账户 ID</span><span id="confirmAccountId">-</span></div>
-                <div class="kv"><span>账户类型</span><span id="confirmStructure">-</span></div>
-                <div class="kv"><span>账户计划</span><span id="confirmPlan">-</span></div>
-                <div class="kv"><span>登录方式</span><span id="confirmProvider">-</span></div>
-                <div class="kv"><span>密钥过期时间</span><span id="confirmExpires">-</span></div>
-                <div class="kv"><span>卡密</span><span id="confirmCard">-</span></div>
-                <div class="kv"><span>用户 ID</span><span id="confirmUserId">-</span></div>
-                <div class="kv"><span>产品类型</span><span>ChatGPT Plus（productId=3）</span></div>
-                <div class="kv"><span>来源站点</span><span id="confirmSource">gptc.cc</span></div>
+                <div class="kv"><span>账号信息</span><span id="confirmEmail">-</span></div>
+                <div class="kv"><span>充值卡密</span><span id="confirmCard">-</span></div>
+                <div class="kv"><span>充值通道</span><span id="confirmChannel">通道一</span></div>
               </div>
               <label class="checkbox">
-                <input type="checkbox" id="overwriteRecharge">
-                <span>覆盖充值<br><small>勾选后，即使账户当前已有 Plus，也继续充值并开启新的一个月。</small></span>
+                <input type="checkbox" id="overwriteRecharge" onchange="updateConfirmButtonState()">
+                <span>我确认以上信息无误，同意进行充值操作<br><small>如需续充已有 Plus，可保持勾选后继续提交。</small></span>
               </label>
               <div class="btn-row">
                 <button class="secondary" type="button" onclick="goStep(2)">返回修改</button>
-                <button class="green" type="button" id="confirmRechargeBtn" onclick="confirmRecharge()">确认充值</button>
+                <button class="green" type="button" id="confirmRechargeBtn" onclick="confirmRecharge()" disabled>确认充值</button>
               </div>
               <div class="progress" id="progressBox" style="display:none;">
                 <strong>任务已提交，正在处理中</strong>
@@ -452,11 +449,11 @@
             </div>
             <div>
               <div class="info-card">
-                <h3>正式上线结构</h3>
+                <h3>提交前提醒</h3>
                 <div class="kvs">
-                  <div class="kv"><span>当前页面</span><span>`/activate/`</span></div>
-                  <div class="kv"><span>接口前缀</span><span>`/api/recharge/*`</span></div>
-                  <div class="kv"><span>状态查询</span><span>`/api/recharge/status/:orderId`</span></div>
+                  <div class="kv"><span>请确认</span><span>邮箱与卡密无误</span></div>
+                  <div class="kv"><span>提交后</span><span>系统会自动查询充值状态</span></div>
+                  <div class="kv"><span>如遇异常</span><span>保留页面提示便于核查</span></div>
                 </div>
               </div>
               <div class="footer-note">
@@ -472,7 +469,9 @@
   </div>
 
   <script>
-    let currentOrderId = "";
+    let currentTaskId = "";
+    let currentProductId = 3;
+    let currentParsedSecret = null;
 
     async function postJson(url, payload) {
       const response = await fetch(url, {
@@ -513,6 +512,95 @@
       }
     }
 
+    function mapCardVerifyMessage(upstream) {
+      const code = upstream?.message || "";
+      if (code === "CARD_NOT_FOUND") return "卡密不存在，请检查后重新输入。";
+      if (code === "CARD_ALREADY_USED") return "这张卡密已经使用过了，请更换其他卡密。";
+      if (code === "CARD_EXPIRED") return "这张卡密已过期，请联系处理。";
+      if (code === "CARD_DISABLED") return "这张卡密当前已被停用，请联系处理。";
+      if (code === "SYSTEM_BUSY") return "系统繁忙，请稍后再试。";
+      if (typeof upstream?.message === "string" && upstream.message.trim()) return upstream.message;
+      return "当前卡密无法用于充值。";
+    }
+
+    function mapRechargeMessage(message, status) {
+      const code = typeof message === "string" ? message.trim() : "";
+      if (code === "SYSTEM_BUSY") return "系统繁忙，请稍后再试。";
+      if (code === "TASK_NOT_FOUND") return "没有查到这笔充值任务，请稍后刷新重试。";
+      if (code === "CARD_ALREADY_USED") return "这张卡密已经使用过了，请更换其他卡密。";
+      if (code === "CARD_NOT_FOUND") return "卡密不存在，请检查后重新输入。";
+      if (code === "ACCOUNT_VERIFY_FAILED") return "账号校验失败，请重新获取充值密钥后再试。";
+      if (code === "ACCOUNT_NOT_MATCH") return "账号信息不匹配，请重新登录 GPT 后获取新的充值密钥。";
+      if (code === "RECHARGE_FAILED") return "充值失败，请稍后重试或联系客服核查。";
+      if (code === "processing" || status === "processing") return "充值任务已提交，系统正在处理中，请稍候。";
+      if (code === "success" || status === "success") return "充值成功，系统已返回成功结果。";
+      if (code === "failed" || status === "failed") return "充值失败，请稍后重试或联系客服核查。";
+      if (code) return code;
+      if (status === "success") return "充值成功，系统已返回成功结果。";
+      if (status === "failed") return "充值失败，请稍后重试或联系客服核查。";
+      return "系统正在处理中，请稍候。";
+    }
+
+    function setTextIfPresent(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value || "-";
+    }
+
+    function updateConfirmButtonState() {
+      const checkbox = document.getElementById("overwriteRecharge");
+      const button = document.getElementById("confirmRechargeBtn");
+      if (!checkbox || !button) return;
+      button.disabled = !checkbox.checked;
+    }
+
+    function parseSecretPayload(secretJsonText) {
+      let payload;
+      try {
+        payload = JSON.parse(secretJsonText);
+      } catch {
+        return { ok: false, message: "充值密钥不是合法 JSON，请完整复制后重试。" };
+      }
+      if (!payload || typeof payload !== "object") {
+        return { ok: false, message: "充值密钥内容无效，请重新获取后再试。" };
+      }
+      const user = payload.user && typeof payload.user === "object" ? payload.user : {};
+      const account = payload.account && typeof payload.account === "object" ? payload.account : {};
+      const userEmail = typeof payload.userEmail === "string" && payload.userEmail.trim()
+        ? payload.userEmail.trim()
+        : typeof user.email === "string" && user.email.trim()
+          ? user.email.trim()
+          : "";
+      const userGptToken = typeof payload.userGptToken === "string" && payload.userGptToken.trim()
+        ? payload.userGptToken.trim()
+        : typeof payload.accessToken === "string" && payload.accessToken.trim()
+          ? payload.accessToken.trim()
+          : "";
+      const fullAuthData = payload.fullAuthData && typeof payload.fullAuthData === "object"
+        ? payload.fullAuthData
+        : payload;
+      if (!userEmail) {
+        return { ok: false, message: "充值密钥缺少账号邮箱，请重新获取后再试。" };
+      }
+      if (!userGptToken) {
+        return { ok: false, message: "充值密钥缺少访问令牌，请重新获取后再试。" };
+      }
+      return {
+        ok: true,
+        data: {
+          userEmail,
+          userGptToken,
+          fullAuthData,
+          userName: typeof user.name === "string" ? user.name : "",
+          userId: typeof user.id === "string" ? user.id : "",
+          accountId: typeof account.id === "string" ? account.id : "",
+          accountPlanType: typeof account.planType === "string" ? account.planType : "",
+          accountStructure: typeof account.structure === "string" ? account.structure : "",
+          authProvider: typeof payload.authProvider === "string" ? payload.authProvider : "",
+          expires: typeof payload.expires === "string" ? payload.expires : ""
+        }
+      };
+    }
+
     async function verifyCard() {
       const cardInfo = document.getElementById("cardInfo").value.trim();
       const button = document.getElementById("verifyCardBtn");
@@ -520,16 +608,17 @@
       button.textContent = "验证中...";
       try {
         const data = await postJson("/api/recharge/verify-card", { cardInfo });
-        const upstream = data.upstream?.data || data.upstream || {};
+        const upstream = data.data || data.upstream?.data || data.upstream || {};
         if (!data.success) {
           setNotice("step1Notice", "卡密验证失败", data.message || "请检查卡密后重试。", "error");
           return;
         }
-        const pass = upstream.success !== false || upstream.errorCode !== 3000;
+        const pass = upstream.success === true;
         if (!pass) {
-          setNotice("step1Notice", "卡密不可用", upstream.message || "当前卡密无法用于充值。", "error");
+          setNotice("step1Notice", "卡密不可用", mapCardVerifyMessage(upstream), "error");
           return;
         }
+        currentProductId = Number(upstream.productId || 3);
         setNotice("step1Notice", "卡密验证通过", "卡密可继续使用，进入下一步获取充值密钥。", "success");
         document.getElementById("confirmCard").textContent = cardInfo;
         goStep(2);
@@ -547,20 +636,20 @@
       button.disabled = true;
       button.textContent = "识别中...";
       try {
-        const data = await postJson("/api/recharge/parse-secret", { secretJsonText });
-        if (!data.success) {
-          setNotice("step2Notice", "密钥识别失败", data.message || "请确认粘贴的是完整 JSON。", "error");
+        const result = parseSecretPayload(secretJsonText);
+        if (!result.ok) {
+          currentParsedSecret = null;
+          setNotice("step2Notice", "密钥识别失败", result.message, "error");
           return;
         }
-        document.getElementById("confirmName").textContent = data.data.userName || "-";
-        document.getElementById("confirmEmail").textContent = data.data.userEmail || "-";
-        document.getElementById("confirmAccountId").textContent = data.data.accountId || "-";
-        document.getElementById("confirmStructure").textContent = data.data.accountStructure || "-";
-        document.getElementById("confirmPlan").textContent = data.data.accountPlanType || "-";
-        document.getElementById("confirmProvider").textContent = data.data.authProvider || "-";
-        document.getElementById("confirmExpires").textContent = data.data.expires || "-";
-        document.getElementById("confirmUserId").textContent = data.data.userId || "-";
-        setNotice("step2Notice", "账号信息识别成功", `已识别账号邮箱：${data.data.userEmail}，账户计划：${data.data.accountPlanType || "-"}，可以进入确认充值。`, "success");
+        currentParsedSecret = result.data;
+        const checkbox = document.getElementById("overwriteRecharge");
+        if (checkbox) checkbox.checked = false;
+        updateConfirmButtonState();
+        setTextIfPresent("confirmEmail", result.data.userEmail);
+        setTextIfPresent("confirmCard", document.getElementById("cardInfo").value.trim());
+        setTextIfPresent("confirmChannel", "通道一");
+        setNotice("step2Notice", "账号信息识别成功", `已识别账号邮箱：${result.data.userEmail}，账户计划：${result.data.accountPlanType || "-"}，可以进入确认充值。`, "success");
         goStep(3);
       } catch (error) {
         setNotice("step2Notice", "密钥识别失败", error.message || "网络请求异常。", "error");
@@ -574,12 +663,16 @@
       const button = document.getElementById("confirmRechargeBtn");
       const progressBox = document.getElementById("progressBox");
       const resultBox = document.getElementById("resultBox");
+      if (!currentParsedSecret) {
+        setNotice("step3Notice", "充值提交失败", "请先返回上一步校验账号信息。", "error");
+        return;
+      }
       const payload = {
         cardInfo: document.getElementById("cardInfo").value.trim(),
-        secretJsonText: document.getElementById("secretJson").value,
-        productId: 3,
-        overwriteRecharge: document.getElementById("overwriteRecharge").checked,
-        siteSource: "gptc"
+        userEmail: currentParsedSecret.userEmail,
+        userGptToken: currentParsedSecret.userGptToken,
+        fullAuthData: JSON.stringify(currentParsedSecret.fullAuthData),
+        productId: currentProductId
       };
       button.disabled = true;
       button.textContent = "提交中...";
@@ -587,13 +680,14 @@
       resultBox.style.display = "none";
       try {
         const data = await postJson("/api/recharge/confirm", payload);
-        if (!data.success) {
-          setNotice("step3Notice", "充值提交失败", data.message || "请稍后重试。", "error");
+        const task = data.data || {};
+        if (!data.success || task.success === false || !task.taskId) {
+          setNotice("step3Notice", "充值提交失败", mapRechargeMessage(task.message || data.message, "failed"), "error");
           progressBox.style.display = "none";
           return;
         }
-        currentOrderId = data.data.orderId;
-        progressBox.innerHTML = `<strong>任务已提交，正在处理中</strong>本地订单号：${data.data.orderId}<br>上游任务号：${data.data.taskId || "待返回"}<br>请不要重复点击，系统会自动查询状态。`;
+        currentTaskId = task.taskId;
+        progressBox.innerHTML = `<strong>任务已提交，正在处理中</strong>${mapRechargeMessage(task.message, task.processing ? "processing" : "")}<br>任务号：${task.taskId}<br>请不要重复点击，系统会自动查询状态。`;
         pollStatus();
       } catch (error) {
         setNotice("step3Notice", "充值提交失败", error.message || "网络请求异常。", "error");
@@ -605,26 +699,38 @@
     }
 
     async function pollStatus() {
-      if (!currentOrderId) return;
+      if (!currentTaskId) return;
       const resultBox = document.getElementById("resultBox");
       const progressBox = document.getElementById("progressBox");
       try {
-        const response = await fetch(`/api/recharge/status/${encodeURIComponent(currentOrderId)}`);
-        const data = await response.json();
-        if (!data.success) return;
-        if (data.data.status === "processing" || data.data.status === "created") {
+        const data = await postJson("/api/recharge/query-task-status", {
+          taskId: currentTaskId,
+          productId: currentProductId,
+          cardInfo: document.getElementById("cardInfo").value.trim()
+        });
+        const task = data.data || {};
+        if (!data.success) {
+          setNotice("step3Notice", "状态查询失败", mapRechargeMessage(data.message, "failed"), "error");
+          setTimeout(pollStatus, 4000);
+          return;
+        }
+        if (task.status === "processing" || task.status === "created" || task.processing === true) {
+          progressBox.innerHTML = `<strong>任务已提交，正在处理中</strong>${mapRechargeMessage(task.message, task.status)}<br>任务号：${currentTaskId}`;
           setTimeout(pollStatus, 3000);
           return;
         }
-        if (data.data.status === "success") {
+        if (task.status === "success") {
           resultBox.classList.add("result-ok");
-          resultBox.innerHTML = `<strong>充值成功</strong>${data.data.message || "上游已返回成功状态。"}<br>订单号：${data.data.orderId}`;
+          resultBox.style.background = "";
+          resultBox.style.borderColor = "";
+          resultBox.style.color = "";
+          resultBox.innerHTML = `<strong>充值成功</strong>${mapRechargeMessage(task.message, task.status)}<br>任务号：${currentTaskId}`;
         } else {
           resultBox.classList.remove("result-ok");
           resultBox.style.background = "#fff1f2";
           resultBox.style.borderColor = "#fda4af";
           resultBox.style.color = "#9f1239";
-          resultBox.innerHTML = `<strong>充值失败</strong>${data.data.message || "上游返回失败状态。"}<br>订单号：${data.data.orderId}`;
+          resultBox.innerHTML = `<strong>充值失败</strong>${mapRechargeMessage(task.message, task.status)}<br>任务号：${currentTaskId}`;
         }
         progressBox.style.display = "none";
         resultBox.style.display = "block";

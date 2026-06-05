@@ -42,3 +42,8 @@ jobs:
         run: |
           curl -fsSL https://gptc.cc/blog/ > /tmp/gptccc-blog.html
           grep -q "<title>" /tmp/gptccc-blog.html
+
+      - name: Verify activate page
+        run: |
+          curl -fsSL https://gptc.cc/activate/ > /tmp/gptccc-activate.html
+          grep -q "站内充值中心" /tmp/gptccc-activate.html
