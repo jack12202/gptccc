@@ -293,6 +293,104 @@
       background: #f0fdf4;
       color: #166534;
     }
+    .result-card {
+      margin-top: 12px;
+      padding: 20px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+    }
+    .result-card.success {
+      border-color: #86efac;
+      background: linear-gradient(180deg, #f7fff9 0%, #ecfdf3 100%);
+      color: #14532d;
+      box-shadow: 0 22px 44px rgba(22, 163, 74, 0.14);
+    }
+    .result-card.fail {
+      border-color: #fda4af;
+      background: linear-gradient(180deg, #fff7f8 0%, #fff1f2 100%);
+      color: #9f1239;
+      box-shadow: 0 20px 40px rgba(225, 29, 72, 0.10);
+    }
+    .result-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .result-heading {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .result-title {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.15;
+      font-weight: 950;
+      letter-spacing: -0.02em;
+    }
+    .result-subtitle {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.7;
+      color: inherit;
+      opacity: 0.92;
+    }
+    .result-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(15,83,45,0.12);
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .result-card.fail .result-badge {
+      border-color: rgba(159,18,57,0.14);
+    }
+    .task-box {
+      margin-top: 12px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.78);
+      border: 1px dashed rgba(15, 23, 42, 0.14);
+    }
+    .task-box span {
+      display: block;
+      font-size: 13px;
+      color: #475569;
+      margin-bottom: 6px;
+      font-weight: 800;
+    }
+    .task-code {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.55;
+      font-weight: 900;
+      word-break: break-all;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      color: inherit;
+    }
+    .result-actions {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .result-actions div {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.58);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
     .footer-note {
       margin-top: 18px;
       color: var(--muted);
@@ -442,9 +540,7 @@
                 <strong>任务已提交，正在处理中</strong>
                 系统正在向上游提交充值任务，请不要重复点击。
               </div>
-              <div class="progress result-ok" id="resultBox" style="display:none;">
-                <strong>状态已更新</strong>
-                这里会展示最终结果。
+              <div class="result-card success" id="resultBox" style="display:none;">
               </div>
             </div>
             <div>
@@ -551,6 +647,52 @@
       const button = document.getElementById("confirmRechargeBtn");
       if (!checkbox || !button) return;
       button.disabled = !checkbox.checked;
+    }
+
+    function renderProgressBox(message, taskId) {
+      const progressBox = document.getElementById("progressBox");
+      progressBox.innerHTML = `<strong>任务已提交，正在处理中</strong>${message}<br>任务号：${taskId}<br>请不要重复点击，系统会自动查询状态。`;
+    }
+
+    function renderResultBox(type, message, taskId) {
+      const resultBox = document.getElementById("resultBox");
+      const success = type === "success";
+      resultBox.className = `result-card ${success ? "success" : "fail"}`;
+      resultBox.innerHTML = success
+        ? `
+          <div class="result-top">
+            <div class="result-heading">
+              <h3 class="result-title">充值成功</h3>
+              <p class="result-subtitle">${message}</p>
+            </div>
+            <span class="result-badge">已完成</span>
+          </div>
+          <div class="task-box">
+            <span>任务号</span>
+            <p class="task-code">${taskId}</p>
+          </div>
+          <div class="result-actions">
+            <div>系统已经返回成功结果，你现在可以返回 ChatGPT 账号确认 Plus 状态。</div>
+            <div>如果权益没有立刻刷新出来，先等待片刻，再重新打开账号页面查看。</div>
+          </div>
+        `
+        : `
+          <div class="result-top">
+            <div class="result-heading">
+              <h3 class="result-title">充值失败</h3>
+              <p class="result-subtitle">${message}</p>
+            </div>
+            <span class="result-badge">需处理</span>
+          </div>
+          <div class="task-box">
+            <span>任务号</span>
+            <p class="task-code">${taskId}</p>
+          </div>
+          <div class="result-actions">
+            <div>请保留当前页面和任务号，方便后续联系客服核查。</div>
+            <div>如果刚刚已经重复提交过，请先不要再继续操作，等待人工确认更稳妥。</div>
+          </div>
+        `;
     }
 
     function parseSecretPayload(secretJsonText) {
@@ -687,7 +829,7 @@
           return;
         }
         currentTaskId = task.taskId;
-        progressBox.innerHTML = `<strong>任务已提交，正在处理中</strong>${mapRechargeMessage(task.message, task.processing ? "processing" : "")}<br>任务号：${task.taskId}<br>请不要重复点击，系统会自动查询状态。`;
+        renderProgressBox(mapRechargeMessage(task.message, task.processing ? "processing" : ""), task.taskId);
         pollStatus();
       } catch (error) {
         setNotice("step3Notice", "充值提交失败", error.message || "网络请求异常。", "error");
@@ -715,22 +857,14 @@
           return;
         }
         if (task.status === "processing" || task.status === "created" || task.processing === true) {
-          progressBox.innerHTML = `<strong>任务已提交，正在处理中</strong>${mapRechargeMessage(task.message, task.status)}<br>任务号：${currentTaskId}`;
+          renderProgressBox(mapRechargeMessage(task.message, task.status), currentTaskId);
           setTimeout(pollStatus, 3000);
           return;
         }
         if (task.status === "success") {
-          resultBox.classList.add("result-ok");
-          resultBox.style.background = "";
-          resultBox.style.borderColor = "";
-          resultBox.style.color = "";
-          resultBox.innerHTML = `<strong>充值成功</strong>${mapRechargeMessage(task.message, task.status)}<br>任务号：${currentTaskId}`;
+          renderResultBox("success", mapRechargeMessage(task.message, task.status), currentTaskId);
         } else {
-          resultBox.classList.remove("result-ok");
-          resultBox.style.background = "#fff1f2";
-          resultBox.style.borderColor = "#fda4af";
-          resultBox.style.color = "#9f1239";
-          resultBox.innerHTML = `<strong>充值失败</strong>${mapRechargeMessage(task.message, task.status)}<br>任务号：${currentTaskId}`;
+          renderResultBox("fail", mapRechargeMessage(task.message, task.status), currentTaskId);
         }
         progressBox.style.display = "none";
         resultBox.style.display = "block";
