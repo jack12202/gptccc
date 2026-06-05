@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>站内充值中心｜嘉哥 GPTC.cc</title>
-  <meta name="description" content="嘉哥 GPTC.cc 站内充值中心：先验证卡密，再粘贴充值密钥，最后确认充值到自己的 ChatGPT 账号。">
+  <title>站内充值中心｜嘉哥AI / 嘉哥GPT · GPTC.cc</title>
+  <meta name="description" content="GPTC.cc 站内充值中心：先验证激活码，再粘贴充值密钥，最后确认充值到自己的 ChatGPT 账号。">
   <link rel="canonical" href="https://www.gptc.cc/activate/">
-  <meta property="og:title" content="站内充值中心｜嘉哥 GPTC.cc">
-  <meta property="og:description" content="已购买卡密后，直接在嘉哥 GPTC.cc 站内完成账号识别与充值确认。">
+  <meta property="og:title" content="站内充值中心｜嘉哥AI / 嘉哥GPT · GPTC.cc">
+  <meta property="og:description" content="已购买激活码后，直接在 GPTC.cc 站内完成账号识别与充值确认。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.gptc.cc/activate/">
   <style>
@@ -324,14 +324,14 @@
       </a>
       <div class="top-actions">
         <a class="mini-btn" href="/">返回开通首页</a>
-        <a class="mini-btn" href="https://fe.dtyuedan.cn/shop/jiage">先购买 Plus 卡密</a>
+        <a class="mini-btn" href="https://fe.dtyuedan.cn/shop/jiage">先购买 Plus 激活码</a>
       </div>
     </div>
 
     <section class="hero">
       <span class="eyebrow">站内充值中心 · 不再跳到外部充值页</span>
       <h1>ChatGPT Plus 站内自助充值</h1>
-      <p>先验证卡密，再登录 GPT 获取充值密钥，最后在嘉哥 GPTC.cc 站内确认充值。整个流程优先保持简洁、清楚、到账状态可查。</p>
+      <p>先验证激活码，再登录 GPT 获取充值密钥，最后在 GPTC.cc 站内确认充值。整个流程优先保持简洁、清楚、到账状态可查。</p>
       <div class="hero-pills">
         <span class="pill">充值到自己的 GPT 账号</span>
         <span class="pill">无需提供账号密码</span>
@@ -343,8 +343,8 @@
       <div class="stepper">
         <div class="step active" id="step-1">
           <div class="num">1</div>
-          <strong>验证卡密</strong>
-          <span>先确认卡密可用于当前产品</span>
+          <strong>验证激活码</strong>
+          <span>先确认激活码可用于当前产品</span>
         </div>
         <div class="step" id="step-2">
           <div class="num">2</div>
@@ -361,17 +361,17 @@
       <div class="content">
         <div class="stage active" id="stage-1">
           <div class="notice" id="step1Notice">
-            <strong>第 1 步：先验证卡密</strong>
-            这里会先校验卡密是否可用。验证通过后，再进入下一步获取充值密钥。
+            <strong>第 1 步：先验证激活码</strong>
+            这里会先校验激活码是否可用。验证通过后，再进入下一步获取充值密钥。
           </div>
           <div class="field">
-            <label for="cardInfo">验证卡密：卡密</label>
-            <input id="cardInfo" placeholder="请输入你购买后的 Plus 卡密">
-            <small>第一版优先支持 ChatGPT Plus 产品。卡密可用后，系统会继续识别账号信息。</small>
+            <label for="cardInfo">验证激活码</label>
+            <input id="cardInfo" placeholder="请输入你购买后的 Plus 激活码">
+            <small>第一版优先支持 ChatGPT Plus 产品。激活码可用后，系统会继续识别账号信息。</small>
           </div>
           <div class="btn-row">
-            <button class="primary" type="button" id="verifyCardBtn" onclick="verifyCard()">验证卡密</button>
-            <a class="link-btn secondary" href="https://fe.dtyuedan.cn/shop/jiage">去购买卡密</a>
+            <button class="primary" type="button" id="verifyCardBtn" onclick="verifyCard()">验证激活码</button>
+            <a class="link-btn secondary" href="https://fe.dtyuedan.cn/shop/jiage">去购买激活码</a>
           </div>
         </div>
 
@@ -420,14 +420,14 @@
         <div class="stage" id="stage-3">
           <div class="notice" id="step3Notice">
             <strong>第 3 步：确认充值</strong>
-            请确认邮箱和卡密无误，再提交充值任务。
+            请确认邮箱和激活码无误，再提交充值任务。
           </div>
           <div class="two-col">
             <div class="info-card">
               <h3>确认充值信息</h3>
               <div class="kvs">
                 <div class="kv"><span>账号信息</span><span id="confirmEmail">-</span></div>
-                <div class="kv"><span>充值卡密</span><span id="confirmCard">-</span></div>
+                <div class="kv"><span>充值激活码</span><span id="confirmCard">-</span></div>
                 <div class="kv"><span>充值通道</span><span id="confirmChannel">通道一</span></div>
               </div>
               <label class="checkbox">
@@ -451,13 +451,13 @@
               <div class="info-card">
                 <h3>提交前提醒</h3>
                 <div class="kvs">
-                  <div class="kv"><span>请确认</span><span>邮箱与卡密无误</span></div>
+                  <div class="kv"><span>请确认</span><span>邮箱与激活码无误</span></div>
                   <div class="kv"><span>提交后</span><span>系统会自动查询充值状态</span></div>
                   <div class="kv"><span>如遇异常</span><span>保留页面提示便于核查</span></div>
                 </div>
               </div>
               <div class="footer-note">
-                如果页面一直显示处理中，请不要连续重复提交。优先保存账号邮箱、卡密和页面提示，再联系客服协助核查。
+                如果页面一直显示处理中，请不要连续重复提交。优先保存账号邮箱、激活码和页面提示，再联系客服协助核查。
               </div>
             </div>
           </div>
@@ -514,21 +514,21 @@
 
     function mapCardVerifyMessage(upstream) {
       const code = upstream?.message || "";
-      if (code === "CARD_NOT_FOUND") return "卡密不存在，请检查后重新输入。";
-      if (code === "CARD_ALREADY_USED") return "这张卡密已经使用过了，请更换其他卡密。";
-      if (code === "CARD_EXPIRED") return "这张卡密已过期，请联系处理。";
-      if (code === "CARD_DISABLED") return "这张卡密当前已被停用，请联系处理。";
+      if (code === "CARD_NOT_FOUND") return "激活码不存在，请检查后重新输入。";
+      if (code === "CARD_ALREADY_USED") return "这张激活码已经使用过了，请更换其他激活码。";
+      if (code === "CARD_EXPIRED") return "这张激活码已过期，请联系处理。";
+      if (code === "CARD_DISABLED") return "这张激活码当前已被停用，请联系处理。";
       if (code === "SYSTEM_BUSY") return "系统繁忙，请稍后再试。";
       if (typeof upstream?.message === "string" && upstream.message.trim()) return upstream.message;
-      return "当前卡密无法用于充值。";
+      return "当前激活码无法用于充值。";
     }
 
     function mapRechargeMessage(message, status) {
       const code = typeof message === "string" ? message.trim() : "";
       if (code === "SYSTEM_BUSY") return "系统繁忙，请稍后再试。";
       if (code === "TASK_NOT_FOUND") return "没有查到这笔充值任务，请稍后刷新重试。";
-      if (code === "CARD_ALREADY_USED") return "这张卡密已经使用过了，请更换其他卡密。";
-      if (code === "CARD_NOT_FOUND") return "卡密不存在，请检查后重新输入。";
+      if (code === "CARD_ALREADY_USED") return "这张激活码已经使用过了，请更换其他激活码。";
+      if (code === "CARD_NOT_FOUND") return "激活码不存在，请检查后重新输入。";
       if (code === "ACCOUNT_VERIFY_FAILED") return "账号校验失败，请重新获取充值密钥后再试。";
       if (code === "ACCOUNT_NOT_MATCH") return "账号信息不匹配，请重新登录 GPT 后获取新的充值密钥。";
       if (code === "RECHARGE_FAILED") return "充值失败，请稍后重试或联系客服核查。";
@@ -610,23 +610,23 @@
         const data = await postJson("/api/recharge/verify-card", { cardInfo });
         const upstream = data.data || data.upstream?.data || data.upstream || {};
         if (!data.success) {
-          setNotice("step1Notice", "卡密验证失败", data.message || "请检查卡密后重试。", "error");
+          setNotice("step1Notice", "激活码验证失败", data.message || "请检查激活码后重试。", "error");
           return;
         }
         const pass = upstream.success === true;
         if (!pass) {
-          setNotice("step1Notice", "卡密不可用", mapCardVerifyMessage(upstream), "error");
+          setNotice("step1Notice", "激活码不可用", mapCardVerifyMessage(upstream), "error");
           return;
         }
         currentProductId = Number(upstream.productId || 3);
-        setNotice("step1Notice", "卡密验证通过", "卡密可继续使用，进入下一步获取充值密钥。", "success");
+        setNotice("step1Notice", "激活码验证通过", "激活码可继续使用，进入下一步获取充值密钥。", "success");
         document.getElementById("confirmCard").textContent = cardInfo;
         goStep(2);
       } catch (error) {
-        setNotice("step1Notice", "卡密验证失败", error.message || "网络请求异常。", "error");
+        setNotice("step1Notice", "激活码验证失败", error.message || "网络请求异常。", "error");
       } finally {
         button.disabled = false;
-        button.textContent = "验证卡密";
+        button.textContent = "验证激活码";
       }
     }
 
