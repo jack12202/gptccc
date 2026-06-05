@@ -4,591 +4,492 @@
 <meta charset="utf-8">
 <meta name="baidu-site-verification" content="codeva-BqLcgk5jWi">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GPT充值与ChatGPT Plus开通平台｜嘉哥 GPTC.cc 自动到账</title>
-<meta name="description" content="嘉哥 GPTC.cc 提供 GPT 充值与 ChatGPT Plus 开通指引，支持充值到自己的 ChatGPT 账号，无需提供账号密码，按流程自助激活，异常订单可协助处理。">
-<link rel="canonical" href="https://www.gptc.cc/">
-<meta property="og:title" content="GPT充值与ChatGPT Plus开通平台｜嘉哥 GPTC.cc 自动到账">
-<meta property="og:description" content="嘉哥 GPTC.cc 提供 GPT 充值与 ChatGPT Plus 开通指引，充值到自己的 ChatGPT 账号，无需提供账号密码，异常订单可协助处理。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://www.gptc.cc/">
-<meta name="twitter:card" content="summary">
+<meta name="description" content="GPTC.cc 提供 ChatGPT Plus / Pro 充值升级协助，充值到用户自己的账号。支持支付宝和微信付款，无需提供账号密码、无需信用卡，Plus 可先购买卡密再进入站内充值中心，Pro、Claude、Grok、发票和对公需求可联系嘉哥AI确认。">
+<link rel="canonical" href="https://gptc.cc/">
+<meta property="og:title" content="GPTC.cc｜ChatGPT Plus / Pro 充值升级服务">
+<meta property="og:description" content="ChatGPT Plus / Pro 充值升级到自己的账号，无需提供账号密码和信用卡，支持先购买卡密再进入站内充值中心，提供人工协助、30天质保和发票/对公咨询。">
+<title>ChatGPT Plus / Pro 充值升级服务 | GPTC.cc</title>
 <style>
-  :root {
-    --bg:#f7faf9;
-    --panel:#ffffff;
-    --text:#172033;
-    --muted:#64748b;
-    --line:#dbe4ee;
-    --accent:#0f766e;
-    --accent-2:#14b8a6;
-    --soft:#ecfdf5;
-    --soft-2:#f0fdfa;
-    --warning:#fff7ed;
-    --warning-line:#fed7aa;
-    --shadow:0 18px 48px rgba(15,23,42,.08);
-    --radius:12px;
-  }
-  * { box-sizing:border-box; }
-  html { scroll-behavior:smooth; }
-  body {
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-    font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    line-height:1.65;
-    -webkit-text-size-adjust:100%;
-  }
-  a { color:inherit; }
-  button { font:inherit; }
-  body.modal-open { overflow:hidden; }
-  .wrap { width:min(1120px,calc(100% - 32px)); margin:0 auto; }
-  .topbar {
-    position:sticky;
-    top:0;
-    z-index:20;
-    background:rgba(247,250,249,.9);
-    backdrop-filter:blur(16px);
-    border-bottom:1px solid rgba(219,228,238,.85);
-  }
-  .nav {
-    min-height:68px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:20px;
-  }
-  .brand {
-    text-decoration:none;
-    font-weight:950;
-    letter-spacing:0;
-    color:#0f172a;
-    display:flex;
-    align-items:center;
-    gap:10px;
-  }
-  .brand-mark {
-    width:34px;
-    height:34px;
-    border-radius:9px;
-    background:#0f766e;
-    color:#fff;
-    display:grid;
-    place-items:center;
-    font-weight:950;
-  }
-  .nav-links {
-    display:flex;
-    align-items:center;
-    gap:18px;
-    font-size:14px;
-    color:#475569;
-  }
-  .nav-links a {
-    text-decoration:none;
-    white-space:nowrap;
-  }
-  .nav-cta {
-    color:#fff!important;
-    background:var(--accent);
-    border-radius:8px;
-    padding:9px 14px;
-    font-weight:850;
-  }
-  .hero {
-    padding:54px 0 42px;
-    display:grid;
-    grid-template-columns:minmax(0,1fr) 380px;
-    gap:34px;
-    align-items:center;
-  }
-  .eyebrow {
-    display:inline-flex;
-    align-items:center;
-    min-height:30px;
-    padding:0 12px;
-    border-radius:999px;
-    background:var(--soft);
-    border:1px solid #a7f3d0;
-    color:var(--accent);
-    font-weight:850;
-    font-size:13px;
-  }
-  h1 {
-    margin:18px 0 14px;
-    font-size:clamp(34px,5vw,58px);
-    line-height:1.08;
-    letter-spacing:0;
-  }
-  .hero-sub {
-    margin:0;
-    max-width:720px;
-    color:#475569;
-    font-size:18px;
-  }
-  .hero-actions {
-    display:flex;
-    flex-wrap:wrap;
-    gap:12px;
-    margin-top:24px;
-  }
-  .btn {
-    border:0;
-    border-radius:8px;
-    min-height:46px;
-    padding:0 18px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-    text-decoration:none;
-    font-weight:900;
-  }
-  .btn-primary { background:var(--accent); color:#fff; }
-  .btn-primary:hover { background:#0d655f; }
-  .btn-secondary { background:#fff; border:1px solid var(--line); color:#0f172a; }
-  .trust-row {
-    display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
-    gap:10px;
-    margin-top:26px;
-  }
-  .trust-pill {
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:10px;
-    padding:12px;
-    font-size:14px;
-    color:#334155;
-  }
-  .trust-pill strong {
-    display:block;
-    color:#0f172a;
-    margin-bottom:2px;
-  }
-  .order-card {
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:12px;
-    box-shadow:var(--shadow);
-    padding:22px;
-  }
-  .order-card h2 {
-    margin:0 0 8px;
-    font-size:22px;
-  }
-  .price {
-    display:flex;
-    align-items:end;
-    gap:8px;
-    margin:12px 0 8px;
-  }
-  .price strong {
-    font-size:42px;
-    line-height:1;
-    letter-spacing:0;
-  }
-  .price span { color:var(--muted); font-weight:750; }
-  .order-note {
-    margin:0 0 16px;
-    color:#475569;
-    font-size:14px;
-  }
-  .order-list {
-    list-style:none;
-    padding:0;
-    margin:16px 0;
-    display:grid;
-    gap:10px;
-  }
-  .order-list li {
-    padding-left:20px;
-    position:relative;
-    color:#334155;
-    font-size:14px;
-  }
-  .order-list li::before {
-    content:"";
-    width:7px;
-    height:7px;
-    border-radius:50%;
-    background:var(--accent-2);
-    position:absolute;
-    left:0;
-    top:.7em;
-  }
-  .card-actions { display:grid; gap:10px; }
-  .card-actions .btn { width:100%; }
-  .card-divider {
-    height:1px;
-    background:var(--line);
-    margin:18px 0;
-  }
-  .manual-card {
-    background:var(--soft-2);
-    border:1px solid #bfeee7;
-    border-radius:10px;
-    padding:16px;
-  }
-  .manual-card h3 {
-    margin:0 0 8px;
-    font-size:18px;
-  }
-  .manual-card p {
-    margin:0;
-    color:#475569;
-    font-size:14px;
-  }
-  .manual-actions {
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-    margin-top:14px;
-  }
-  .manual-actions .btn {
-    min-width:0;
-  }
-  .micro-copy {
-    text-align:center;
-    margin:12px 0 0;
-    color:var(--muted);
-    font-size:13px;
-  }
-  .section { padding:42px 0; }
-  .section-head {
-    max-width:760px;
-    margin-bottom:18px;
-  }
-  .section-head h2 {
-    margin:0 0 8px;
-    font-size:30px;
-    line-height:1.2;
-    letter-spacing:0;
-  }
-  .section-head p {
-    margin:0;
-    color:var(--muted);
-  }
-  .grid-3 {
-    display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:16px;
-  }
-  .info-card {
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:18px;
-    box-shadow:0 10px 30px rgba(15,23,42,.05);
-  }
-  .info-card h3 { margin:0 0 8px; font-size:19px; }
-  .info-card p { margin:0; color:var(--muted); font-size:14px; }
-  .reminder {
-    background:#082f2b;
-    color:#ecfeff;
-    border-radius:12px;
-    padding:24px;
-    display:grid;
-    grid-template-columns:minmax(0,1fr) auto;
-    gap:20px;
-    align-items:center;
-  }
-  .reminder h2 { margin:0 0 8px; font-size:24px; }
-  .reminder p { margin:0; color:#ccfbf1; }
-  .reminder .btn { background:#ecfeff; color:#064e3b; }
-  .steps {
-    display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
-    gap:14px;
-    counter-reset:step;
-  }
-  .step {
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:18px;
-    position:relative;
-  }
-  .step::before {
-    counter-increment:step;
-    content:counter(step);
-    width:30px;
-    height:30px;
-    display:grid;
-    place-items:center;
-    background:var(--soft);
-    color:var(--accent);
-    border-radius:8px;
-    font-weight:950;
-    margin-bottom:14px;
-  }
-  .step strong { display:block; margin-bottom:6px; }
-  .step span { color:var(--muted); font-size:14px; }
-  .pricing {
-    display:grid;
-    grid-template-columns:minmax(0,1fr) 330px;
-    gap:18px;
-    align-items:stretch;
-  }
-  .price-explain {
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:20px;
-  }
-  .price-explain ul {
-    margin:12px 0 0;
-    padding-left:20px;
-    color:#475569;
-  }
-  .safe-box {
-    background:var(--warning);
-    border:1px solid var(--warning-line);
-    border-radius:12px;
-    padding:20px;
-  }
-  .safe-box h3 { margin:0 0 8px; }
-  .safe-box p { margin:0; color:#7c2d12; }
-  .article-grid {
-    display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:16px;
-  }
-  .article-card {
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:18px;
-    text-decoration:none;
-    min-height:176px;
-    display:flex;
-    flex-direction:column;
-  }
-  .article-card:hover { border-color:rgba(20,184,166,.7); transform:translateY(-2px); }
-  .article-card span { color:var(--accent); font-size:13px; font-weight:850; }
-  .article-card strong { display:block; margin:8px 0; font-size:18px; line-height:1.35; }
-  .article-card p { margin:0; color:var(--muted); font-size:14px; }
-  .faq {
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:14px;
-  }
-  .faq-item {
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:18px;
-  }
-  .faq-item strong { display:block; margin-bottom:6px; }
-  .faq-item span { color:var(--muted); font-size:14px; }
-  .footer {
-    border-top:1px solid var(--line);
-    padding:26px 0 100px;
-    color:var(--muted);
-    font-size:14px;
-  }
-  .footer-links {
-    display:flex;
-    flex-wrap:wrap;
-    gap:14px;
-    margin-bottom:12px;
-  }
-  .footer-links a { color:#334155; text-decoration:none; font-weight:750; }
-  .sticky-note {
-    position:fixed;
-    left:16px;
-    right:16px;
-    bottom:16px;
-    z-index:30;
-    width:min(980px,calc(100% - 32px));
-    margin:0 auto;
-    background:#0f172a;
-    color:#fff;
-    border-radius:12px;
-    box-shadow:0 20px 60px rgba(15,23,42,.25);
-    padding:10px 12px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-  }
-  .note-text { font-size:14px; color:#e2e8f0; }
-  .sticky-actions { display:flex; gap:8px; }
-  .cta-mini, .cta-outline {
-    border-radius:8px;
-    min-height:36px;
-    padding:0 12px;
-    cursor:pointer;
-    font-weight:850;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    text-decoration:none;
-  }
-  .cta-mini { background:var(--accent-2); color:#042f2e; border:0; }
-  .cta-outline { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.35); }
-  .cta-sticky-bar { display:none; }
-  .modal-mask {
-    position:fixed;
-    inset:0;
-    z-index:50;
-    background:rgba(15,23,42,.55);
-    display:none;
-    align-items:center;
-    justify-content:center;
-    padding:18px;
-  }
-  .modal-mask.show { display:flex; }
-  .modal-card {
-    width:min(560px,100%);
-    max-height:86vh;
-    overflow:auto;
-    background:#fff;
-    border-radius:12px;
-    padding:22px;
-    box-shadow:0 24px 72px rgba(15,23,42,.28);
-    outline:none;
-  }
-  .modal-close {
-    float:right;
-    border:0;
-    background:#f1f5f9;
-    width:32px;
-    height:32px;
-    border-radius:8px;
-    cursor:pointer;
-  }
-  .help-tabs { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
-  .tab-btn {
-    border:1px solid var(--line);
-    background:#fff;
-    color:#334155;
-    border-radius:999px;
-    padding:7px 12px;
-    cursor:pointer;
-  }
-  .tab-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
-  .tab-panel { border-top:1px solid var(--line); padding-top:12px; }
-  .tab-panel[hidden] { display:none; }
-  .modal-footer { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
-  .modal-footer a, .modal-footer button { text-decoration:none; }
-  .hint { color:var(--muted); }
-  .toast {
-    position:fixed;
-    left:50%;
-    bottom:110px;
-    transform:translateX(-50%);
-    background:rgba(15,23,42,.92);
-    color:#fff;
-    padding:10px 14px;
-    border-radius:10px;
-    z-index:80;
-    font-size:14px;
-  }
-  @media (max-width:920px) {
-    .hero, .pricing { grid-template-columns:1fr; }
-    .trust-row, .steps { grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .grid-3, .article-grid { grid-template-columns:1fr 1fr; }
-    .nav-links { gap:12px; }
-  }
-  @media (max-width:680px) {
-    .wrap { width:min(100% - 24px,1120px); }
-    .nav { min-height:auto; padding:14px 0; align-items:flex-start; }
-    .nav-links a:not(.nav-cta) { display:none; }
-    .hero { padding:34px 0 30px; }
-    .trust-row, .steps, .grid-3, .article-grid, .faq, .reminder { grid-template-columns:1fr; }
-    .reminder { align-items:start; }
-    .sticky-note { display:none; }
-    .cta-sticky-bar {
-      position:fixed;
-      left:12px;
-      right:12px;
-      bottom:12px;
-      z-index:40;
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      align-items:center;
-      gap:8px;
-    }
-    .cta-sticky {
-      min-height:52px;
-      padding:0 12px;
-      border-radius:12px;
-      box-shadow:0 16px 48px rgba(15,23,42,.28);
-      font-weight:850;
-      text-decoration:none;
-      display:grid;
-      align-items:center;
-    }
-    .cta-sticky.buy {
-      background:#0f172a;
-      color:#fff;
-      grid-template-columns:auto 1fr;
-      gap:8px;
-    }
-    .cta-sticky.contact {
-      background:#ffffff;
-      color:#0f172a;
-      border:1px solid var(--line);
-      grid-template-columns:1fr;
-      text-align:center;
-    }
-    .mobile-price { color:#ccfbf1; }
-    .mobile-action { text-align:center; }
-    .mobile-wechat {
-      font-size:13px;
-    }
-    .footer { padding-bottom:86px; }
-  }
+:root{
+  --bg:#f7f8fb;
+  --ink:#151823;
+  --muted:#626b7c;
+  --line:#e7eaf0;
+  --card:#ffffff;
+  --soft:#f0f3f8;
+  --brand:#2563eb;
+  --brand-dark:#1d4ed8;
+  --green:#0f9f6e;
+  --orange:#f59e0b;
+  --shadow:0 18px 44px rgba(18,24,38,.10);
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  font-family:"HarmonyOS Sans SC","Source Han Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(circle at 12% 8%,rgba(37,99,235,.10),transparent 28%),
+    radial-gradient(circle at 88% 18%,rgba(15,159,110,.10),transparent 26%),
+    var(--bg);
+  -webkit-text-size-adjust:100%;
+}
+a{color:inherit}
+button{font:inherit}
+.wrap{width:min(1160px,calc(100% - 40px));margin:0 auto}
+.topbar{
+  position:sticky;
+  top:0;
+  z-index:50;
+  background:rgba(255,255,255,.94);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--line);
+}
+.nav{
+  min-height:68px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:22px;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  text-decoration:none;
+  min-width:max-content;
+}
+.brand-mark{
+  width:36px;
+  height:36px;
+  border-radius:10px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-weight:950;
+  background:var(--brand);
+}
+.brand-title{font-size:1.08rem;font-weight:950}
+.brand-sub{display:block;margin-top:2px;color:var(--muted);font-size:.76rem}
+.nav-links{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.nav-links a,
+.nav-links button{
+  border:0;
+  background:transparent;
+  color:#2f3747;
+  text-decoration:none;
+  padding:9px 11px;
+  border-radius:10px;
+  cursor:pointer;
+  font-size:.9rem;
+  font-weight:800;
+}
+.nav-links a:hover,
+.nav-links button:hover{background:var(--soft)}
+.nav-links .nav-primary{
+  color:#fff;
+  background:var(--brand);
+}
+.hero{
+  background:linear-gradient(180deg,#fff 0%,#eef4ff 100%);
+  border-bottom:1px solid var(--line);
+}
+.hero-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 390px;
+  gap:42px;
+  align-items:center;
+  padding:70px 0 54px;
+}
+.label{
+  display:inline-flex;
+  align-items:center;
+  padding:7px 12px;
+  border-radius:999px;
+  background:#e8f1ff;
+  color:#174ea6;
+  font-size:.86rem;
+  font-weight:900;
+}
+h1{
+  margin:18px 0 16px;
+  max-width:760px;
+  font-size:clamp(2.35rem,5vw,4.7rem);
+  line-height:1.05;
+  letter-spacing:0;
+}
+.lead{
+  max-width:720px;
+  margin:0;
+  color:#394255;
+  font-size:1.12rem;
+  line-height:1.85;
+}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:30px 0 12px}
+.hero-primary-actions{display:flex;gap:12px;flex-wrap:wrap}
+.hero-tip{
+  display:inline-flex;
+  align-items:center;
+  min-height:38px;
+  padding:8px 14px;
+  border-radius:999px;
+  background:#fff7ed;
+  border:1px solid #fed7aa;
+  color:#9a3412;
+  font-size:.9rem;
+  font-weight:850;
+}
+.btn{
+  min-height:48px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:12px 19px;
+  border-radius:11px;
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--ink);
+  cursor:pointer;
+  text-decoration:none;
+  font-weight:900;
+}
+.btn-primary{
+  border-color:var(--brand);
+  background:var(--brand);
+  color:#fff;
+  box-shadow:0 12px 28px rgba(37,99,235,.22);
+}
+.btn-primary:hover{background:var(--brand-dark)}
+.btn-outline:hover{background:var(--soft)}
+.btn-soft{
+  border-color:#dbeafe;
+  background:#eef5ff;
+  color:#174ea6;
+}
+.btn-soft:hover{background:#dbeafe}
+.trust-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:18px;
+}
+.trust-row span{
+  display:inline-flex;
+  align-items:center;
+  min-height:36px;
+  padding:8px 12px;
+  border-radius:999px;
+  background:#fff;
+  border:1px solid var(--line);
+  color:#334155;
+  font-size:.88rem;
+  font-weight:850;
+}
+.metric-strip{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-top:22px;
+}
+.metric{
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:rgba(255,255,255,.76);
+}
+.metric strong{display:block;font-size:1.18rem}
+.metric span{display:block;margin-top:4px;color:var(--muted);font-size:.84rem}
+.price-card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:22px;
+  padding:24px;
+  box-shadow:var(--shadow);
+}
+.price-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:12px;
+}
+.tag{
+  display:inline-flex;
+  padding:5px 9px;
+  border-radius:999px;
+  background:#e8fff6;
+  color:#047857;
+  font-size:.78rem;
+  font-weight:950;
+  white-space:nowrap;
+}
+.price{
+  font-size:3.1rem;
+  font-weight:950;
+  line-height:1;
+  margin:8px 0;
+}
+.price small{font-size:1rem;color:var(--muted)}
+.note{color:var(--muted);line-height:1.7;font-size:.92rem}
+.quick-list{
+  display:grid;
+  gap:10px;
+  margin:18px 0;
+}
+.quick-item{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fafbfe;
+}
+.num{
+  width:24px;
+  height:24px;
+  flex:0 0 24px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  font-weight:950;
+  font-size:.82rem;
+}
+.full{width:100%}
+.mini-link{
+  display:block;
+  text-align:center;
+  color:var(--brand);
+  font-weight:900;
+  text-decoration:none;
+  margin-top:12px;
+}
+.section{padding:54px 0}
+.section h2{margin:0 0 10px;font-size:clamp(1.55rem,2.8vw,2.45rem)}
+.section-desc{margin:0 0 22px;color:var(--muted);line-height:1.75}
+.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:20px;
+  box-shadow:0 12px 30px rgba(18,24,38,.05);
+}
+.plan{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  min-height:230px;
+}
+.plan.main{border-color:#bad0ff;box-shadow:0 16px 38px rgba(37,99,235,.10)}
+.plan.accent{border-color:#b6ead7;background:linear-gradient(180deg,#fff 0%,#f1fff8 100%)}
+.plan h3,.flow h3,.help-card h3,.faq h3{margin:0 0 8px;font-size:1.08rem}
+.solution-tag{
+  display:inline-flex;
+  width:max-content;
+  margin-bottom:12px;
+  padding:5px 9px;
+  border-radius:999px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-size:.78rem;
+  font-weight:950;
+}
+.plan-price{margin:16px 0;font-size:1.8rem;font-weight:950}
+.plan-price small{font-size:.92rem;color:var(--muted)}
+.muted{color:var(--muted);line-height:1.72}
+.flow{counter-reset:step}
+.flow .card:before{
+  counter-increment:step;
+  content:counter(step);
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:#e8f1ff;
+  color:var(--brand);
+  font-weight:950;
+  margin-bottom:14px;
+}
+.proof{
+  display:grid;
+  grid-template-columns:.9fr 1.1fr;
+  gap:18px;
+  align-items:stretch;
+}
+.proof-lead{
+  background:#0f172a;
+  color:#fff;
+  border-radius:22px;
+  padding:26px;
+  box-shadow:var(--shadow);
+}
+.proof-lead h2{color:#fff}
+.proof-lead p{color:rgba(255,255,255,.74);line-height:1.8;margin:12px 0 0}
+.proof-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+.proof-card h3{margin:0 0 8px}
+.proof-card p{margin:0;color:var(--muted);line-height:1.72}
+.help-card{
+  text-decoration:none;
+  transition:transform .15s ease,border-color .15s ease;
+}
+.help-card:hover{transform:translateY(-2px);border-color:#aac4ff}
+.help-card span{display:block;color:var(--muted);line-height:1.65}
+.faq{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.faq p{margin:0;color:var(--muted);line-height:1.76}
+.notice{
+  background:#fff8e7;
+  border:1px solid #f6d894;
+  color:#61450b;
+  border-radius:var(--radius);
+  padding:18px 20px;
+  line-height:1.75;
+}
+.blog-band{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+}
+.blog-card{
+  min-height:150px;
+  text-decoration:none;
+}
+.blog-card small{
+  display:block;
+  margin-bottom:10px;
+  color:var(--brand);
+  font-weight:950;
+}
+.blog-card h3{margin:0 0 8px}
+.blog-card p{margin:0;color:var(--muted);line-height:1.65}
+.final{
+  background:#0f172a;
+  color:#fff;
+  border-radius:24px;
+  padding:28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+}
+.final p{color:rgba(255,255,255,.72);margin:8px 0 0;line-height:1.7}
+.footer{
+  padding:32px 0 96px;
+  color:var(--muted);
+  border-top:1px solid var(--line);
+  line-height:1.75;
+  font-size:.88rem;
+}
+.sticky{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:60;
+  background:rgba(255,255,255,.95);
+  border-top:1px solid var(--line);
+  backdrop-filter:blur(16px);
+}
+.sticky-inner{
+  min-height:68px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+}
+.sticky-text{font-weight:900;color:#293244}
+.sticky-actions{display:flex;gap:10px}
+.modal-mask{
+  position:fixed;
+  inset:0;
+  z-index:90;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  background:rgba(15,23,42,.58);
+}
+.modal-mask.show{display:flex}
+.modal{
+  width:min(560px,96vw);
+  max-height:86vh;
+  overflow:auto;
+  background:#fff;
+  border-radius:18px;
+  padding:22px;
+  box-shadow:var(--shadow);
+  outline:0;
+}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:14px}
+.modal-head h3{margin:0}
+.close{
+  width:36px;
+  height:36px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fff;
+  cursor:pointer;
+}
+.modal-list{display:grid;gap:10px;margin:16px 0}
+.modal-option{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  width:100%;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fafbfe;
+  cursor:pointer;
+  text-align:left;
+}
+.toast{
+  position:fixed;
+  left:50%;
+  bottom:88px;
+  transform:translateX(-50%);
+  z-index:110;
+  padding:11px 14px;
+  border-radius:12px;
+  background:rgba(15,23,42,.92);
+  color:#fff;
+  box-shadow:var(--shadow);
+  opacity:0;
+  transition:opacity .18s ease;
+  pointer-events:none;
+}
+.toast.show{opacity:1}
+body.modal-open{overflow:hidden}
+@media(max-width:980px){
+  .hero-grid{grid-template-columns:1fr}
+  .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .proof{grid-template-columns:1fr}
+  .blog-band{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .wrap{width:min(100% - 28px,1160px)}
+  .nav{min-height:auto;align-items:flex-start;flex-direction:column;padding:14px 0}
+  .nav-links a:not(.nav-primary),.nav-links button:not(.nav-primary){display:none}
+  .hero-grid{padding:42px 0 34px}
+  .grid-3,.grid-4,.faq{grid-template-columns:1fr}
+  .metric-strip,.proof-grid,.blog-band{grid-template-columns:1fr}
+  .trust-row span{width:calc(50% - 5px);justify-content:center}
+  .final,.sticky-inner{align-items:stretch;flex-direction:column}
+  .sticky-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .footer{padding-bottom:132px}
+}
 </style>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  "name": "嘉哥 GPTC.cc",
-  "url": "https://www.gptc.cc/",
-  "description": "面向国内用户的 GPT 充值与 ChatGPT Plus 开通指引。"
-}
-</script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "ChatGPT Plus 开通需要提供账号密码吗？",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "不需要提供账号密码。嘉哥 GPTC.cc 引导用户按流程充值到自己的 ChatGPT 账号。"
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "ChatGPT Plus 通常多久到账？",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "正常情况下通常约 2 分钟到账。若出现处理中或未生效，应先保存凭证并联系协助处理。"
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "支付失败后可以重复付款吗？",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "不建议在已扣款或处理中状态下连续重复付款。应先确认扣款、订单和账号状态。"
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "GPT Pro 可以自助开通吗？",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "不可以。GPT Pro 需要联系嘉哥人工充值，不走自动充值系统。"
-      }
-    }
-  ]
-}
-</script>
 <script>
 var _hmt = _hmt || [];
 (function() {
@@ -602,248 +503,230 @@ var _hmt = _hmt || [];
 <body>
 <header class="topbar">
   <nav class="wrap nav" aria-label="主导航">
-    <a class="brand" href="/">
-      <span class="brand-mark">嘉</span>
-      <span>嘉哥 GPTC.cc</span>
+    <a class="brand" href="#top">
+      <span class="brand-mark">G</span>
+      <span><span class="brand-title">GPTC.cc</span><span class="brand-sub">嘉哥AI · GPT 充值升级</span></span>
     </a>
     <div class="nav-links">
-      <a href="/blog/">嘉哥指南</a>
-      <a href="#flow">充值流程</a>
-      <a href="#faq">常见问题</a>
-      <a href="#contact">联系客服</a>
-      <a class="nav-cta" href="https://fe.dtyuedan.cn/shop/jiage" id="navBuy">进入开通中心</a>
+      <a href="#price">方案</a>
+      <a href="#guide">流程</a>
+      <a href="#proof">保障</a>
+      <a href="#help">教程</a>
+      <a href="#faq">FAQ</a>
+      <a href="/blog/">充值指南</a>
+      <a id="navRecharge" href="/activate/">进入充值中心</a>
+      <a class="nav-primary" id="navBuy" href="https://fe.dtyuedan.cn/shop/jiage" target="_blank" rel="noopener">购买 Plus 卡密</a>
     </div>
   </nav>
 </header>
 
-<main>
-  <section class="wrap hero">
-    <div>
-      <span class="eyebrow">国内用户 GPT 充值与 Plus 开通向导</span>
-      <h1>嘉哥 GPT Plus 快速开通</h1>
-      <p class="hero-sub">ChatGPT Plus 的流程是先购买卡密，再进入嘉哥 GPTC.cc 站内充值中心，自助充值到你自己的 ChatGPT 账号。GPT Pro 不走自助流程，需要联系人工充值。遇到支付失败、处理中或到账异常，嘉哥先帮你看清状态再处理。</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="https://fe.dtyuedan.cn/shop/jiage" id="buyBtn">先购买 Plus 卡密</a>
-        <a class="btn btn-secondary" href="/activate/" id="rechargeBtn">已买卡密，进入站内充值中心</a>
-        <a class="btn btn-secondary" href="#contact" id="proConsultBtn">开通 GPT Pro，联系人工</a>
-        <a class="btn btn-secondary" href="/gpt-chongzhi/">先看充值流程</a>
-      </div>
-      <div class="trust-row" aria-label="服务重点">
-        <div class="trust-pill"><strong>Plus 自助开通</strong>先买卡密，再进站内充值中心</div>
-        <div class="trust-pill"><strong>通常约 2 分钟</strong>Plus 到账状态清晰可查</div>
-        <div class="trust-pill"><strong>支付宝 / 微信</strong>适合国内用户付款</div>
-        <div class="trust-pill"><strong>Pro 走人工</strong>GPT Pro 需要联系客服充值</div>
-      </div>
-    </div>
-
-    <aside class="order-card" aria-label="开通卡片">
-      <h2>ChatGPT Plus 自助开通</h2>
-      <p class="order-note">适合没有可用海外卡、官方支付失败、续费异常的国内用户。流程是先购买卡密，再进入嘉哥 GPTC.cc 站内充值中心。</p>
-      <div class="price"><strong>¥188</strong><span>/ 月</span></div>
-      <ul class="order-list">
-        <li>第一步购买 Plus 卡密，第二步进入站内充值中心自助充值</li>
-        <li>充值到自己的 ChatGPT 账号，不是共享号或成品号</li>
-        <li>无需提供账号密码，支持支付宝 / 微信，异常可协助处理</li>
-      </ul>
-      <div class="card-actions">
-        <a class="btn btn-primary" href="https://fe.dtyuedan.cn/shop/jiage" id="cardBuyBtn">购买 Plus 卡密</a>
-        <a class="btn btn-secondary" href="/activate/" id="cardRechargeBtn">进入站内充值中心</a>
-      </div>
-      <div class="card-divider"></div>
-      <div class="manual-card">
-        <h3>GPT Pro 需人工充值</h3>
-        <p>GPT Pro 不支持自助开通，不走自动充值系统。需要联系嘉哥人工确认账号和充值方式，再继续处理。</p>
-        <div class="manual-actions">
-          <a class="btn btn-secondary" href="#contact" id="cardCopyWx">联系嘉哥咨询</a>
-          <a class="btn btn-secondary" href="#contact">查看人工流程</a>
+<main id="top">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="label">ChatGPT Plus / Pro 充值升级</span>
+        <h1>GPT 会员，充值到你自己的账号。</h1>
+        <p class="lead">GPTC.cc 是嘉哥AI 的轻量充值入口。Plus 建议先购买卡密，再进入站内充值中心按提示操作；Pro、Claude、Grok、发票和对公需求，建议先加微信确认账号状态和处理方式。</p>
+        <div class="hero-actions">
+          <div class="hero-primary-actions">
+            <a class="btn btn-primary buy-btn" href="https://fe.dtyuedan.cn/shop/jiage" target="_blank" rel="noopener">先购买 Plus 卡密</a>
+            <a class="btn btn-outline recharge-btn" href="/activate/">已购买卡密去激活</a>
+          </div>
+          <button class="btn btn-soft copy-btn" type="button">Pro / 其他 AI 咨询</button>
+        </div>
+        <div class="hero-tip">先购买卡密，再进入站内充值中心。不要跳过购买步骤直接去充值。</div>
+        <div class="trust-row">
+          <span>支付宝 / 微信</span>
+          <span>无需信用卡</span>
+          <span>无需提供密码</span>
+          <span>30天质保协助</span>
+          <span>发票 / 对公可咨询</span>
+        </div>
+        <div class="metric-strip" aria-label="服务数据">
+          <div class="metric"><strong>2300+</strong><span>累计协助用户充值 GPT</span></div>
+          <div class="metric"><strong>2025.07</strong><span>开始长期处理 AI 订阅</span></div>
+          <div class="metric"><strong>9:00-23:00</strong><span>客服在线处理咨询</span></div>
         </div>
       </div>
-      <p class="micro-copy">已扣款、处理中、未生效时，请先不要重复付款。</p>
-    </aside>
-  </section>
-
-  <section class="wrap section">
-    <div class="reminder">
-      <div>
-        <h2>嘉哥提醒</h2>
-        <p>如果你已经遇到 ChatGPT Plus 支付失败、订单处理中或已扣款未生效，先保存扣款记录、失败提示和账号订阅状态。不要连续重复付款，先判断状态再处理。</p>
-      </div>
-      <a class="btn" href="/blog/chatgpt-plus-zhifu-shibai.html">查看支付失败排查</a>
+      <aside class="price-card" aria-label="ChatGPT Plus 价格">
+        <div class="price-top">
+          <strong>Plus 月度充值服务</strong>
+          <span class="tag">当前可下单</span>
+        </div>
+        <div class="price">¥188<small>/月</small></div>
+        <p class="note">价格包含支付通道、汇率、系统处理和售后协助成本。充值到你自己的账号，不卖共享号或成品号，最终以购买页显示为准。</p>
+        <a class="btn btn-primary full buy-btn" href="https://fe.dtyuedan.cn/shop/jiage" target="_blank" rel="noopener">先购买 Plus 卡密</a>
+        <a class="mini-link" href="#guide">查看充值教程</a>
+        <div class="quick-list">
+          <div class="quick-item"><span class="num">1</span><span><strong>付款购买</strong><br><span class="muted">支持支付宝、微信。</span></span></div>
+          <div class="quick-item"><span class="num">2</span><span><strong>进入充值中心</strong><br><span class="muted">按页面提示填写自己的账号信息。</span></span></div>
+          <div class="quick-item"><span class="num">3</span><span><strong>售后兜底</strong><br><span class="muted">异常先保留截图，再联系人工处理。</span></span></div>
+        </div>
+      </aside>
     </div>
   </section>
 
-  <section class="wrap section" id="flow">
-    <div class="section-head">
-      <h2>开通流程</h2>
-      <p>先把 Plus 自助流程和 Pro 人工流程分开，用户就不容易点错按钮。</p>
-    </div>
-    <div class="steps">
-      <div class="step"><strong>Plus 先买卡密</strong><span>确认 Plus 月度价格后，先完成卡密购买。</span></div>
-      <div class="step"><strong>进入站内充值中心</strong><span>已买卡密后进入嘉哥 GPTC.cc 站内系统，按页面提示填写信息。</span></div>
-      <div class="step"><strong>充值自己的账号</strong><span>充值到自己的 ChatGPT 账号，全程无需提供账号密码。</span></div>
-      <div class="step"><strong>Pro 联系人工</strong><span>GPT Pro 不走自助流程，需要联系嘉哥人工充值。</span></div>
-    </div>
-  </section>
-
-  <section class="wrap section">
-    <div class="section-head">
-      <h2>为什么选择嘉哥</h2>
-      <p>不是只做一个付款按钮，而是先把风险、状态和处理顺序说清楚。</p>
-    </div>
-    <div class="grid-3">
-      <div class="info-card"><h3>不索要账号密码</h3><p>强调充值到自己的 ChatGPT 账号，避免共享号、成品号和密码泄露风险。</p></div>
-      <div class="info-card"><h3>Plus 与 Pro 分流明确</h3><p>Plus 走卡密加自动充值系统，Pro 直接联系人工，避免用户走错流程。</p></div>
-      <div class="info-card"><h3>异常订单可协助</h3><p>遇到账延迟、处理中或订阅状态异常，可以带着订单和扣款凭证联系嘉哥核查。</p></div>
-    </div>
-  </section>
-
-  <section class="wrap section" id="price">
-    <div class="section-head">
-      <h2>价格说明</h2>
-      <p>嘉哥不把价格写成“越低越好”。对 GPT 充值来说，账号归属、支付稳定性和异常处理同样重要。</p>
-    </div>
-    <div class="pricing">
-      <div class="price-explain">
-        <h3>¥188/月包含什么</h3>
-        <ul>
-          <li>ChatGPT Plus 月度开通服务与支付通道成本。</li>
-          <li>卡密购买后的自动充值系统与订单处理成本。</li>
-          <li>支付失败、处理中、不到账等异常场景的协助处理。</li>
-        </ul>
-      </div>
-      <div class="safe-box">
-        <h3>GPT Pro 怎么开通</h3>
-        <p>GPT Pro 不支持自助开通，不走自动充值系统。需要联系人工确认账号和充值方式，再继续处理。</p>
+  <section class="section" id="price">
+    <div class="wrap">
+      <h2>按你的需求选择入口</h2>
+      <p class="section-desc">Plus 适合直接自助下单；Pro 和企业类需求更建议先确认账号状态，避免反复支付和试错。</p>
+      <div class="grid-3">
+        <article class="card plan main">
+          <div>
+            <span class="solution-tag">自助最快</span>
+            <h3>ChatGPT Plus 月度充值</h3>
+            <p class="muted">适合已有 ChatGPT 账号，需要开通或续费 Plus 的用户。先购买卡密，再进入站内充值中心按提示操作。</p>
+            <div class="plan-price">¥188 <small>/月</small></div>
+          </div>
+          <a class="btn btn-primary full buy-btn" href="https://fe.dtyuedan.cn/shop/jiage" target="_blank" rel="noopener">先购买 Plus 卡密</a>
+        </article>
+        <article class="card plan accent">
+          <div>
+            <span class="solution-tag">先确认更稳</span>
+            <h3>ChatGPT Pro / Plus 升级</h3>
+            <p class="muted">适合想从 Plus 升级 Pro、账号里已有 iOS 订阅、或不确定当前状态的用户。先沟通，确认后再处理。</p>
+            <div class="plan-price">人工 <small>确认</small></div>
+          </div>
+          <button class="btn btn-outline full copy-btn" type="button">复制微信咨询</button>
+        </article>
+        <article class="card plan">
+          <div>
+            <span class="solution-tag">可对接</span>
+            <h3>Claude / Grok / 发票对公</h3>
+            <p class="muted">其他 AI 会员、企业采购、发票和对公付款需求，可以先把主体、税点、开票方式和交付时间确认清楚。</p>
+            <div class="plan-price">按需 <small>沟通</small></div>
+          </div>
+          <button class="btn btn-outline full copy-btn" type="button">复制微信咨询</button>
+        </article>
       </div>
     </div>
   </section>
 
-  <section class="wrap section">
-    <div class="section-head">
-      <h2>常见问题指南</h2>
-      <p>遇到充值失败、不到账、银行卡被拒时，可以先看对应排查文章。</p>
-    </div>
-    <div class="article-grid">
-      <a class="article-card" href="/gpt-chongzhi/"><span>核心指南</span><strong>GPT充值完整指南：国内用户怎么开通 ChatGPT Plus</strong><p>先了解充值流程、到账时间、账号安全和异常处理。</p></a>
-      <a class="article-card" href="/blog/chatgpt-plus-zhifu-shibai.html"><span>支付失败</span><strong>ChatGPT Plus 支付失败怎么办？国内用户排查指南</strong><p>按未扣款、已扣款、处理中和账号状态逐项排查。</p></a>
-      <a class="article-card" href="/blog/gpt-chongzhi-budaozhang.html"><span>到账异常</span><strong>GPT 充值不到账怎么办？先看账号、订单和扣款记录</strong><p>先核对账号、订单、扣款记录和到账提示。</p></a>
+  <section class="section" id="guide">
+    <div class="wrap">
+      <h2>Plus 充值流程</h2>
+      <p class="section-desc">整个流程尽量让用户自己可控：不用给账号密码，也不用把信用卡信息交给别人。</p>
+      <div class="grid-4 flow">
+        <article class="card"><h3>确认账号</h3><p class="muted">先确认自己的 ChatGPT 账号可以正常登录。</p></article>
+        <article class="card"><h3>购买卡密</h3><p class="muted">先购买 Plus 卡密，在购买页完成支付宝或微信付款。</p></article>
+        <article class="card"><h3>进入充值中心</h3><p class="muted">进入站内充值中心，按页面提示填写自己的账号信息。</p></article>
+        <article class="card"><h3>验收售后</h3><p class="muted">回到 ChatGPT 查看会员状态；异常时保留订单和截图联系客服。</p></article>
+      </div>
     </div>
   </section>
 
-  <section class="wrap section" id="faq">
-    <div class="section-head">
+  <section class="section" id="proof">
+    <div class="wrap proof">
+      <div class="proof-lead">
+        <h2>比低价更重要的是稳定和售后</h2>
+        <p>GPT 充值真正麻烦的地方，不只是付款，而是账号状态、订阅冲突、风控、售后能不能找到人。嘉哥AI 从 2025 年 7 月开始做这类服务，累计帮 2300+ 用户处理过 GPT 充值，更重视长期稳定和异常兜底。</p>
+      </div>
+      <div class="proof-grid">
+        <article class="card proof-card"><h3>不用提供密码</h3><p>Plus 在站内充值中心按页面提示处理，尽量减少敏感信息暴露。</p></article>
+        <article class="card proof-card"><h3>不用准备信用卡</h3><p>支持支付宝和微信付款，适合没有海外卡或直付失败的用户。</p></article>
+        <article class="card proof-card"><h3>30天质保处理</h3><p>订阅异常、掉订阅或账号问题，按实际情况协助处理或按使用天数售后。</p></article>
+        <article class="card proof-card"><h3>可咨询发票对公</h3><p>企业采购、开票、对公付款和其他 AI 会员需求，先联系微信确认。</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="help">
+    <div class="wrap">
+      <h2>充值前，可以先看这些教程</h2>
+      <p class="section-desc">这里整理常见支付、充值和售后问题，方便你在下单前先判断自己的情况。</p>
+      <div class="blog-band">
+        <a class="card blog-card" href="/blog/chatgpt-plus-zhifu-shibai.html"><small>支付失败</small><h3>ChatGPT Plus 支付失败怎么办？</h3><p>适合遇到扣款、页面报错、无法付款的用户。</p></a>
+        <a class="card blog-card" href="/blog/chatgpt-plus-yinhangka-bei-ju.html"><small>银行卡被拒</small><h3>Your card was declined 怎么处理？</h3><p>解释银行卡、地区、风控和替代处理方式。</p></a>
+        <a class="card blog-card" href="/blog/chatgpt-plus-xufei-shibai.html"><small>续费失败</small><h3>Plus 到期或续费失败怎么恢复？</h3><p>先看账号订阅状态，再判断是否需要重新充值。</p></a>
+        <a class="card blog-card" href="/blog/upgrade-guide-fast.html"><small>充值教程</small><h3>GPT 充值升级流程说明</h3><p>下单、进入充值中心、到账、售后这些步骤一次讲清楚。</p></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="faq">
+    <div class="wrap">
       <h2>常见问题</h2>
-      <p>这些问题也是国内用户搜索 GPT 充值和 ChatGPT Plus 开通时最容易卡住的地方。</p>
-    </div>
-    <div class="faq">
-      <div class="faq-item"><strong>需要提供 ChatGPT 账号密码吗？</strong><span>不需要。嘉哥强调按流程充值到自己的账号，不索要账号密码。</span></div>
-      <div class="faq-item"><strong>多久能看到 Plus？</strong><span>正常情况下通常约 2 分钟到账。若未生效，先刷新、确认账号和订单状态。</span></div>
-      <div class="faq-item"><strong>支付失败后能重复付款吗？</strong><span>未扣款可以排查后谨慎重试；已扣款或处理中不建议连续重复付款。</span></div>
-      <div class="faq-item"><strong>可以用什么支付？</strong><span>支持支付宝和微信。若官方支付一直失败，可以换一种更适合国内用户的开通方式。</span></div>
-      <div class="faq-item"><strong>这是共享号或成品号吗？</strong><span>不是。页面说明为充值到你自己的 ChatGPT 账号。</span></div>
-      <div class="faq-item"><strong>GPT Pro 可以自助开通吗？</strong><span>不可以。GPT Pro 需要联系嘉哥人工充值，不走自动充值系统。</span></div>
-      <div class="faq-item"><strong>没到账怎么办？</strong><span>先保存订单、扣款记录、账号邮箱和页面提示，再联系嘉哥协助核查。</span></div>
+      <p class="section-desc">充值前可以先看这几个问题。</p>
+      <div class="faq">
+        <article class="card"><h3>GPTC 是官网吗？</h3><p>不是。本站为第三方数字服务平台，与 OpenAI 或 ChatGPT 官方无隶属关系。</p></article>
+        <article class="card"><h3>只支持 Plus 吗？</h3><p>不是。Plus 可直接自助下单；ChatGPT Pro、Claude、Grok、发票和对公需求，建议先联系人工确认。</p></article>
+        <article class="card"><h3>需要提供账号密码吗？</h3><p>不需要。Plus 按站内充值中心页面提示操作，尽量避免把账号密码交给别人。</p></article>
+        <article class="card"><h3>需要我准备信用卡吗？</h3><p>不需要。购买页支持支付宝和微信付款，适合没有海外信用卡或官网直付失败的用户。</p></article>
+        <article class="card"><h3>没到账或掉订阅怎么办？</h3><p>先不要重复付款，保留订单、卡密和账号状态截图，联系客服按实际情况处理。</p></article>
+        <article class="card"><h3>为什么比官网价格高？</h3><p>费用包含支付通道、汇率、系统处理、风控排查和售后协助成本，买的是省心和有人兜底。</p></article>
+      </div>
+      <div class="section" style="padding-bottom:0">
+        <div class="notice">提示：如果你已经购买卡密，请直接点击“进入充值中心”。如果账号里还有 iOS Plus 订阅、想升级 Pro，或当前订阅状态看不懂，建议先加微信确认，不要反复下单试错。</div>
+      </div>
+      <div class="final">
+        <div>
+          <h2 style="margin:0">开始购买 ChatGPT Plus / Pro 服务</h2>
+          <p>Plus 可直接购买卡密；Pro 和特殊账号状态，先联系嘉哥AI确认更稳。</p>
+        </div>
+        <div class="hero-actions" style="margin:0">
+          <a class="btn btn-primary buy-btn" href="https://fe.dtyuedan.cn/shop/jiage" target="_blank" rel="noopener">先购买 Plus 卡密</a>
+          <button class="btn btn-outline copy-btn" type="button" style="color:#fff;border-color:rgba(255,255,255,.28);background:transparent">联系客服</button>
+        </div>
+      </div>
     </div>
   </section>
 </main>
 
-<footer class="footer" id="contact">
+<footer class="footer">
   <div class="wrap">
-    <div class="footer-links">
-      <a href="/blog/">嘉哥 GPT 充值指南</a>
-      <a href="/gpt-chongzhi/">GPT 充值完整指南</a>
-      <a href="/blog/chatgpt-plus-zhifu-shibai.html">支付失败排查</a>
-      <a href="#flow" id="openFlow">查看充值流程</a>
-    </div>
-    <p>微信：<strong id="wxid">Jiage01888</strong>。客服时间：9:00-24:00，其他时段尽量回复。Plus 可先购买卡密后自助充值，GPT Pro 请直接联系人工。</p>
-    <p>声明：本站为第三方数字服务平台，并非 OpenAI 或 ChatGPT 官方网站。页面中提及的产品名称仅用于说明服务适配对象。</p>
+    <strong>GPTC.cc · 嘉哥AI</strong><br>
+    本站为第三方数字服务平台，与 OpenAI、ChatGPT 官方无任何隶属关系。页面中提及的产品名称仅用于说明服务适配对象。
   </div>
 </footer>
 
-<div class="cta-sticky-bar">
-  <a aria-label="¥188/月 购买 Plus 卡密" class="cta-sticky buy" href="https://fe.dtyuedan.cn/shop/jiage" id="mobileBuyBtn" role="button">
-    <span class="mobile-price">¥188/月</span>
-    <span class="mobile-action mobile-buy">买 Plus 卡密</span>
-  </a>
-  <a aria-label="GPT Pro 联系人工" class="cta-sticky contact" href="#contact" id="mobileProBtn" role="button">
-    <span class="mobile-action mobile-wechat">GPT Pro 联系人工</span>
-  </a>
-</div>
-
-<div class="sticky-note" id="bottomNote">
-  <span class="note-text">Plus 先买卡密再进站内充值中心 ｜ GPT Pro 请联系人工 ｜ 微信 <strong>Jiage01888</strong></span>
-  <span class="sticky-actions">
-    <a class="cta-mini" href="https://fe.dtyuedan.cn/shop/jiage" id="stickyBuyBtn">购买 Plus 卡密</a>
-    <button class="cta-outline" id="copyWeChat" type="button">GPT Pro 联系人工</button>
-    <button class="cta-outline" id="openWhyFooter" type="button">为什么不是更便宜</button>
-  </span>
-</div>
-
-<div aria-hidden="true" class="modal-mask" id="whyModal">
-  <div aria-labelledby="whyTitle" class="modal-card" role="dialog" tabindex="-1">
-    <button aria-label="关闭" class="modal-close" id="whyClose" type="button">×</button>
-    <h3 id="whyTitle">为什么不是更便宜？</h3>
-    <nav aria-label="说明分类" class="help-tabs" role="tablist">
-      <button aria-controls="tab-price" aria-selected="true" class="tab-btn active" data-tab="price" id="tabbtn-price" role="tab" type="button">价格构成</button>
-      <button aria-controls="tab-flow" aria-selected="false" class="tab-btn" data-tab="flow" id="tabbtn-flow" role="tab" type="button">Plus 流程</button>
-      <button aria-controls="tab-support" aria-selected="false" class="tab-btn" data-tab="support" id="tabbtn-support" role="tab" type="button">客服微信</button>
-    </nav>
-    <section aria-labelledby="tabbtn-price" class="tab-panel active" id="tab-price" role="tabpanel">
-      <p>官方订阅价格之外，实际开通还包含支付通道、汇率、风控、自动处理系统和售后协助成本。嘉哥不建议为了低价选择共享号、成品号或来源不明的方案。</p>
-      <div class="modal-footer">
-        <a class="cta-outline" href="https://fe.dtyuedan.cn/shop/jiage" id="modalBuyP">去购买</a>
-        <button class="cta-mini" id="modalCopyWxP" type="button">复制微信：<span class="wx">Jiage01888</span></button>
-      </div>
-    </section>
-    <section aria-labelledby="tabbtn-flow" class="tab-panel" hidden id="tab-flow" role="tabpanel">
-      <ol>
-        <li>先购买 Plus 卡密。</li>
-        <li>已买卡密后，进入嘉哥 GPTC.cc 站内充值中心按指引自助充值。</li>
-        <li>通常约 2 分钟到账，异常时先保存凭证再处理。</li>
-      </ol>
-      <p class="hint">提示：GPT Pro 不走这条自助流程，需要联系人工充值。</p>
-      <div class="modal-footer">
-        <a class="cta-outline" href="https://fe.dtyuedan.cn/shop/jiage" id="modalBuyF">去购买</a>
-        <button class="cta-mini" id="modalCopyWxF" type="button">复制微信：<span class="wx">Jiage01888</span></button>
-      </div>
-    </section>
-    <section aria-labelledby="tabbtn-support" class="tab-panel" hidden id="tab-support" role="tabpanel">
-      <p>微信：<strong class="wx">Jiage01888</strong></p>
-      <p class="hint">GPT Pro 请直接联系人工。咨询时建议说明：要开通 Plus 还是 Pro、账号状态、是否扣款、订单时间、页面提示。</p>
-      <div class="modal-footer">
-        <a class="cta-outline" href="https://fe.dtyuedan.cn/shop/jiage" id="modalBuyS">去购买</a>
-        <button class="cta-mini" id="modalCopyWxS" type="button">复制微信：<span class="wx">Jiage01888</span></button>
-      </div>
-    </section>
+<div class="sticky">
+  <div class="wrap sticky-inner">
+    <div class="sticky-text">Plus ¥188/月起 ｜ Pro/发票/对公可咨询 ｜ 微信 <strong id="wxid">jiage01888</strong></div>
+    <div class="sticky-actions">
+      <a class="btn btn-primary buy-btn" href="https://fe.dtyuedan.cn/shop/jiage" target="_blank" rel="noopener">购买 Plus 卡密</a>
+      <button class="btn btn-outline copy-btn" type="button">复制微信</button>
+    </div>
   </div>
 </div>
 
+<div class="modal-mask" id="rechargeModal" aria-hidden="true">
+  <div class="modal" role="dialog" aria-labelledby="rechargeTitle" tabindex="-1">
+    <div class="modal-head">
+      <h3 id="rechargeTitle">进入站内充值中心</h3>
+      <button class="close" id="closeRecharge" type="button" aria-label="关闭">×</button>
+    </div>
+    <p class="muted">购买卡密后，请进入 GPTC.cc 站内充值中心，按页面提示完成激活。</p>
+    <div class="modal-list">
+      <button class="modal-option rs-option" data-url="/activate/" type="button"><span><strong>站内充值中心</strong><br><span class="muted">https://gptc.cc/activate/</span></span><span class="tag">进入</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <script>
 (function(){
-  const BUY_URL = 'https://fe.dtyuedan.cn/shop/jiage';
   const RECHARGE_URL = '/activate/';
-  const WX_ID = (document.getElementById('wxid')?.textContent || 'Jiage01888').trim();
+  const WX_ID = (document.getElementById('wxid')?.textContent || 'jiage01888').trim();
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-  function toast(msg){
-    const old = $('.toast');
-    if (old) old.remove();
-    const el = document.createElement('div');
-    el.className = 'toast';
-    el.textContent = msg;
-    document.body.appendChild(el);
-    setTimeout(()=>el.remove(), 1500);
+  function openNew(url){ window.open(url, '_blank', 'noopener'); }
+  function showToast(text){
+    const el = $('#toast');
+    if(!el) return;
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(window.__toastTimer);
+    window.__toastTimer = setTimeout(()=>el.classList.remove('show'), 1500);
   }
-
-  async function copyToClipboard(text){
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
+  async function copyWx(){
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(WX_ID);
+      }else{
         const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
+        ta.value = WX_ID;
         ta.style.position = 'fixed';
         ta.style.left = '-9999px';
         document.body.appendChild(ta);
@@ -851,71 +734,34 @@ var _hmt = _hmt || [];
         document.execCommand('copy');
         ta.remove();
       }
-      toast('已复制：' + text);
-    } catch (e) {
-      toast('复制失败，请手动复制：' + text);
+      showToast('已复制微信：' + WX_ID);
+    }catch(e){
+      showToast('复制失败，请手动复制：' + WX_ID);
     }
   }
-
-  function openNew(url){ window.location.href = url; }
-  function openMask(mask){
-    if (!mask) return;
-    mask.classList.add('show');
-    mask.setAttribute('aria-hidden', 'false');
+  function openRecharge(){
+    const modal = $('#rechargeModal');
+    modal?.classList.add('show');
+    modal?.setAttribute('aria-hidden','false');
     document.body.classList.add('modal-open');
-    setTimeout(()=>mask.querySelector('[role="dialog"]')?.focus?.(), 0);
+    setTimeout(()=>modal?.querySelector('[role="dialog"]')?.focus?.(),0);
   }
-  function closeMask(mask){
-    if (!mask) return;
-    mask.classList.remove('show');
-    mask.setAttribute('aria-hidden', 'true');
+  function closeRecharge(){
+    const modal = $('#rechargeModal');
+    modal?.classList.remove('show');
+    modal?.setAttribute('aria-hidden','true');
     document.body.classList.remove('modal-open');
   }
 
-  ['#buyBtn','#cardBuyBtn','#stickyBuyBtn','#navBuy'].forEach(sel => {
-    $(sel)?.addEventListener('click', e => { e.preventDefault(); openNew(BUY_URL); });
-  });
-  ['#rechargeBtn','#cardRechargeBtn'].forEach(sel => {
-    $(sel)?.addEventListener('click', e => { e.preventDefault(); openNew(RECHARGE_URL); });
-  });
-  ['#copyWeChat','#cardCopyWx','#proConsultBtn','#mobileProBtn'].forEach(sel => {
-    $(sel)?.addEventListener('click', async () => { await copyToClipboard(WX_ID); });
-  });
-
-  const whyMask = $('#whyModal');
-  function showWhyTab(tab){
-    ['price','flow','support'].forEach(t => {
-      const active = t === tab;
-      const btn = $('#tabbtn-' + t, whyMask);
-      const panel = $('#tab-' + t, whyMask);
-      btn?.classList.toggle('active', active);
-      btn?.setAttribute('aria-selected', active ? 'true' : 'false');
-      if (panel) {
-        panel.hidden = !active;
-        panel.classList.toggle('active', active);
-      }
-    });
-  }
-  function openWhy(tab){
-    showWhyTab(tab || 'price');
-    openMask(whyMask);
-  }
-  $('#openWhyFooter')?.addEventListener('click', e => { e.preventDefault(); openWhy('price'); });
-  $('#whyClose')?.addEventListener('click', e => { e.preventDefault(); closeMask(whyMask); });
-  whyMask?.addEventListener('click', e => { if (e.target === whyMask) closeMask(whyMask); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && whyMask?.classList.contains('show')) closeMask(whyMask); });
-  $$('.help-tabs [data-tab]', whyMask || document).forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.preventDefault();
-      showWhyTab(btn.getAttribute('data-tab') || 'price');
-    });
-  });
-  ['#modalBuyP','#modalBuyF','#modalBuyS'].forEach(sel => {
-    $(sel, whyMask || document)?.addEventListener('click', e => { e.preventDefault(); openNew(BUY_URL); });
-  });
-  ['#modalCopyWxP','#modalCopyWxF','#modalCopyWxS'].forEach(sel => {
-    $(sel, whyMask || document)?.addEventListener('click', async e => { e.preventDefault(); await copyToClipboard(WX_ID); });
-  });
+  $$('.copy-btn').forEach(btn=>btn.addEventListener('click', e=>{e.preventDefault();copyWx();}));
+  $('#closeRecharge')?.addEventListener('click', closeRecharge);
+  $('#rechargeModal')?.addEventListener('click', e=>{if(e.target === e.currentTarget) closeRecharge();});
+  document.addEventListener('keydown', e=>{if(e.key === 'Escape') closeRecharge();});
+  $$('.rs-option').forEach(btn=>btn.addEventListener('click', e=>{
+    e.preventDefault();
+    openNew(btn.getAttribute('data-url') || RECHARGE_URL);
+    closeRecharge();
+  }));
 })();
 </script>
 </body>

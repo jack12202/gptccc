@@ -1,0 +1,44 @@
+name: Deploy gptc.cc to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-gptccc-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Deploy homepage and blog to 1Panel
+        env:
+          PANEL_BASE: ${{ secrets.PANEL_BASE }}
+          PANEL_ENTRANCE: ${{ secrets.PANEL_ENTRANCE }}
+          PANEL_USER: ${{ secrets.PANEL_USER }}
+          PANEL_PASS: ${{ secrets.PANEL_PASS }}
+          PANEL_TARGET_DIR: ${{ secrets.PANEL_TARGET_DIR }}
+        run: |
+          node ./scripts/deploy-to-1panel.mjs
+
+      - name: Verify production homepage
+        run: |
+          curl -fsSL https://gptc.cc/ > /tmp/gptccc-home.html
+          grep -q "购买 Plus 卡密" /tmp/gptccc-home.html
+
+      - name: Verify blog index
+        run: |
+          curl -fsSL https://gptc.cc/blog/ > /tmp/gptccc-blog.html
+          grep -q "<title>" /tmp/gptccc-blog.html
