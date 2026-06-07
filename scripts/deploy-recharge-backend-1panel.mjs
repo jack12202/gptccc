@@ -373,6 +373,63 @@ location ^~ /admin/provider/ {
 EOF
 cp "$BLOCK_FILE" "$PROXY_FILE"
 
+cleanup_recharge_locations() {
+  conf_file="$1"
+  tmp="$conf_file.tmp.$$"
+  awk '
+    function delta(text, open_count, close_count) {
+      open_count = gsub(/\{/, "{", text)
+      close_count = gsub(/\}/, "}", text)
+      return open_count - close_count
+    }
+    BEGIN {
+      managed = 0
+      skip = 0
+      depth = 0
+    }
+    {
+      if (managed) {
+        if ($0 ~ /END GPTC RECHARGE CENTER/) managed = 0
+        next
+      }
+      if ($0 ~ /BEGIN GPTC RECHARGE CENTER/) {
+        managed = 1
+        next
+      }
+      if (skip) {
+        depth += delta($0)
+        if (depth <= 0) skip = 0
+        next
+      }
+      if ($0 ~ /^[[:space:]]*location[[:space:]]/ && (index($0, "/api/recharge/") || index($0, "/admin/provider"))) {
+        skip = 1
+        depth = delta($0)
+        if (depth <= 0) skip = 0
+        next
+      }
+      print
+    }
+  ' "$conf_file" > "$tmp"
+  mv "$tmp" "$conf_file"
+}
+
+echo "[gptc] cleaning legacy recharge locations"
+CLEANUP_ROOTS="$PROXY_DIR $(dirname "$PROXY_DIR") /opt/1panel/apps/openresty/openresty /www /etc/nginx"
+if [ -n "$STATIC_TARGET_DIR" ]; then
+  STATIC_SITE_DIR="$(dirname "$(dirname "$STATIC_TARGET_DIR")")"
+  CLEANUP_ROOTS="$STATIC_SITE_DIR $(dirname "$STATIC_SITE_DIR") $CLEANUP_ROOTS"
+fi
+for root in $CLEANUP_ROOTS; do
+  [ -d "$root" ] || continue
+  find "$root" -maxdepth 8 -type f -name "*.conf" 2>/dev/null
+done | sort -u | while IFS= read -r conf_file; do
+  if grep -qE "GPTC RECHARGE CENTER|/api/recharge/|/admin/provider" "$conf_file"; then
+    echo "[gptc] cleaning $conf_file"
+    cleanup_recharge_locations "$conf_file"
+  fi
+done
+cp "$BLOCK_FILE" "$PROXY_FILE"
+
 SITE_CONF=""
 SEARCH_ROOTS=""
 if [ -n "$STATIC_TARGET_DIR" ]; then
