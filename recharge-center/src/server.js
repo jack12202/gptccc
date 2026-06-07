@@ -116,11 +116,21 @@ function serveProviderAdmin(res) {
     const statusBox = document.getElementById("statusBox");
     const buttons = Array.from(document.querySelectorAll("[data-provider]"));
     const params = new URLSearchParams(window.location.search);
-    const tokenFromUrl = params.get("token") || "";
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const tokenFromHash = hashParams.get("token") || "";
+    const tokenFromQuery = params.get("token") || "";
+    const tokenFromUrl = tokenFromHash || tokenFromQuery;
     tokenInput.value = tokenFromUrl || localStorage.getItem("gptcProviderAdminToken") || "";
     if (tokenFromUrl) {
       tokenField.classList.add("hidden");
-      tokenHint.textContent = "已通过私密链接进入。这个链接不要转发给别人。";
+      tokenHint.textContent = tokenFromHash
+        ? "已通过本机私密链接进入。#token 不会发送到服务器日志。"
+        : "已通过旧版私密链接进入。页面已隐藏地址栏 token。";
+      localStorage.setItem("gptcProviderAdminToken", tokenFromUrl);
+      if (tokenFromQuery) {
+        const cleanUrl = window.location.pathname + (window.location.hash || "");
+        window.history.replaceState(null, "", cleanUrl);
+      }
     }
 
     function setStatus(message, error = false) {

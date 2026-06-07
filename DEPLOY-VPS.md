@@ -68,11 +68,11 @@
 
 手机私密后台链接：
 
-- `https://gptc.cc/admin/provider?token=你的ADMIN_TOKEN`
+- `https://gptc.cc/admin/provider#token=你的ADMIN_TOKEN`
 
-打开后不用输入账号密码，直接点“三哥”或“阿妍”即可切换默认源头。
+打开后不用输入账号密码，直接点“三哥”或“阿妍”即可切换默认源头。推荐使用 `#token=`，这样 token 不会发送到服务器日志里。
 
-手机一键切换链接：
+手机一键切换链接（旧方式，会把 token 放进请求 URL，不建议长期保存）：
 
 - 切到三哥：`https://gptc.cc/admin/provider/switch?provider=sange&token=你的ADMIN_TOKEN`
 - 切到阿妍：`https://gptc.cc/admin/provider/switch?provider=ayan&token=你的ADMIN_TOKEN`
