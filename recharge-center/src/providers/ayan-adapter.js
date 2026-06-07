@@ -7,14 +7,26 @@ function extractTaskIdFromError(errorText = "") {
   return match ? match[0] : "";
 }
 
+function sanitizeVerifyRaw(body, available, message) {
+  if (!available) {
+    return {
+      available: false,
+      error: message
+    };
+  }
+
+  const rawWithoutAccount = { ...body };
+  delete rawWithoutAccount.used_email;
+  return rawWithoutAccount;
+}
+
 function normalizeVerify(raw, cardCode) {
   const body = raw.data || {};
   const productApiType = body.product_api_type || "gpt";
   const available = body.available === true;
   const unsupportedClaude = productApiType === "claude";
   const used = body.available === false && body.error === "卡密已被使用";
-  const rawWithoutAccount = { ...body };
-  delete rawWithoutAccount.used_email;
+  const message = unsupportedClaude ? "当前页面暂不支持 Claude 卡密，请使用 GPT 卡密。" : used ? "卡密已被使用" : body.error || "";
 
   return {
     success: available && !unsupportedClaude,
@@ -22,11 +34,11 @@ function normalizeVerify(raw, cardCode) {
     providerLabel: "阿妍",
     cardCode,
     productId: config.defaultProductId,
-    productApiType,
+    productApiType: available || unsupportedClaude ? productApiType : "",
     stockLevel: available ? body.stock_level || "" : "",
     usedEmail: "",
-    message: unsupportedClaude ? "当前页面暂不支持 Claude 卡密，请使用 GPT 卡密。" : used ? "卡密已被使用" : body.error || "",
-    raw: rawWithoutAccount
+    message,
+    raw: sanitizeVerifyRaw(body, available, message)
   };
 }
 
