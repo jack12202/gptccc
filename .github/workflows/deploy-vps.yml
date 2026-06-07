@@ -33,11 +33,21 @@ jobs:
         run: |
           node ./scripts/deploy-to-1panel.mjs
 
+      - name: Deploy recharge backend to 1Panel
+        env:
+          PANEL_BASE: ${{ secrets.PANEL_BASE }}
+          PANEL_ENTRANCE: ${{ secrets.PANEL_ENTRANCE }}
+          PANEL_USER: ${{ secrets.PANEL_USER }}
+          PANEL_PASS: ${{ secrets.PANEL_PASS }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          node ./scripts/deploy-recharge-backend-1panel.mjs
+
       - name: Verify production homepage
         run: |
           curl -fsSL https://gptc.cc/ > /tmp/gptccc-home.html
           grep -q '<link rel="canonical" href="https://gptc.cc/">' /tmp/gptccc-home.html
-          grep -q '<title>ChatGPT Plus / Pro 充值升级服务 | GPTC.cc</title>' /tmp/gptccc-home.html
+          grep -q '<title>GPT充值，5分钟完成 | ChatGPT Plus / Pro 充值升级 | GPTC.cc</title>' /tmp/gptccc-home.html
 
       - name: Verify blog index
         run: |
@@ -50,3 +60,10 @@ jobs:
           curl -fsSL https://gptc.cc/activate/ > /tmp/gptccc-activate.html
           grep -q '<link rel="canonical" href="https://www.gptc.cc/activate/">' /tmp/gptccc-activate.html
           grep -q '<title>站内充值中心｜嘉哥AI / 嘉哥GPT · GPTC.cc</title>' /tmp/gptccc-activate.html
+
+      - name: Verify recharge backend routes
+        run: |
+          curl -fsSL https://gptc.cc/admin/provider > /tmp/gptccc-provider-admin.html
+          grep -q '<title>源头切换后台｜GPTC.cc</title>' /tmp/gptccc-provider-admin.html
+          curl -fsSL https://gptc.cc/api/recharge/provider > /tmp/gptccc-provider.json
+          grep -q '"success":true' /tmp/gptccc-provider.json
