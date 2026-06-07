@@ -390,37 +390,61 @@ done
 
 SITE_CONF_BACKUP=""
 if [ -n "$SITE_CONF" ]; then
-  if grep -q "BEGIN GPTC RECHARGE CENTER" "$SITE_CONF"; then
-    echo "[gptc] server config already contains managed block"
-  else
-    echo "[gptc] patching OpenResty server config"
-    SITE_CONF_BACKUP="$SITE_CONF.bak.$(date +%Y%m%d%H%M%S)"
-    tmp="$SITE_CONF.tmp.$$"
-    cp "$SITE_CONF" "$SITE_CONF_BACKUP"
-    awk -v block_file="$BLOCK_FILE" '
-      BEGIN {
-        while ((getline line < block_file) > 0) block = block line ORS
+  echo "[gptc] patching OpenResty server config"
+  SITE_CONF_BACKUP="$SITE_CONF.bak.$(date +%Y%m%d%H%M%S)"
+  tmp="$SITE_CONF.tmp.$$"
+  cp "$SITE_CONF" "$SITE_CONF_BACKUP"
+  awk -v block_file="$BLOCK_FILE" '
+    function delta(text, open_count, close_count) {
+      open_count = gsub(/\{/, "{", text)
+      close_count = gsub(/\}/, "}", text)
+      return open_count - close_count
+    }
+    BEGIN {
+      while ((getline line < block_file) > 0) block = block line ORS
+      managed = 0
+      skip = 0
+      depth = 0
+      count = 0
+    }
+    {
+      if (managed) {
+        if ($0 ~ /END GPTC RECHARGE CENTER/) managed = 0
+        next
       }
-      {
-        lines[NR] = $0
+      if ($0 ~ /BEGIN GPTC RECHARGE CENTER/) {
+        managed = 1
+        next
       }
-      END {
-        insert = 0
-        for (i = NR; i >= 1; i--) {
-          if (lines[i] ~ /^[[:space:]]*}[[:space:]]*$/) {
-            insert = i
-            break
-          }
+      if (skip) {
+        depth += delta($0)
+        if (depth <= 0) skip = 0
+        next
+      }
+      if ($0 ~ /^[[:space:]]*location[[:space:]].*\/api\/recharge\// || $0 ~ /^[[:space:]]*location[[:space:]].*\/admin\/provider/) {
+        skip = 1
+        depth = delta($0)
+        if (depth <= 0) skip = 0
+        next
+      }
+      lines[++count] = $0
+    }
+    END {
+      insert = 0
+      for (i = count; i >= 1; i--) {
+        if (lines[i] ~ /^[[:space:]]*}[[:space:]]*$/) {
+          insert = i
+          break
         }
-        for (i = 1; i <= NR; i++) {
-          if (i == insert) printf "%s", block
-          print lines[i]
-        }
-        if (insert == 0) printf "%s", block
       }
-    ' "$SITE_CONF" > "$tmp"
-    mv "$tmp" "$SITE_CONF"
-  fi
+      for (i = 1; i <= count; i++) {
+        if (i == insert) printf "%s", block
+        print lines[i]
+      }
+      if (insert == 0) printf "%s", block
+    }
+  ' "$SITE_CONF" > "$tmp"
+  mv "$tmp" "$SITE_CONF"
 else
   echo "[gptc] site server config not found; relying on proxy include"
 fi
