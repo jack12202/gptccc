@@ -462,7 +462,10 @@ if [ -n "$SITE_CONF" ]; then
       managed = 0
       skip = 0
       depth = 0
-      count = 0
+      server_depth = 0
+      in_server = 0
+      server_has_gptc = 0
+      inserted = 0
     }
     {
       if (managed) {
@@ -484,21 +487,28 @@ if [ -n "$SITE_CONF" ]; then
         if (depth <= 0) skip = 0
         next
       }
-      lines[++count] = $0
+      line = $0
+      line_delta = delta(line)
+      if (!in_server && line ~ /^[[:space:]]*server[[:space:]]*\{/) {
+        in_server = 1
+        server_depth = 0
+        server_has_gptc = 0
+      }
+      if (in_server && line ~ /server_name/ && line ~ /gptc\.cc/) {
+        server_has_gptc = 1
+      }
+      if (in_server && server_has_gptc && server_depth + line_delta == 0) {
+        printf "%s", block
+        inserted = 1
+      }
+      print line
+      if (in_server) {
+        server_depth += line_delta
+        if (server_depth <= 0) in_server = 0
+      }
     }
     END {
-      insert = 0
-      for (i = count; i >= 1; i--) {
-        if (lines[i] ~ /^[[:space:]]*}[[:space:]]*$/) {
-          insert = i
-          break
-        }
-      }
-      for (i = 1; i <= count; i++) {
-        if (i == insert) printf "%s", block
-        print lines[i]
-      }
-      if (insert == 0) printf "%s", block
+      if (!inserted) printf "%s", block
     }
   ' "$SITE_CONF" > "$tmp"
   mv "$tmp" "$SITE_CONF"
