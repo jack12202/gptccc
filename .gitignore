@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+.env
+recharge-center/.env
+recharge-center/data/
+recharge-center/logs/

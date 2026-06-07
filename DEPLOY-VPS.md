@@ -38,3 +38,45 @@
 - `activate/` 目录下除 `index.html` 之外的其他文件
 
 这样你的博客、首页和充值页主文件都可以继续自动发布，同时保留未来给 `activate/` 增加其他资源文件的空间。
+
+## 双源头充值后端
+
+`recharge-center/` 是站内充值后端，已经支持：
+
+- 三哥：`sange`
+- 阿妍：`ayan`
+- 后台默认源头切换：`/admin/provider`
+- 激活链接显式指定源头：`/activate/?provider=ayan&card=XXXX`
+
+后端服务需要单独在 VPS 上运行，并配置这些环境变量：
+
+- `DEFAULT_PROVIDER`
+  - 默认值：`sange`
+  - 可选值：`sange` / `ayan`
+- `ADMIN_TOKEN`
+  - 手机后台切换源头时输入的管理密码
+- `AYAN_BASE_URL`
+  - 默认值：`https://api.987ai.vip`
+- `UPSTREAM_BASE_URL`
+  - 三哥接口地址，默认值：`https://kkk.ow800.com`
+- `UPSTREAM_AUTH_TOKEN`
+  - 如果三哥接口需要鉴权，在这里配置
+
+手机切换入口：
+
+- `https://gptc.cc/admin/provider`
+
+手机私密后台链接：
+
+- `https://gptc.cc/admin/provider?token=你的ADMIN_TOKEN`
+
+打开后不用输入账号密码，直接点“三哥”或“阿妍”即可切换默认源头。
+
+手机一键切换链接：
+
+- 切到三哥：`https://gptc.cc/admin/provider/switch?provider=sange&token=你的ADMIN_TOKEN`
+- 切到阿妍：`https://gptc.cc/admin/provider/switch?provider=ayan&token=你的ADMIN_TOKEN`
+
+这两个链接不需要账号密码，但 `ADMIN_TOKEN` 必须足够长、不要发给别人。
+
+上线时要确认 Nginx / OpenResty 已把 `/api/recharge/*` 和 `/admin/provider` 转发到 `recharge-center` 后端服务。

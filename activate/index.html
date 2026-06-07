@@ -565,7 +565,11 @@
   </div>
 
   <script>
+    let currentStep = 1;
     let currentTaskId = "";
+    let currentOrderId = "";
+    let currentProvider = "";
+    let currentProviderLabel = "自动通道";
     let currentProductId = 3;
     let currentParsedSecret = null;
 
@@ -595,6 +599,7 @@
     }
 
     function goStep(step) {
+      currentStep = step;
       document.querySelectorAll(".stage").forEach((node) => node.classList.remove("active"));
       document.querySelectorAll(".step").forEach((node) => {
         node.classList.remove("active");
@@ -617,6 +622,12 @@
       if (code === "SYSTEM_BUSY") return "系统繁忙，请稍后再试。";
       if (typeof upstream?.message === "string" && upstream.message.trim()) return upstream.message;
       return "当前激活码无法用于充值。";
+    }
+
+    function normalizeProvider(value) {
+      const provider = typeof value === "string" ? value.trim().toLowerCase() : "";
+      if (provider === "sange" || provider === "ayan") return provider;
+      return "";
     }
 
     function mapRechargeMessage(message, status) {
@@ -749,7 +760,10 @@
       button.disabled = true;
       button.textContent = "验证中...";
       try {
-        const data = await postJson("/api/recharge/verify-card", { cardInfo });
+        const data = await postJson("/api/recharge/verify-card", {
+          cardInfo,
+          provider: currentProvider || undefined
+        });
         const upstream = data.data || data.upstream?.data || data.upstream || {};
         if (!data.success) {
           setNotice("step1Notice", "激活码验证失败", data.message || "请检查激活码后重试。", "error");
@@ -760,6 +774,8 @@
           setNotice("step1Notice", "激活码不可用", mapCardVerifyMessage(upstream), "error");
           return;
         }
+        currentProvider = normalizeProvider(upstream.selectedProvider || upstream.provider || currentProvider);
+        currentProviderLabel = upstream.providerLabel || currentProviderLabel;
         currentProductId = Number(upstream.productId || 3);
         setNotice("step1Notice", "激活码验证通过", "激活码可继续使用，进入下一步获取充值密钥。", "success");
         document.getElementById("confirmCard").textContent = cardInfo;
@@ -790,7 +806,7 @@
         updateConfirmButtonState();
         setTextIfPresent("confirmEmail", result.data.userEmail);
         setTextIfPresent("confirmCard", document.getElementById("cardInfo").value.trim());
-        setTextIfPresent("confirmChannel", "通道一");
+        setTextIfPresent("confirmChannel", "自动通道");
         setNotice("step2Notice", "账号信息识别成功", `已识别账号邮箱：${result.data.userEmail}，账户计划：${result.data.accountPlanType || "-"}，可以进入确认充值。`, "success");
         goStep(3);
       } catch (error) {
@@ -811,10 +827,14 @@
       }
       const payload = {
         cardInfo: document.getElementById("cardInfo").value.trim(),
+        provider: currentProvider || undefined,
         userEmail: currentParsedSecret.userEmail,
         userGptToken: currentParsedSecret.userGptToken,
         fullAuthData: JSON.stringify(currentParsedSecret.fullAuthData),
-        productId: currentProductId
+        authProvider: currentParsedSecret.authProvider || "",
+        productId: currentProductId,
+        overwriteRecharge: document.getElementById("overwriteRecharge").checked,
+        siteSource: "gptc.cc"
       };
       button.disabled = true;
       button.textContent = "提交中...";
@@ -828,7 +848,10 @@
           progressBox.style.display = "none";
           return;
         }
+        currentOrderId = task.orderId || "";
         currentTaskId = task.taskId;
+        currentProvider = normalizeProvider(task.provider || currentProvider);
+        currentProviderLabel = task.providerLabel || currentProviderLabel;
         renderProgressBox(mapRechargeMessage(task.message, task.processing ? "processing" : ""), task.taskId);
         pollStatus();
       } catch (error) {
@@ -846,9 +869,11 @@
       const progressBox = document.getElementById("progressBox");
       try {
         const data = await postJson("/api/recharge/query-task-status", {
+          orderId: currentOrderId,
           taskId: currentTaskId,
           productId: currentProductId,
-          cardInfo: document.getElementById("cardInfo").value.trim()
+          cardInfo: document.getElementById("cardInfo").value.trim(),
+          provider: currentProvider || undefined
         });
         const task = data.data || {};
         if (!data.success) {
@@ -875,7 +900,10 @@
 
     function applyCardFromQuery() {
       const params = new URLSearchParams(window.location.search);
-      const rawCard = params.get("card");
+      const rawProvider = normalizeProvider(params.get("provider"));
+      if (rawProvider) currentProvider = rawProvider;
+
+      const rawCard = params.get("card") || params.get("code");
       if (!rawCard) return;
       const cardInfo = rawCard.trim();
       if (!cardInfo) return;

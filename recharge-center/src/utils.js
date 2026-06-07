@@ -41,3 +41,37 @@ export function encodeJson(value) {
 export function requiredString(value) {
   return typeof value === "string" && value.trim() !== "";
 }
+
+export function normalizeProvider(value, fallback = "sange") {
+  const provider = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (provider === "sange" || provider === "ayan") return provider;
+  return fallback;
+}
+
+export function extractCardCode(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  try {
+    const parsedUrl = new URL(raw);
+    const code = parsedUrl.searchParams.get("card") || parsedUrl.searchParams.get("code");
+    if (requiredString(code)) return code.trim().toUpperCase();
+  } catch {
+    // Not a URL; continue with plain text parsing.
+  }
+
+  const parts = raw
+    .split(/[\s:：,，|/\\?&=]+/)
+    .map(part => part.trim())
+    .filter(Boolean);
+  const candidate = parts.length ? parts[parts.length - 1] : raw;
+  return candidate.toUpperCase();
+}
+
+export function tryParseJsonText(value) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const parsed = safeJsonParse(trimmed);
+  return parsed.ok ? parsed.value : value;
+}

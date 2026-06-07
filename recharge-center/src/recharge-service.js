@@ -1,9 +1,25 @@
 import { config } from "./config.js";
+import { getProviderAdapter, listProviders } from "./providers/index.js";
 import { JsonStore } from "./store.js";
-import { upstreamClient } from "./upstream-client.js";
-import { encodeJson, maskCard, requiredString, safeJsonParse, sha256 } from "./utils.js";
+import {
+  encodeJson,
+  maskCard,
+  normalizeProvider,
+  requiredString,
+  safeJsonParse,
+  sha256,
+  tryParseJsonText
+} from "./utils.js";
 
 const store = new JsonStore();
+
+function defaultProvider() {
+  return normalizeProvider(store.getSettings().defaultProvider, normalizeProvider(config.defaultProvider));
+}
+
+function resolveProvider(provider) {
+  return normalizeProvider(provider, defaultProvider());
+}
 
 function parseSecretPayload(secretJsonText) {
   const parsed = safeJsonParse(secretJsonText);
@@ -11,8 +27,12 @@ function parseSecretPayload(secretJsonText) {
     return { ok: false, message: "充值密钥不是合法 JSON。" };
   }
 
-  const payload = parsed.value;
+  return parseSecretObject(parsed.value);
+}
+
+function parseSecretObject(payload) {
   const user = typeof payload.user === "object" && payload.user ? payload.user : {};
+  const account = typeof payload.account === "object" && payload.account ? payload.account : {};
   const userEmail = requiredString(payload.userEmail)
     ? payload.userEmail.trim()
     : requiredString(user.email)
@@ -44,22 +64,89 @@ function parseSecretPayload(secretJsonText) {
       ...payload,
       userEmail,
       userGptToken,
-      fullAuthData
+      fullAuthData,
+      account
     }
   };
 }
 
+function parseRechargeInput(input) {
+  if (requiredString(input.secretJsonText)) {
+    return parseSecretPayload(input.secretJsonText);
+  }
+
+  const fullAuthData = tryParseJsonText(input.fullAuthData);
+  return parseSecretObject({
+    ...input,
+    fullAuthData: typeof fullAuthData === "object" && fullAuthData ? fullAuthData : input
+  });
+}
+
+function normalizedProviderData(provider) {
+  const adapter = getProviderAdapter(provider);
+  return {
+    provider: adapter.key,
+    providerLabel: adapter.label
+  };
+}
+
+function logPayload(value) {
+  return JSON.stringify(value);
+}
+
 export const rechargeService = {
-  async verifyCard(cardInfo) {
+  getProviderSettings() {
+    const settings = store.getSettings();
+    const provider = normalizeProvider(settings.defaultProvider, defaultProvider());
+
+    return {
+      defaultProvider: provider,
+      defaultProviderLabel: getProviderAdapter(provider).label,
+      providerUpdatedAt: settings.providerUpdatedAt || "",
+      providerUpdatedBy: settings.providerUpdatedBy || "",
+      providers: listProviders()
+    };
+  },
+
+  updateDefaultProvider(provider, updatedBy = "admin") {
+    const nextProvider = normalizeProvider(provider, "");
+    if (!nextProvider) {
+      return { ok: false, status: 400, message: "请选择有效源头。" };
+    }
+
+    const settings = store.updateSettings({
+      defaultProvider: nextProvider,
+      providerUpdatedAt: new Date().toISOString(),
+      providerUpdatedBy: updatedBy
+    });
+
+    return {
+      ok: true,
+      status: 200,
+      data: {
+        ...this.getProviderSettings(),
+        providerUpdatedAt: settings.providerUpdatedAt
+      }
+    };
+  },
+
+  async verifyCard(cardInfo, provider) {
     if (!requiredString(cardInfo)) {
       return { ok: false, status: 400, message: "请先输入卡密。" };
     }
 
-    const upstream = await upstreamClient.verifyCard(cardInfo.trim());
+    const selectedProvider = resolveProvider(provider);
+    const adapter = getProviderAdapter(selectedProvider);
+    const upstream = await adapter.verifyCard({ cardInfo: cardInfo.trim() });
+
     return {
       ok: upstream.ok,
       status: upstream.ok ? 200 : 502,
-      upstream
+      data: {
+        ...upstream.data,
+        selectedProvider,
+        defaultProvider: defaultProvider()
+      }
     };
   },
 
@@ -93,24 +180,28 @@ export const rechargeService = {
   },
 
   async confirmRecharge(input) {
-    const { cardInfo, secretJsonText, productId, overwriteRecharge, siteSource } = input;
+    const { cardInfo, productId, overwriteRecharge, siteSource } = input;
 
     if (!requiredString(cardInfo)) {
       return { ok: false, status: 400, message: "缺少卡密。" };
     }
 
-    const parsed = this.parseSecret(secretJsonText);
-    if (!parsed.ok) return parsed;
+    const parsed = parseRechargeInput(input);
+    if (!parsed.ok) return { ok: false, status: 400, message: parsed.message };
 
-    const secret = parsed.parsedSecret;
+    const selectedProvider = resolveProvider(input.provider);
+    const adapter = getProviderAdapter(selectedProvider);
+    const secret = parsed.data;
+    const providerData = normalizedProviderData(selectedProvider);
     const cardMask = maskCard(cardInfo.trim());
     const order = store.createOrder({
       siteSource,
+      provider: selectedProvider,
       cardMask,
       productId: Number(productId || config.defaultProductId),
       overwriteRecharge,
       status: "processing",
-      message: "任务已创建，等待上游处理。"
+      message: `任务已创建，等待${providerData.providerLabel}处理。`
     });
 
     store.createRechargeSession({
@@ -125,24 +216,27 @@ export const rechargeService = {
       userEmail: secret.userEmail,
       userGptToken: secret.userGptToken,
       fullAuthData: secret.fullAuthData,
-      productId: Number(productId || config.defaultProductId)
+      authProvider: typeof secret.authProvider === "string" ? secret.authProvider : "",
+      productId: Number(productId || config.defaultProductId),
+      overwriteRecharge: Boolean(overwriteRecharge)
     };
 
     store.addLog({
       orderId: order.id,
-      step: "verify-gpt.request",
-      requestSummary: JSON.stringify({
+      step: `${selectedProvider}.start.request`,
+      requestSummary: logPayload({
+        provider: selectedProvider,
         cardMask,
         userEmail: secret.userEmail,
         productId: upstreamPayload.productId,
-        overwriteRecharge: Boolean(overwriteRecharge)
+        overwriteRecharge: upstreamPayload.overwriteRecharge
       }),
       responseSummary: "pending"
     });
 
-    const upstream = await upstreamClient.startRecharge(upstreamPayload);
-    const upstreamTaskId = upstream.data?.data?.taskId || "";
-    const message = upstream.data?.data?.message || upstream.data?.message || "已提交上游任务。";
+    const upstream = await adapter.startRecharge(upstreamPayload);
+    const upstreamTaskId = upstream.data?.taskId || "";
+    const message = upstream.data?.message || "已提交上游任务。";
     const status = upstream.ok ? "processing" : "failed";
 
     store.updateOrder(order.id, {
@@ -153,9 +247,9 @@ export const rechargeService = {
 
     store.addLog({
       orderId: order.id,
-      step: "verify-gpt.response",
+      step: `${selectedProvider}.start.response`,
       requestSummary: "completed",
-      responseSummary: JSON.stringify({
+      responseSummary: logPayload({
         ok: upstream.ok,
         status: upstream.status,
         upstreamTaskId,
@@ -170,7 +264,8 @@ export const rechargeService = {
         orderId: order.id,
         taskId: upstreamTaskId,
         status,
-        message
+        message,
+        ...providerData
       }
     };
   },
@@ -181,55 +276,79 @@ export const rechargeService = {
       return { ok: false, status: 404, message: "订单不存在。" };
     }
 
-    if (!order.upstreamTaskId || !["processing", "created"].includes(order.status)) {
-      return {
-        ok: true,
-        status: 200,
-        data: {
-          orderId: order.id,
-          status: order.status,
-          message: order.message
-        }
-      };
+    return this.queryTaskStatus({
+      orderId: order.id,
+      taskId: order.upstreamTaskId
+    });
+  },
+
+  async queryTaskStatus(input) {
+    const order = requiredString(input.orderId)
+      ? store.getOrder(input.orderId)
+      : requiredString(input.taskId)
+        ? store.getOrderByUpstreamTaskId(input.taskId)
+        : null;
+    const taskId = order?.upstreamTaskId || input.taskId || "";
+
+    if (!requiredString(taskId)) {
+      if (order) {
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            orderId: order.id,
+            taskId: "",
+            status: order.status,
+            message: order.message,
+            ...normalizedProviderData(order.provider)
+          }
+        };
+      }
+      return { ok: false, status: 400, message: "缺少任务号。" };
     }
 
-    const upstream = await upstreamClient.queryTaskStatus({
-      taskId: order.upstreamTaskId,
-      productId: order.productId
+    const selectedProvider = resolveProvider(order?.provider || input.provider);
+    const adapter = getProviderAdapter(selectedProvider);
+    const upstream = await adapter.queryTaskStatus({
+      taskId,
+      productId: order?.productId || Number(input.productId || config.defaultProductId),
+      cardInfo: input.cardInfo || ""
     });
 
-    const upstreamStatus = upstream.data?.data?.status || "processing";
-    const message = upstream.data?.data?.message || order.message || "";
-    const nextStatus = upstreamStatus === "success" ? "success" : upstreamStatus === "failed" ? "failed" : "processing";
+    const nextStatus = upstream.data?.status || "processing";
+    const message = upstream.data?.message || "";
 
-    store.updateOrder(order.id, {
-      status: nextStatus,
-      message
-    });
-
-    store.addLog({
-      orderId: order.id,
-      step: "query-task-status",
-      requestSummary: JSON.stringify({
-        taskId: order.upstreamTaskId,
-        productId: order.productId
-      }),
-      responseSummary: JSON.stringify({
-        ok: upstream.ok,
-        status: upstream.status,
-        upstreamStatus,
-        message
-      })
-    });
-
-    return {
-      ok: true,
-      status: 200,
-      data: {
-        orderId: order.id,
-        taskId: order.upstreamTaskId,
+    if (order) {
+      store.updateOrder(order.id, {
         status: nextStatus,
         message
+      });
+
+      store.addLog({
+        orderId: order.id,
+        step: `${selectedProvider}.status`,
+        requestSummary: logPayload({
+          taskId,
+          productId: order.productId
+        }),
+        responseSummary: logPayload({
+          ok: upstream.ok,
+          status: upstream.status,
+          upstreamStatus: upstream.data?.upstreamStatus || nextStatus,
+          message
+        })
+      });
+    }
+
+    return {
+      ok: upstream.ok,
+      status: upstream.ok ? 200 : 502,
+      data: {
+        orderId: order?.id || "",
+        taskId,
+        status: nextStatus,
+        message,
+        ...normalizedProviderData(selectedProvider)
       }
     };
   }

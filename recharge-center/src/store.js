@@ -19,7 +19,27 @@ function createInitialState() {
   return {
     orders: [],
     rechargeSessions: [],
-    rechargeLogs: []
+    rechargeLogs: [],
+    settings: {
+      defaultProvider: config.defaultProvider,
+      providerUpdatedAt: "",
+      providerUpdatedBy: ""
+    }
+  };
+}
+
+function normalizeState(state) {
+  const initial = createInitialState();
+  return {
+    ...initial,
+    ...state,
+    orders: Array.isArray(state?.orders) ? state.orders : [],
+    rechargeSessions: Array.isArray(state?.rechargeSessions) ? state.rechargeSessions : [],
+    rechargeLogs: Array.isArray(state?.rechargeLogs) ? state.rechargeLogs : [],
+    settings: {
+      ...initial.settings,
+      ...(state?.settings || {})
+    }
   };
 }
 
@@ -34,7 +54,7 @@ export class JsonStore {
 
   read() {
     const raw = fs.readFileSync(this.filePath, "utf8");
-    return raw.trim() ? JSON.parse(raw) : createInitialState();
+    return raw.trim() ? normalizeState(JSON.parse(raw)) : createInitialState();
   }
 
   write(state) {
@@ -47,6 +67,7 @@ export class JsonStore {
     const order = {
       id: makeId("order"),
       siteSource: input.siteSource || "unknown",
+      provider: input.provider || config.defaultProvider,
       cardMask: input.cardMask || "",
       productId: input.productId ?? config.defaultProductId,
       status: input.status || "created",
@@ -73,6 +94,25 @@ export class JsonStore {
   getOrder(orderId) {
     const state = this.read();
     return state.orders.find((item) => item.id === orderId) || null;
+  }
+
+  getOrderByUpstreamTaskId(upstreamTaskId) {
+    const state = this.read();
+    return state.orders.find((item) => item.upstreamTaskId === upstreamTaskId) || null;
+  }
+
+  getSettings() {
+    return this.read().settings;
+  }
+
+  updateSettings(patch) {
+    const state = this.read();
+    state.settings = {
+      ...state.settings,
+      ...patch
+    };
+    this.write(state);
+    return state.settings;
   }
 
   createRechargeSession(input) {
