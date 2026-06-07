@@ -27,6 +27,9 @@
       --warning-line: #fdba74;
       --shadow: 0 20px 48px rgba(15, 23, 42, 0.08);
       --radius: 16px;
+      --source-accent: #0f766e;
+      --source-accent-2: #2563eb;
+      --source-soft: #eef5ff;
     }
     * { box-sizing: border-box; }
     body {
@@ -40,7 +43,17 @@
       min-height: 100vh;
     }
     a { color: inherit; }
-    .wrap { width: min(980px, calc(100% - 28px)); margin: 28px auto 48px; }
+    body.provider-ayan {
+      --source-accent: #0f766e;
+      --source-accent-2: #f59e0b;
+      --source-soft: #ecfdf5;
+    }
+    body.provider-sange {
+      --source-accent: #2563eb;
+      --source-accent-2: #7c3aed;
+      --source-soft: #eef4ff;
+    }
+    .wrap { width: min(980px, calc(100% - 28px)); margin: 14px auto 36px; }
     .topbar {
       display: flex;
       justify-content: space-between;
@@ -60,7 +73,7 @@
       width: 34px;
       height: 34px;
       border-radius: 9px;
-      background: #0f766e;
+      background: linear-gradient(135deg, var(--source-accent), var(--source-accent-2));
       color: #fff;
       display: grid;
       place-items: center;
@@ -86,12 +99,12 @@
       font-size: 14px;
     }
     .hero {
-      background: linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(37, 99, 235, 0.08));
-      border: 1px solid rgba(15, 118, 110, 0.14);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--source-accent) 9%, #fff), color-mix(in srgb, var(--source-accent-2) 8%, #fff));
+      border: 1px solid color-mix(in srgb, var(--source-accent) 18%, #dbe4ee);
       border-radius: 24px;
       box-shadow: var(--shadow);
-      padding: 28px 24px;
-      margin-bottom: 20px;
+      padding: 18px 24px;
+      margin-bottom: 14px;
     }
     .eyebrow {
       display: inline-flex;
@@ -105,22 +118,45 @@
       font-weight: 800;
     }
     h1 {
-      margin: 14px 0 10px;
-      font-size: clamp(32px, 5vw, 52px);
+      margin: 10px 0 8px;
+      font-size: clamp(30px, 4.2vw, 44px);
       line-height: 1.05;
+      color: var(--source-accent);
+    }
+    .provider-cue {
+      width: 22px;
+      height: 22px;
+      margin-left: 10px;
+      transform: translateY(-10px);
+      border-radius: 50%;
+      display: inline-grid;
+      place-items: center;
+      vertical-align: middle;
+      color: #fff;
+      background: linear-gradient(135deg, var(--source-accent), var(--source-accent-2));
+      box-shadow: 0 10px 22px color-mix(in srgb, var(--source-accent) 26%, transparent);
+      font-size: 13px;
+      font-weight: 950;
+      line-height: 1;
+    }
+    .provider-cue::before { content: "•"; }
+    body.provider-ayan .provider-cue::before { content: "◆"; }
+    body.provider-sange .provider-cue::before { content: "✦"; }
+    body.provider-sange .provider-cue {
+      border-radius: 7px;
     }
     .hero p {
       margin: 0;
       max-width: 780px;
       color: #475569;
-      font-size: 17px;
-      line-height: 1.7;
+      font-size: 16px;
+      line-height: 1.58;
     }
     .hero-pills {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
-      margin-top: 18px;
+      margin-top: 12px;
     }
     .pill {
       display: inline-flex;
@@ -131,7 +167,7 @@
       background: #fff;
       border: 1px solid var(--line);
       color: #334155;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
     }
     .panel {
@@ -145,7 +181,7 @@
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
-      padding: 18px;
+      padding: 14px;
       background: #fbfdff;
       border-bottom: 1px solid var(--line);
     }
@@ -153,8 +189,8 @@
       border: 2px solid #d7e1f1;
       border-radius: 16px;
       background: #f8fbff;
-      min-height: 92px;
-      padding: 16px 14px;
+      min-height: 74px;
+      padding: 12px 14px;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -174,13 +210,21 @@
       color: #fff;
       background: #cbd5e1;
     }
-    .step.active .num { background: var(--brand-blue); }
+    .step.active .num { background: linear-gradient(135deg, var(--source-accent), var(--source-accent-2)); }
     .step.done .num { background: var(--success); }
-    .step strong { font-size: 17px; }
+    .step strong { font-size: 16px; }
     .step span { color: var(--muted); font-size: 13px; }
-    .content { padding: 24px; }
+    .content { padding: 18px 24px 24px; }
     .stage { display: none; }
     .stage.active { display: block; }
+    #stage-1 {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    #stage-1 .notice {
+      margin-top: 18px;
+      margin-bottom: 0;
+    }
     .notice {
       margin-bottom: 20px;
       padding: 16px 18px;
@@ -189,6 +233,7 @@
       border: 1px solid #bfdbfe;
       color: #1e3a8a;
     }
+    .notice.is-empty { display: none; }
     .notice strong {
       display: block;
       margin-bottom: 6px;
@@ -405,11 +450,54 @@
       line-height: 1.7;
     }
     @media (max-width: 860px) {
-      .two-col, .stepper { grid-template-columns: 1fr; }
+      .two-col { grid-template-columns: 1fr; }
       .step { min-height: 78px; }
-      .content, .hero { padding: 20px; }
+      .content, .hero { padding: 18px; }
       .kv { flex-direction: column; gap: 6px; }
       .topbar { flex-direction: column; align-items: stretch; }
+    }
+    @media (max-width: 560px) {
+      .wrap { width: min(100% - 20px, 980px); margin: 10px auto 24px; }
+      .topbar { gap: 10px; margin-bottom: 10px; }
+      .top-actions { gap: 8px; }
+      .mini-btn { min-height: 34px; padding: 0 10px; font-size: 12px; }
+      .hero { padding: 14px; border-radius: 18px; margin-bottom: 10px; }
+      .eyebrow { min-height: 26px; font-size: 12px; }
+      h1 { font-size: 28px; }
+      .provider-cue {
+        width: 18px;
+        height: 18px;
+        margin-left: 6px;
+        transform: translateY(-7px);
+        font-size: 11px;
+      }
+      .hero p { font-size: 14px; line-height: 1.5; }
+      .hero-pills { display: none; }
+      .panel { border-radius: 14px; }
+      .stepper {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        padding: 8px;
+      }
+      .step {
+        min-height: 58px;
+        padding: 8px 4px;
+        border-width: 1px;
+        border-radius: 12px;
+      }
+      .num {
+        width: 24px;
+        height: 24px;
+        font-size: 13px;
+      }
+      .step strong { font-size: 12px; }
+      .step span { display: none; }
+      .content { padding: 14px; }
+      .field label { font-size: 14px; }
+      input, textarea { padding: 13px 14px; border-radius: 12px; }
+      .btn-row { margin-top: 14px; }
+      button, .link-btn { flex: 1 1 150px; min-height: 44px; padding: 0 14px; }
+      #stage-1 .notice { margin-top: 14px; margin-bottom: 0; }
     }
   </style>
 </head>
@@ -428,7 +516,7 @@
 
     <section class="hero">
       <span class="eyebrow">站内充值中心 · 不再跳到外部充值页</span>
-      <h1>ChatGPT Plus 站内自助充值</h1>
+      <h1>ChatGPT Plus 站内自助充值<span class="provider-cue" aria-hidden="true"></span></h1>
       <p>先验证激活码，再登录 GPT 获取充值密钥，最后在 GPTC.cc 站内确认充值。整个流程优先保持简洁、清楚、到账状态可查。</p>
       <div class="hero-pills">
         <span class="pill">充值到自己的 GPT 账号</span>
@@ -458,19 +546,16 @@
 
       <div class="content">
         <div class="stage active" id="stage-1">
-          <div class="notice" id="step1Notice">
-            <strong>第 1 步：先验证激活码</strong>
-            这里会先校验激活码是否可用。验证通过后，再进入下一步获取充值密钥。
-          </div>
           <div class="field">
             <label for="cardInfo">验证激活码</label>
-            <input id="cardInfo" placeholder="请输入你购买后的 Plus 激活码">
+            <input id="cardInfo" placeholder="请输入你购买后的 Plus 激活码" autocomplete="off" autocapitalize="characters" spellcheck="false">
             <small>第一版优先支持 ChatGPT Plus 产品。激活码可用后，系统会继续识别账号信息。</small>
           </div>
           <div class="btn-row">
             <button class="primary" type="button" id="verifyCardBtn" onclick="verifyCard()">验证激活码</button>
             <a class="link-btn secondary" href="https://fe.dtyuedan.cn/shop/jiage">去购买激活码</a>
           </div>
+          <div class="notice is-empty" id="step1Notice"></div>
         </div>
 
         <div class="stage" id="stage-2">
@@ -572,6 +657,12 @@
     let currentProviderLabel = "自动通道";
     let currentProductId = 3;
     let currentParsedSecret = null;
+    let providerLocked = false;
+
+    async function getJson(url) {
+      const response = await fetch(url);
+      return response.json();
+    }
 
     async function postJson(url, payload) {
       const response = await fetch(url, {
@@ -584,6 +675,7 @@
 
     function setNotice(id, title, message, mode = "info") {
       const el = document.getElementById(id);
+      el.classList.remove("is-empty");
       el.classList.remove("result-ok");
       el.style.background = "";
       el.style.borderColor = "";
@@ -628,6 +720,32 @@
       const provider = typeof value === "string" ? value.trim().toLowerCase() : "";
       if (provider === "sange" || provider === "ayan") return provider;
       return "";
+    }
+
+    function applyProviderCue(provider) {
+      const normalized = normalizeProvider(provider);
+      document.body.classList.toggle("provider-ayan", normalized === "ayan");
+      document.body.classList.toggle("provider-sange", normalized === "sange");
+    }
+
+    function setCurrentProvider(provider, options = {}) {
+      const normalized = normalizeProvider(provider);
+      if (!normalized) return;
+      currentProvider = normalized;
+      providerLocked = providerLocked || options.locked === true;
+      applyProviderCue(normalized);
+    }
+
+    async function loadProviderState() {
+      try {
+        const result = await getJson("/api/recharge/provider");
+        const provider = normalizeProvider(result?.data?.defaultProvider);
+        if (!provider) return;
+        if (!providerLocked) currentProvider = provider;
+        applyProviderCue(currentProvider || provider);
+      } catch {
+        applyProviderCue(currentProvider);
+      }
     }
 
     function mapRechargeMessage(message, status) {
@@ -774,7 +892,7 @@
           setNotice("step1Notice", "激活码不可用", mapCardVerifyMessage(upstream), "error");
           return;
         }
-        currentProvider = normalizeProvider(upstream.selectedProvider || upstream.provider || currentProvider);
+        setCurrentProvider(upstream.selectedProvider || upstream.provider || currentProvider, { locked: true });
         currentProviderLabel = upstream.providerLabel || currentProviderLabel;
         currentProductId = Number(upstream.productId || 3);
         setNotice("step1Notice", "激活码验证通过", "激活码可继续使用，进入下一步获取充值密钥。", "success");
@@ -850,7 +968,7 @@
         }
         currentOrderId = task.orderId || "";
         currentTaskId = task.taskId;
-        currentProvider = normalizeProvider(task.provider || currentProvider);
+        setCurrentProvider(task.provider || currentProvider, { locked: true });
         currentProviderLabel = task.providerLabel || currentProviderLabel;
         renderProgressBox(mapRechargeMessage(task.message, task.processing ? "processing" : ""), task.taskId);
         pollStatus();
@@ -901,7 +1019,7 @@
     function applyCardFromQuery() {
       const params = new URLSearchParams(window.location.search);
       const rawProvider = normalizeProvider(params.get("provider"));
-      if (rawProvider) currentProvider = rawProvider;
+      if (rawProvider) setCurrentProvider(rawProvider, { locked: true });
 
       const rawCard = params.get("card") || params.get("code");
       if (!rawCard) return;
@@ -927,6 +1045,13 @@
     }
 
     applyCardFromQuery();
+    loadProviderState();
+    window.addEventListener("focus", () => {
+      if (!providerLocked) loadProviderState();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && !providerLocked) loadProviderState();
+    });
   </script>
 </body>
 </html>
