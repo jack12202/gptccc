@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>站内充值中心｜嘉哥AI / 嘉哥GPT · GPTC.cc</title>
-  <meta name="description" content="GPTC.cc 站内充值中心：先验证激活码，再粘贴充值密钥，最后确认充值到自己的 ChatGPT 账号。">
+  <title>嘉哥AI Plus充值系统｜GPTC.cc</title>
+  <meta name="description" content="GPTC.cc 站内充值中心：先验证激活码，再粘贴充值密钥，最后确认充值到自己的 AI 账号。">
   <link rel="canonical" href="https://www.gptc.cc/activate/">
-  <meta property="og:title" content="站内充值中心｜嘉哥AI / 嘉哥GPT · GPTC.cc">
+  <meta property="og:title" content="嘉哥AI Plus充值系统｜GPTC.cc">
   <meta property="og:description" content="已购买激活码后，直接在 GPTC.cc 站内完成账号识别与充值确认。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.gptc.cc/activate/">
@@ -44,14 +44,14 @@
     }
     a { color: inherit; }
     body.provider-ayan {
-      --source-accent: #0f766e;
-      --source-accent-2: #f59e0b;
-      --source-soft: #ecfdf5;
+      --source-accent: #e11d48;
+      --source-accent-2: #f97316;
+      --source-soft: #fff1f2;
     }
     body.provider-sange {
-      --source-accent: #2563eb;
-      --source-accent-2: #7c3aed;
-      --source-soft: #eef4ff;
+      --source-accent: #4f46e5;
+      --source-accent-2: #9333ea;
+      --source-soft: #eef2ff;
     }
     .wrap { width: min(980px, calc(100% - 28px)); margin: 14px auto 36px; }
     .topbar {
@@ -112,8 +112,8 @@
       min-height: 30px;
       padding: 0 12px;
       border-radius: 999px;
-      background: #ecfdf5;
-      color: #0f766e;
+      background: color-mix(in srgb, var(--source-accent) 10%, #fff);
+      color: var(--source-accent);
       font-size: 13px;
       font-weight: 800;
     }
@@ -124,26 +124,30 @@
       color: var(--source-accent);
     }
     .provider-cue {
-      width: 22px;
-      height: 22px;
-      margin-left: 10px;
-      transform: translateY(-10px);
-      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      margin-left: 12px;
+      transform: translateY(-8px);
+      border-radius: 999px;
       display: inline-grid;
       place-items: center;
       vertical-align: middle;
       color: #fff;
       background: linear-gradient(135deg, var(--source-accent), var(--source-accent-2));
-      box-shadow: 0 10px 22px color-mix(in srgb, var(--source-accent) 26%, transparent);
-      font-size: 13px;
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.32),
+        0 12px 28px color-mix(in srgb, var(--source-accent) 34%, transparent);
+      font-size: 18px;
       font-weight: 950;
       line-height: 1;
+      letter-spacing: 0;
     }
-    .provider-cue::before { content: "•"; }
-    body.provider-ayan .provider-cue::before { content: "◆"; }
-    body.provider-sange .provider-cue::before { content: "✦"; }
+    .provider-cue::before { content: ""; }
+    body.provider-ayan .provider-cue::before { content: "Y"; }
+    body.provider-sange .provider-cue::before { content: "S"; }
     body.provider-sange .provider-cue {
-      border-radius: 7px;
+      border-radius: 9px;
+      transform: translateY(-8px) rotate(-2deg);
     }
     .hero p {
       margin: 0;
@@ -465,12 +469,13 @@
       .eyebrow { min-height: 26px; font-size: 12px; }
       h1 { font-size: 28px; }
       .provider-cue {
-        width: 18px;
-        height: 18px;
-        margin-left: 6px;
-        transform: translateY(-7px);
-        font-size: 11px;
+        width: 28px;
+        height: 28px;
+        margin-left: 8px;
+        transform: translateY(-6px);
+        font-size: 15px;
       }
+      body.provider-sange .provider-cue { transform: translateY(-6px) rotate(-2deg); }
       .hero p { font-size: 14px; line-height: 1.5; }
       .hero-pills { display: none; }
       .panel { border-radius: 14px; }
@@ -510,16 +515,16 @@
       </a>
       <div class="top-actions">
         <a class="mini-btn" href="/">返回开通首页</a>
-        <a class="mini-btn" href="https://fe.dtyuedan.cn/shop/jiage">先购买 Plus 激活码</a>
+        <a class="mini-btn" href="https://fe.dtyuedan.cn/shop/jiage">先购买 AI Plus 激活码</a>
       </div>
     </div>
 
     <section class="hero">
       <span class="eyebrow">站内充值中心 · 不再跳到外部充值页</span>
-      <h1>ChatGPT Plus 站内自助充值<span class="provider-cue" aria-hidden="true"></span></h1>
-      <p>先验证激活码，再登录 GPT 获取充值密钥，最后在 GPTC.cc 站内确认充值。整个流程优先保持简洁、清楚、到账状态可查。</p>
+      <h1>嘉哥AI Plus充值系统<span class="provider-cue" aria-hidden="true"></span></h1>
+      <p>先验证激活码，再获取充值密钥，最后在 GPTC.cc 站内确认充值。整个流程优先保持简洁、清楚、到账状态可查。</p>
       <div class="hero-pills">
-        <span class="pill">充值到自己的 GPT 账号</span>
+        <span class="pill">充值到自己的 AI 账号</span>
         <span class="pill">无需提供账号密码</span>
         <span class="pill">支付仍在原发卡网完成</span>
       </div>
@@ -535,7 +540,7 @@
         <div class="step" id="step-2">
           <div class="num">2</div>
           <strong>获取密钥</strong>
-          <span>登录 GPT 后复制完整 JSON</span>
+          <span>登录目标账号后复制完整 JSON</span>
         </div>
         <div class="step" id="step-3">
           <div class="num">3</div>
@@ -548,8 +553,8 @@
         <div class="stage active" id="stage-1">
           <div class="field">
             <label for="cardInfo">验证激活码</label>
-            <input id="cardInfo" placeholder="请输入你购买后的 Plus 激活码" autocomplete="off" autocapitalize="characters" spellcheck="false">
-            <small>第一版优先支持 ChatGPT Plus 产品。激活码可用后，系统会继续识别账号信息。</small>
+            <input id="cardInfo" placeholder="请输入你购买后的 AI Plus 激活码" autocomplete="off" autocapitalize="characters" spellcheck="false">
+            <small>第一版优先支持 AI Plus 产品。激活码可用后，系统会继续识别账号信息。</small>
           </div>
           <div class="btn-row">
             <button class="primary" type="button" id="verifyCardBtn" onclick="verifyCard()">验证激活码</button>
@@ -561,17 +566,17 @@
         <div class="stage" id="stage-2">
           <div class="notice" id="step2Notice">
             <strong>第 2 步：获取充值密钥</strong>
-            先登录 GPT，再点击获取充值密钥，把返回的完整 JSON 全选复制回这里。
+            先登录目标账号，再点击获取充值密钥，把返回的完整 JSON 全选复制回这里。
           </div>
           <div class="two-col">
             <div>
               <div class="field">
                 <label>操作步骤</label>
                 <div class="btn-row" style="margin-top:0">
-                  <a class="link-btn green" href="https://chatgpt.com/auth/login" target="_blank" rel="noopener noreferrer">点我登录 GPT</a>
+                  <a class="link-btn green" href="https://chatgpt.com/auth/login" target="_blank" rel="noopener noreferrer">点我登录账号</a>
                   <a class="link-btn primary" href="https://chatgpt.com/api/auth/session" target="_blank" rel="noopener noreferrer">点我获取充值密钥</a>
                 </div>
-                <small>请先登录 GPT，再打开充值密钥页面，把返回的完整 JSON 全选复制回来。</small>
+                <small>请先登录目标账号，再打开充值密钥页面，把返回的完整 JSON 全选复制回来。</small>
               </div>
               <div class="field">
                 <label for="secretJson">请粘贴完整充值密钥（JSON）</label>
@@ -646,7 +651,7 @@
       </div>
     </section>
 
-    <p class="foot">声明：本站为第三方数字服务平台，并非 OpenAI 或 ChatGPT 官方网站。页面中提及的产品名称仅用于说明服务适配对象。</p>
+    <p class="foot">声明：本站为第三方数字服务平台，并非相关官方平台。页面中提及的产品名称仅用于说明服务适配对象。</p>
   </div>
 
   <script>
@@ -755,7 +760,7 @@
       if (code === "CARD_ALREADY_USED") return "这张激活码已经使用过了，请更换其他激活码。";
       if (code === "CARD_NOT_FOUND") return "激活码不存在，请检查后重新输入。";
       if (code === "ACCOUNT_VERIFY_FAILED") return "账号校验失败，请重新获取充值密钥后再试。";
-      if (code === "ACCOUNT_NOT_MATCH") return "账号信息不匹配，请重新登录 GPT 后获取新的充值密钥。";
+      if (code === "ACCOUNT_NOT_MATCH") return "账号信息不匹配，请重新登录目标账号后获取新的充值密钥。";
       if (code === "RECHARGE_FAILED") return "充值失败，请稍后重试或联系客服核查。";
       if (code === "processing" || status === "processing") return "充值任务已提交，系统正在处理中，请稍候。";
       if (code === "success" || status === "success") return "充值成功，系统已返回成功结果。";
@@ -801,7 +806,7 @@
             <p class="task-code">${taskId}</p>
           </div>
           <div class="result-actions">
-            <div>系统已经返回成功结果，你现在可以返回 ChatGPT 账号确认 Plus 状态。</div>
+            <div>系统已经返回成功结果，你现在可以返回账号页面确认 AI Plus 状态。</div>
             <div>如果权益没有立刻刷新出来，先等待片刻，再重新打开账号页面查看。</div>
           </div>
         `
