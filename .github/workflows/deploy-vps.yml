@@ -39,6 +39,7 @@ jobs:
           PANEL_ENTRANCE: ${{ secrets.PANEL_ENTRANCE }}
           PANEL_USER: ${{ secrets.PANEL_USER }}
           PANEL_PASS: ${{ secrets.PANEL_PASS }}
+          PANEL_TARGET_DIR: ${{ secrets.PANEL_TARGET_DIR }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
           node ./scripts/deploy-recharge-backend-1panel.mjs

@@ -5,6 +5,7 @@ const PANEL_ENTRANCE = process.env.PANEL_ENTRANCE;
 const PANEL_USER = process.env.PANEL_USER;
 const PANEL_PASS = process.env.PANEL_PASS;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+const PANEL_TARGET_DIR = process.env.PANEL_TARGET_DIR || "";
 const API_PREFIX = "/api/v1";
 
 for (const [name, value] of Object.entries({
@@ -204,8 +205,13 @@ function envFileValue(value) {
   return normalized;
 }
 
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\"'\"'")}'`;
+}
+
 function buildDeployScript() {
   const adminToken = envFileValue(ADMIN_TOKEN);
+  const staticTargetDir = shellQuote(PANEL_TARGET_DIR);
   return `#!/bin/sh
 set -eu
 
@@ -215,6 +221,7 @@ DATA_ROOT="$APP_ROOT/runtime"
 ENV_FILE="$APP_ROOT/recharge-center.env"
 REPO_URL="https://github.com/jack12202/gptccc.git"
 CONTAINER_NAME="gptc-recharge-center"
+STATIC_TARGET_DIR=${staticTargetDir}
 
 echo "[gptc] preparing directories"
 mkdir -p "$APP_ROOT" "$DATA_ROOT/data" "$DATA_ROOT/logs"
@@ -295,14 +302,39 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-PROXY_DIR="/opt/1panel/apps/openresty/openresty/www/sites/gptc.cc/proxy"
-PROXY_FILE="$PROXY_DIR/gptc-recharge-center.conf"
-if [ ! -d "$PROXY_DIR" ]; then
-  echo "[gptc] proxy directory not found: $PROXY_DIR"
+PROXY_DIR=""
+if [ -n "$STATIC_TARGET_DIR" ]; then
+  SITE_DIR="$(dirname "$(dirname "$STATIC_TARGET_DIR")")"
+  if [ -d "$SITE_DIR" ]; then
+    PROXY_DIR="$SITE_DIR/proxy"
+    mkdir -p "$PROXY_DIR"
+  fi
+fi
+
+if [ -z "$PROXY_DIR" ]; then
+  for candidate in \\
+    "/opt/1panel/apps/openresty/openresty/www/sites/gptc.cc/proxy" \\
+    "/opt/1panel/apps/openresty/openresty/www/sites/www.gptc.cc/proxy" \\
+    "/www/sites/gptc.cc/proxy" \\
+    "/www/sites/www.gptc.cc/proxy"; do
+    parent="$(dirname "$candidate")"
+    if [ -d "$parent" ]; then
+      PROXY_DIR="$candidate"
+      mkdir -p "$PROXY_DIR"
+      break
+    fi
+  done
+fi
+
+if [ -z "$PROXY_DIR" ]; then
+  echo "[gptc] could not locate site proxy directory"
+  find /opt/1panel /www /etc/nginx -maxdepth 5 -type d -name proxy 2>/dev/null | head -50 || true
   exit 1
 fi
 
 echo "[gptc] writing OpenResty proxy include"
+echo "[gptc] proxy include directory ready"
+PROXY_FILE="$PROXY_DIR/gptc-recharge-center.conf"
 cat > "$PROXY_FILE" <<'EOF'
 location ^~ /api/recharge/ {
     proxy_pass http://127.0.0.1:8788;
