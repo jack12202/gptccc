@@ -178,6 +178,8 @@ class PanelClient {
         page: 1,
         pageSize: 10,
         cronjobID,
+        startTime: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        endTime: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         status: ""
       })
     });
@@ -408,7 +410,7 @@ async function main() {
     command: "sh",
     script: buildDeployScript(),
     retainCopies: 3,
-    status: "Disable",
+    status: "Enable",
     defaultDownload: "LOCAL",
     backupAccounts: "LOCAL",
     backupAccountList: ["LOCAL"],
