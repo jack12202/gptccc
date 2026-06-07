@@ -438,7 +438,7 @@ if [ -n "$STATIC_TARGET_DIR" ]; then
 fi
 for root in $SEARCH_ROOTS /opt/1panel/apps/openresty/openresty /www /etc/nginx; do
   [ -d "$root" ] || continue
-  found="$(grep -RslE 'server_name[[:space:]][^;]*(^|[[:space:]])(www\\.)?gptc\\.cc([[:space:];]|$)' "$root" 2>/dev/null | head -n1 || true)"
+  found="$(find "$root" -maxdepth 8 -type f -name "*.conf" -exec grep -slE 'server_name[[:space:]][^;]*(^|[[:space:]])(www\\.)?gptc\\.cc([[:space:];]|$)' {} + 2>/dev/null | head -n1 || true)"
   if [ -n "$found" ]; then
     SITE_CONF="$found"
     break
@@ -448,6 +448,7 @@ done
 SITE_CONF_BACKUP=""
 if [ -n "$SITE_CONF" ]; then
   echo "[gptc] patching OpenResty server config"
+  echo "[gptc] site config: $SITE_CONF"
   SITE_CONF_BACKUP="$SITE_CONF.bak.$(date +%Y%m%d%H%M%S)"
   tmp="$SITE_CONF.tmp.$$"
   cp "$SITE_CONF" "$SITE_CONF_BACKUP"
