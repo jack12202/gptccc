@@ -872,6 +872,33 @@
         setTimeout(pollStatus, 4000);
       }
     }
+
+    function applyCardFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const rawCard = params.get("card");
+      if (!rawCard) return;
+      const cardInfo = rawCard.trim();
+      if (!cardInfo) return;
+
+      const input = document.getElementById("cardInfo");
+      if (!input) return;
+
+      input.value = cardInfo;
+      setNotice(
+        "step1Notice",
+        "已自动带入激活码",
+        "你是通过专属激活链接进入的，系统已经帮你填好激活码，正在自动验证。",
+        "success"
+      );
+
+      setTimeout(() => {
+        if (currentStep === 1) {
+          verifyCard();
+        }
+      }, 150);
+    }
+
+    applyCardFromQuery();
   </script>
 </body>
 </html>
