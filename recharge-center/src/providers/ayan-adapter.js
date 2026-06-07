@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import { extractCardCode, requiredString } from "../utils.js";
+import { extractCardCode } from "../utils.js";
 import { requestJson } from "./http-json.js";
 
 function extractTaskIdFromError(errorText = "") {
@@ -10,10 +10,11 @@ function extractTaskIdFromError(errorText = "") {
 function normalizeVerify(raw, cardCode) {
   const body = raw.data || {};
   const productApiType = body.product_api_type || "gpt";
-  const isGpt = productApiType === "gpt" || !productApiType;
-  const reusableUsedGptCard = isGpt && requiredString(body.used_email);
-  const available = body.available === true || reusableUsedGptCard;
+  const available = body.available === true;
   const unsupportedClaude = productApiType === "claude";
+  const used = body.available === false && body.error === "卡密已被使用";
+  const rawWithoutAccount = { ...body };
+  delete rawWithoutAccount.used_email;
 
   return {
     success: available && !unsupportedClaude,
@@ -22,10 +23,10 @@ function normalizeVerify(raw, cardCode) {
     cardCode,
     productId: config.defaultProductId,
     productApiType,
-    stockLevel: body.stock_level || "",
-    usedEmail: body.used_email || "",
-    message: unsupportedClaude ? "当前页面暂不支持 Claude 卡密，请使用 GPT 卡密。" : body.error || "",
-    raw: body
+    stockLevel: available ? body.stock_level || "" : "",
+    usedEmail: "",
+    message: unsupportedClaude ? "当前页面暂不支持 Claude 卡密，请使用 GPT 卡密。" : used ? "卡密已被使用" : body.error || "",
+    raw: rawWithoutAccount
   };
 }
 
