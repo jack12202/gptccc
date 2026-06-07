@@ -421,7 +421,7 @@ if [ -n "$SITE_CONF" ]; then
         if (depth <= 0) skip = 0
         next
       }
-      if ($0 ~ /^[[:space:]]*location[[:space:]].*\/api\/recharge\// || $0 ~ /^[[:space:]]*location[[:space:]].*\/admin\/provider/) {
+      if ($0 ~ /^[[:space:]]*location[[:space:]]/ && (index($0, "/api/recharge/") || index($0, "/admin/provider"))) {
         skip = 1
         depth = delta($0)
         if (depth <= 0) skip = 0
