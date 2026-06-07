@@ -60,7 +60,7 @@ jobs:
         run: |
           curl -fsSL https://gptc.cc/activate/ > /tmp/gptccc-activate.html
           grep -q '<link rel="canonical" href="https://www.gptc.cc/activate/">' /tmp/gptccc-activate.html
-          grep -q '<title>站内充值中心｜嘉哥AI / 嘉哥GPT · GPTC.cc</title>' /tmp/gptccc-activate.html
+          grep -q '<title>嘉哥AI Plus充值系统｜GPTC.cc</title>' /tmp/gptccc-activate.html
 
       - name: Verify recharge backend routes
         run: |
