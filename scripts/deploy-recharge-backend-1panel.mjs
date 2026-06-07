@@ -335,7 +335,9 @@ fi
 echo "[gptc] writing OpenResty proxy include"
 echo "[gptc] proxy include directory ready"
 PROXY_FILE="$PROXY_DIR/gptc-recharge-center.conf"
-cat > "$PROXY_FILE" <<'EOF'
+BLOCK_FILE="/tmp/gptc-recharge-locations.conf"
+cat > "$BLOCK_FILE" <<'EOF'
+# BEGIN GPTC RECHARGE CENTER
 location ^~ /api/recharge/ {
     proxy_pass http://127.0.0.1:8788;
     proxy_set_header Host $host;
@@ -367,7 +369,61 @@ location ^~ /admin/provider/ {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 }
+# END GPTC RECHARGE CENTER
 EOF
+cp "$BLOCK_FILE" "$PROXY_FILE"
+
+SITE_CONF=""
+SEARCH_ROOTS=""
+if [ -n "$STATIC_TARGET_DIR" ]; then
+  SITE_DIR="$(dirname "$(dirname "$STATIC_TARGET_DIR")")"
+  SEARCH_ROOTS="$SITE_DIR $(dirname "$SITE_DIR")"
+fi
+for root in $SEARCH_ROOTS /opt/1panel/apps/openresty/openresty /www /etc/nginx; do
+  [ -d "$root" ] || continue
+  found="$(grep -RslE 'server_name[[:space:]][^;]*(^|[[:space:]])(www\\.)?gptc\\.cc([[:space:];]|$)' "$root" 2>/dev/null | head -n1 || true)"
+  if [ -n "$found" ]; then
+    SITE_CONF="$found"
+    break
+  fi
+done
+
+SITE_CONF_BACKUP=""
+if [ -n "$SITE_CONF" ]; then
+  if grep -q "BEGIN GPTC RECHARGE CENTER" "$SITE_CONF"; then
+    echo "[gptc] server config already contains managed block"
+  else
+    echo "[gptc] patching OpenResty server config"
+    SITE_CONF_BACKUP="$SITE_CONF.bak.$(date +%Y%m%d%H%M%S)"
+    tmp="$SITE_CONF.tmp.$$"
+    cp "$SITE_CONF" "$SITE_CONF_BACKUP"
+    awk -v block_file="$BLOCK_FILE" '
+      BEGIN {
+        while ((getline line < block_file) > 0) block = block line ORS
+      }
+      {
+        lines[NR] = $0
+      }
+      END {
+        insert = 0
+        for (i = NR; i >= 1; i--) {
+          if (lines[i] ~ /^[[:space:]]*}[[:space:]]*$/) {
+            insert = i
+            break
+          }
+        }
+        for (i = 1; i <= NR; i++) {
+          if (i == insert) printf "%s", block
+          print lines[i]
+        }
+        if (insert == 0) printf "%s", block
+      }
+    ' "$SITE_CONF" > "$tmp"
+    mv "$tmp" "$SITE_CONF"
+  fi
+else
+  echo "[gptc] site server config not found; relying on proxy include"
+fi
 
 if command -v docker >/dev/null 2>&1; then
   OPENRESTY_CONTAINER="$(docker ps --format '{{.Names}}' | grep -E 'openresty|1panel-openresty' | head -n1 || true)"
@@ -375,19 +431,40 @@ else
   OPENRESTY_CONTAINER=""
 fi
 
-echo "[gptc] testing and reloading OpenResty"
-if [ -n "$OPENRESTY_CONTAINER" ]; then
-  docker exec "$OPENRESTY_CONTAINER" nginx -t || docker exec "$OPENRESTY_CONTAINER" openresty -t
-  docker exec "$OPENRESTY_CONTAINER" nginx -s reload || docker exec "$OPENRESTY_CONTAINER" openresty -s reload
-else
+run_openresty_test() {
+  if [ -n "$OPENRESTY_CONTAINER" ]; then
+    docker exec "$OPENRESTY_CONTAINER" nginx -t || docker exec "$OPENRESTY_CONTAINER" openresty -t
+    return
+  fi
   if command -v openresty >/dev/null 2>&1; then
     openresty -t
-    openresty -s reload
   else
     nginx -t
+  fi
+}
+
+run_openresty_reload() {
+  if [ -n "$OPENRESTY_CONTAINER" ]; then
+    docker exec "$OPENRESTY_CONTAINER" nginx -s reload || docker exec "$OPENRESTY_CONTAINER" openresty -s reload
+    return
+  fi
+  if command -v openresty >/dev/null 2>&1; then
+    openresty -s reload
+  else
     nginx -s reload
   fi
+}
+
+echo "[gptc] testing and reloading OpenResty"
+if ! run_openresty_test; then
+  if [ -n "$SITE_CONF_BACKUP" ] && [ -f "$SITE_CONF_BACKUP" ]; then
+    echo "[gptc] restoring OpenResty config backup"
+    mv "$SITE_CONF_BACKUP" "$SITE_CONF"
+    run_openresty_test || true
+  fi
+  exit 1
 fi
+run_openresty_reload
 
 echo "[gptc] deployment finished"
 `;
