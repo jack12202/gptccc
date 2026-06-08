@@ -407,29 +407,6 @@
     .result-card.fail .result-badge {
       border-color: rgba(159,18,57,0.14);
     }
-    .task-box {
-      margin-top: 12px;
-      padding: 14px 16px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.78);
-      border: 1px dashed rgba(15, 23, 42, 0.14);
-    }
-    .task-box span {
-      display: block;
-      font-size: 13px;
-      color: #475569;
-      margin-bottom: 6px;
-      font-weight: 800;
-    }
-    .task-code {
-      margin: 0;
-      font-size: 17px;
-      line-height: 1.55;
-      font-weight: 900;
-      word-break: break-all;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      color: inherit;
-    }
     .result-actions {
       margin-top: 16px;
       display: grid;
@@ -786,12 +763,12 @@
       button.disabled = !checkbox.checked;
     }
 
-    function renderProgressBox(message, taskId) {
+    function renderProgressBox(message) {
       const progressBox = document.getElementById("progressBox");
-      progressBox.innerHTML = `<strong>任务已提交，正在处理中</strong>${message}<br>任务号：${taskId}<br>请不要重复点击，系统会自动查询状态。`;
+      progressBox.innerHTML = `<strong>任务已提交，正在处理中</strong>${message}<br>请不要重复点击，系统会自动查询状态。`;
     }
 
-    function renderResultBox(type, message, taskId) {
+    function renderResultBox(type, message) {
       const resultBox = document.getElementById("resultBox");
       const success = type === "success";
       resultBox.className = `result-card ${success ? "success" : "fail"}`;
@@ -803,10 +780,6 @@
               <p class="result-subtitle">${message}</p>
             </div>
             <span class="result-badge">已完成</span>
-          </div>
-          <div class="task-box">
-            <span>任务号</span>
-            <p class="task-code">${taskId}</p>
           </div>
           <div class="result-actions">
             <div>系统已经返回成功结果，你现在可以返回账号页面确认 AI Plus 状态。</div>
@@ -821,12 +794,8 @@
             </div>
             <span class="result-badge">需处理</span>
           </div>
-          <div class="task-box">
-            <span>任务号</span>
-            <p class="task-code">${taskId}</p>
-          </div>
           <div class="result-actions">
-            <div>请保留当前页面和任务号，方便后续联系客服核查。</div>
+            <div>请保留当前页面提示，方便后续联系客服核查。</div>
             <div>如果刚刚已经重复提交过，请先不要再继续操作，等待人工确认更稳妥。</div>
           </div>
         `;
@@ -978,7 +947,7 @@
         currentTaskId = task.taskId;
         setCurrentProvider(task.provider || currentProvider, { locked: true });
         currentProviderLabel = task.providerLabel || currentProviderLabel;
-        renderProgressBox(mapRechargeMessage(task.message, task.processing ? "processing" : ""), task.taskId);
+        renderProgressBox(mapRechargeMessage(task.message, task.processing ? "processing" : ""));
         pollStatus();
       } catch (error) {
         setNotice("step3Notice", "充值提交失败", error.message || "网络请求异常。", "error");
@@ -1008,14 +977,14 @@
           return;
         }
         if (task.status === "processing" || task.status === "created" || task.processing === true) {
-          renderProgressBox(mapRechargeMessage(task.message, task.status), currentTaskId);
+          renderProgressBox(mapRechargeMessage(task.message, task.status));
           setTimeout(pollStatus, 3000);
           return;
         }
         if (task.status === "success") {
-          renderResultBox("success", mapRechargeMessage(task.message, task.status), currentTaskId);
+          renderResultBox("success", mapRechargeMessage(task.message, task.status));
         } else {
-          renderResultBox("fail", mapRechargeMessage(task.message, task.status), currentTaskId);
+          renderResultBox("fail", mapRechargeMessage(task.message, task.status));
         }
         progressBox.style.display = "none";
         resultBox.style.display = "block";
