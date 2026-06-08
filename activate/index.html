@@ -350,6 +350,38 @@
       background: #f0fdf4;
       color: #166534;
     }
+    .verified-card {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 0 0 18px;
+      padding: 13px 16px;
+      border-radius: 14px;
+      border: 1px solid #86efac;
+      background: #f0fdf4;
+      color: #166534;
+      font-size: 14px;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .verified-card.show { display: flex; }
+    .verified-card-mark {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 22px;
+      background: #dcfce7;
+      color: #16a34a;
+      font-weight: 950;
+    }
+    .verified-card-code {
+      font-weight: 950;
+      color: #14532d;
+      word-break: break-all;
+    }
     .result-card {
       margin-top: 12px;
       padding: 20px;
@@ -534,6 +566,11 @@
       .btn-row { margin-top: 14px; }
       button, .link-btn { flex: 1 1 150px; min-height: 44px; padding: 0 14px; }
       .top-actions .mini-btn { flex: 0 0 auto; }
+      .verified-card {
+        align-items: flex-start;
+        justify-content: flex-start;
+        text-align: left;
+      }
       .toast {
         width: calc(100% - 28px);
         max-width: 420px;
@@ -606,6 +643,10 @@
           <div class="notice" id="step2Notice">
             <strong>第 2 步：获取充值密钥</strong>
             请先确认当前浏览器已登录需要充值的 GPT 账号。已经登录就直接获取密钥；没有登录就先登录账号，再回来获取密钥。
+          </div>
+          <div class="verified-card" id="verifiedCardBox">
+            <span class="verified-card-mark">✓</span>
+            <span>已验证激活码：<span class="verified-card-code" id="verifiedCardCode">-</span></span>
           </div>
           <div class="two-col">
             <div>
@@ -860,6 +901,15 @@
       button.disabled = !checkbox.checked;
     }
 
+    function updateVerifiedCardDisplay(cardInfo) {
+      const box = document.getElementById("verifiedCardBox");
+      const code = document.getElementById("verifiedCardCode");
+      if (!box || !code) return;
+      const value = typeof cardInfo === "string" ? cardInfo.trim() : "";
+      code.textContent = value || "-";
+      box.classList.toggle("show", Boolean(value));
+    }
+
     function renderProgressBox(message) {
       const progressBox = document.getElementById("progressBox");
       progressBox.innerHTML = `<strong>充值已提交，正在处理中</strong>${message}<br>请不要重复点击，系统会自动查询结果。`;
@@ -971,7 +1021,8 @@
         currentProviderLabel = upstream.providerLabel || currentProviderLabel;
         currentProductId = Number(upstream.productId || 3);
         setNotice("step1Notice", "激活码验证通过", "激活码可继续使用，进入下一步获取充值密钥。", "success");
-        document.getElementById("confirmCard").textContent = cardInfo;
+        setTextIfPresent("confirmCard", cardInfo);
+        updateVerifiedCardDisplay(cardInfo);
         goStep(2);
       } catch (error) {
         setNotice("step1Notice", "激活码验证失败", error.message || "网络请求异常。", "error");
@@ -1090,6 +1141,10 @@
         setTimeout(pollStatus, 4000);
       }
     }
+
+    document.getElementById("cardInfo")?.addEventListener("input", () => {
+      if (currentStep === 1) updateVerifiedCardDisplay("");
+    });
 
     function applyCardFromQuery() {
       const params = new URLSearchParams(window.location.search);
