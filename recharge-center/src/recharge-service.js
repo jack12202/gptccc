@@ -24,7 +24,7 @@ function resolveProvider(provider) {
 function parseSecretPayload(secretJsonText) {
   const parsed = safeJsonParse(secretJsonText);
   if (!parsed.ok || typeof parsed.value !== "object" || !parsed.value) {
-    return { ok: false, message: "充值密钥不是合法 JSON。" };
+    return { ok: false, message: "充值密钥格式不完整，请重新复制后再试。" };
   }
 
   return parseSecretObject(parsed.value);
@@ -236,7 +236,7 @@ export const rechargeService = {
 
     const upstream = await adapter.startRecharge(upstreamPayload);
     const upstreamTaskId = upstream.data?.taskId || "";
-    const message = upstream.data?.message || "已提交上游任务。";
+    const message = upstream.data?.message || "充值已提交，正在处理。";
     const status = upstream.ok ? "processing" : "failed";
 
     store.updateOrder(order.id, {

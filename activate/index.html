@@ -502,11 +502,11 @@
     <section class="hero">
       <span class="eyebrow">站内充值中心 · 不再跳到外部充值页</span>
       <h1>嘉哥AI Plus充值系统<span class="provider-cue" aria-hidden="true"></span></h1>
-      <p>先验证激活码，再获取充值密钥，最后在 GPTC.cc 站内确认充值。整个流程优先保持简洁、清楚、到账状态可查。</p>
+      <p>输入激活码验证可用后，在已登录的 GP 账号页面获取充值密钥，核对账号信息无误后即可确认充值。</p>
       <div class="hero-pills">
-        <span class="pill">充值到自己的 AI 账号</span>
+        <span class="pill">充值到自己的 GP 账号</span>
         <span class="pill">无需提供账号密码</span>
-        <span class="pill">支付仍在原发卡网完成</span>
+        <span class="pill">未登录先登录再获取密钥</span>
       </div>
     </section>
 
@@ -515,17 +515,17 @@
         <div class="step active" id="step-1">
           <div class="num">1</div>
           <strong>验证激活码</strong>
-          <span>先确认激活码可用于当前产品</span>
+          <span>输入购买后的激活码</span>
         </div>
         <div class="step" id="step-2">
           <div class="num">2</div>
-          <strong>获取密钥</strong>
-          <span>登录目标账号后复制完整 JSON</span>
+          <strong>获取充值密钥</strong>
+          <span>已登录直接获取，未登录先登录</span>
         </div>
         <div class="step" id="step-3">
           <div class="num">3</div>
           <strong>确认充值</strong>
-          <span>检查账号信息并提交任务</span>
+          <span>核对邮箱后提交</span>
         </div>
       </div>
 
@@ -534,7 +534,7 @@
           <div class="field">
             <label for="cardInfo">验证激活码</label>
             <input id="cardInfo" placeholder="请输入你购买后的 AI Plus 激活码" autocomplete="off" autocapitalize="characters" spellcheck="false">
-            <small>第一版优先支持 AI Plus 产品。激活码可用后，系统会继续识别账号信息。</small>
+            <small>激活码验证通过后，下一步会引导你获取充值密钥。</small>
           </div>
           <div class="btn-row">
             <button class="primary" type="button" id="verifyCardBtn" onclick="verifyCard()">验证激活码</button>
@@ -546,22 +546,22 @@
         <div class="stage" id="stage-2">
           <div class="notice" id="step2Notice">
             <strong>第 2 步：获取充值密钥</strong>
-            先登录目标账号，再点击获取充值密钥，把返回的完整 JSON 全选复制回这里。
+            请先确认当前浏览器已登录需要充值的 GP 账号。已经登录就直接获取密钥；没有登录就先登录账号，再回来获取密钥。
           </div>
           <div class="two-col">
             <div>
               <div class="field">
                 <label>操作步骤</label>
                 <div class="btn-row" style="margin-top:0">
-                  <a class="link-btn green" href="https://chatgpt.com/auth/login" target="_blank" rel="noopener noreferrer">点我登录账号</a>
-                  <a class="link-btn primary" href="https://chatgpt.com/api/auth/session" target="_blank" rel="noopener noreferrer">点我获取充值密钥</a>
+                  <a class="link-btn green" href="https://chatgpt.com/auth/login" target="_blank" rel="noopener noreferrer">先登录账号</a>
+                  <a class="link-btn primary" href="https://chatgpt.com/api/auth/session" target="_blank" rel="noopener noreferrer">获取充值密钥</a>
                 </div>
-                <small>请先登录目标账号，再打开充值密钥页面，把返回的完整 JSON 全选复制回来。</small>
+                <small>如果已经登录，可以直接获取充值密钥。打开密钥页面后，请复制页面显示的全部内容。</small>
               </div>
               <div class="field">
-                <label for="secretJson">请粘贴完整充值密钥（JSON）</label>
-                <textarea id="secretJson" placeholder='请粘贴类似 {"userEmail":"...","userGptToken":"...","fullAuthData":{...}} 的完整 JSON'></textarea>
-                <small>不要删减任何字段。系统会自动识别账号邮箱、账户 ID、计划类型和登录方式。</small>
+                <label for="secretJson">粘贴充值密钥</label>
+                <textarea id="secretJson" placeholder="打开充值密钥页面后，复制页面显示的全部内容并粘贴到这里"></textarea>
+                <small>请完整复制，不要删减。系统会自动识别账号邮箱，并用于完成本次充值。</small>
               </div>
               <div class="btn-row">
                 <button class="secondary" type="button" onclick="goStep(1)">返回上一步</button>
@@ -570,16 +570,16 @@
             </div>
             <div>
               <div class="info-card">
-                <h3>操作说明</h3>
+                <h3>简单流程</h3>
                 <div class="kvs">
-                  <div class="kv"><span>输入</span><span>完整 JSON 密钥</span></div>
-                  <div class="kv"><span>识别</span><span>邮箱、昵称、账户类型</span></div>
-                  <div class="kv"><span>下一步</span><span>确认账号信息后再充值</span></div>
+                  <div class="kv"><span>已登录</span><span>直接获取充值密钥</span></div>
+                  <div class="kv"><span>未登录</span><span>先登录账号，再获取密钥</span></div>
+                  <div class="kv"><span>下一步</span><span>核对邮箱后确认充值</span></div>
                 </div>
               </div>
               <div class="tip-box">
                 <strong>复制提醒</strong>
-                请把返回内容完整复制回来，不要手动删减、改写或只复制其中一部分。
+                如果密钥页面提示未登录，请先完成登录，再重新点击获取充值密钥。
               </div>
             </div>
           </div>
@@ -588,7 +588,7 @@
         <div class="stage" id="stage-3">
           <div class="notice" id="step3Notice">
             <strong>第 3 步：确认充值</strong>
-            请确认邮箱和激活码无误，再提交充值任务。
+            请核对账号邮箱和激活码，确认是你要充值的账号后再提交。
           </div>
           <div class="two-col">
             <div class="info-card">
@@ -600,15 +600,15 @@
               </div>
               <label class="checkbox">
                 <input type="checkbox" id="overwriteRecharge" onchange="updateConfirmButtonState()">
-                <span>我确认以上信息无误，同意进行充值操作<br><small>如需续充已有 Plus，可保持勾选后继续提交。</small></span>
+                <span>我确认以上账号和激活码无误，提交充值<br><small>提交后系统会自动处理并查询结果。</small></span>
               </label>
               <div class="btn-row">
                 <button class="secondary" type="button" onclick="goStep(2)">返回修改</button>
                 <button class="green" type="button" id="confirmRechargeBtn" onclick="confirmRecharge()" disabled>确认充值</button>
               </div>
               <div class="progress" id="progressBox" style="display:none;">
-                <strong>任务已提交，正在处理中</strong>
-                系统正在向上游提交充值任务，请不要重复点击。
+                <strong>充值已提交，正在处理中</strong>
+                系统正在提交充值请求，请不要重复点击。
               </div>
               <div class="result-card success" id="resultBox" style="display:none;">
               </div>
@@ -617,8 +617,9 @@
               <div class="info-card">
                 <h3>提交前提醒</h3>
                 <div class="kvs">
-                  <div class="kv"><span>请确认</span><span>邮箱与激活码无误</span></div>
-                  <div class="kv"><span>提交后</span><span>系统会自动查询充值状态</span></div>
+                  <div class="kv"><span>账号邮箱</span><span>是你要充值的账号</span></div>
+                  <div class="kv"><span>激活码</span><span>与本次购买一致</span></div>
+                  <div class="kv"><span>提交后</span><span>系统会自动查询结果</span></div>
                   <div class="kv"><span>如遇异常</span><span>保留页面提示便于核查</span></div>
                 </div>
               </div>
@@ -736,13 +737,13 @@
     function mapRechargeMessage(message, status) {
       const code = typeof message === "string" ? message.trim() : "";
       if (code === "SYSTEM_BUSY") return "系统繁忙，请稍后再试。";
-      if (code === "TASK_NOT_FOUND") return "没有查到这笔充值任务，请稍后刷新重试。";
+      if (code === "TASK_NOT_FOUND") return "没有查到这笔充值记录，请稍后刷新重试。";
       if (code === "CARD_ALREADY_USED") return "这张激活码已经使用过了，请更换其他激活码。";
       if (code === "CARD_NOT_FOUND") return "激活码不存在，请检查后重新输入。";
       if (code === "ACCOUNT_VERIFY_FAILED") return "账号校验失败，请重新获取充值密钥后再试。";
-      if (code === "ACCOUNT_NOT_MATCH") return "账号信息不匹配，请重新登录目标账号后获取新的充值密钥。";
+      if (code === "ACCOUNT_NOT_MATCH") return "账号信息不匹配，请重新登录要充值的账号后获取新的充值密钥。";
       if (code === "RECHARGE_FAILED") return "充值失败，请稍后重试或联系客服核查。";
-      if (code === "processing" || status === "processing") return "充值任务已提交，系统正在处理中，请稍候。";
+      if (code === "processing" || status === "processing") return "充值已提交，系统正在处理中，请稍候。";
       if (code === "success" || status === "success") return "充值成功，系统已返回成功结果。";
       if (code === "failed" || status === "failed") return "充值失败，请稍后重试或联系客服核查。";
       if (code) return code;
@@ -765,7 +766,7 @@
 
     function renderProgressBox(message) {
       const progressBox = document.getElementById("progressBox");
-      progressBox.innerHTML = `<strong>任务已提交，正在处理中</strong>${message}<br>请不要重复点击，系统会自动查询状态。`;
+      progressBox.innerHTML = `<strong>充值已提交，正在处理中</strong>${message}<br>请不要重复点击，系统会自动查询结果。`;
     }
 
     function renderResultBox(type, message) {
@@ -806,7 +807,7 @@
       try {
         payload = JSON.parse(secretJsonText);
       } catch {
-        return { ok: false, message: "充值密钥不是合法 JSON，请完整复制后重试。" };
+        return { ok: false, message: "充值密钥格式不完整，请从密钥页面复制全部内容后重试。" };
       }
       if (!payload || typeof payload !== "object") {
         return { ok: false, message: "充值密钥内容无效，请重新获取后再试。" };
@@ -902,7 +903,7 @@
         setTextIfPresent("confirmEmail", result.data.userEmail);
         setTextIfPresent("confirmCard", document.getElementById("cardInfo").value.trim());
         setTextIfPresent("confirmChannel", "自动通道");
-        setNotice("step2Notice", "账号信息识别成功", `已识别账号邮箱：${result.data.userEmail}，账户计划：${result.data.accountPlanType || "-"}，可以进入确认充值。`, "success");
+        setNotice("step2Notice", "账号信息识别成功", `已识别账号邮箱：${result.data.userEmail}，请确认这是你要充值的账号。`, "success");
         goStep(3);
       } catch (error) {
         setNotice("step2Notice", "密钥识别失败", error.message || "网络请求异常。", "error");
