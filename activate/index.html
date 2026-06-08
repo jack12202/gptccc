@@ -101,6 +101,11 @@
       font-weight: 800;
       font-size: 14px;
     }
+    .mini-btn.support {
+      color: #0f172a;
+      border-color: #fed7aa;
+      background: #fff7ed;
+    }
     .hero {
       background: linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(37, 99, 235, 0.07));
       border: 1px solid #d3e4f2;
@@ -420,6 +425,52 @@
       background: rgba(255,255,255,0.58);
       border: 1px solid rgba(15, 23, 42, 0.08);
     }
+    .support-box {
+      margin-top: 18px;
+      padding: 16px 18px;
+      border-radius: 14px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      line-height: 1.7;
+    }
+    .support-box strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #7c2d12;
+    }
+    .support-action {
+      margin-top: 12px;
+      width: 100%;
+      color: #fff;
+      background: linear-gradient(135deg, #ea580c, #f59e0b);
+    }
+    .result-card.fail .support-action {
+      width: auto;
+      min-width: 160px;
+      margin-top: 4px;
+    }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      z-index: 100;
+      transform: translate(-50%, 18px);
+      opacity: 0;
+      pointer-events: none;
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.94);
+      color: #fff;
+      box-shadow: 0 16px 36px rgba(15, 23, 42, 0.22);
+      font-size: 14px;
+      font-weight: 800;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
     .footer-note {
       margin-top: 18px;
       color: var(--muted);
@@ -482,6 +533,13 @@
       input, textarea { padding: 13px 14px; border-radius: 12px; }
       .btn-row { margin-top: 14px; }
       button, .link-btn { flex: 1 1 150px; min-height: 44px; padding: 0 14px; }
+      .top-actions .mini-btn { flex: 0 0 auto; }
+      .toast {
+        width: calc(100% - 28px);
+        max-width: 420px;
+        text-align: center;
+        border-radius: 14px;
+      }
       #stage-1 .notice { margin-top: 14px; margin-bottom: 0; }
     }
   </style>
@@ -495,6 +553,7 @@
       </a>
       <div class="top-actions">
         <a class="mini-btn" href="/">返回开通首页</a>
+        <button class="mini-btn support" type="button" onclick="copySupportContact()">联系人工</button>
         <a class="mini-btn" href="https://fe.dtyuedan.cn/shop/jiage">先购买 AI Plus 激活码</a>
       </div>
     </div>
@@ -626,6 +685,11 @@
               <div class="footer-note">
                 如果页面一直显示处理中，请不要连续重复提交。优先保存账号邮箱、激活码和页面提示，再联系客服协助核查。
               </div>
+              <div class="support-box">
+                <strong>需要人工协助？</strong>
+                充值失败、长时间处理中，或看不懂页面提示时，可以复制微信联系人工处理。
+                <button class="support-action" type="button" onclick="copySupportContact()">复制微信联系人工</button>
+              </div>
             </div>
           </div>
         </div>
@@ -634,8 +698,10 @@
 
     <p class="foot">声明：本站为第三方数字服务平台，并非相关官方平台。页面中提及的产品名称仅用于说明服务适配对象。</p>
   </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
+    const SUPPORT_WECHAT = "jiage01888";
     let currentStep = 1;
     let currentTaskId = "";
     let currentOrderId = "";
@@ -644,6 +710,36 @@
     let currentProductId = 3;
     let currentParsedSecret = null;
     let providerLocked = false;
+    let toastTimer = 0;
+
+    function showToast(text) {
+      const toast = document.getElementById("toast");
+      if (!toast) return;
+      toast.textContent = text;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 1800);
+    }
+
+    async function copySupportContact() {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(SUPPORT_WECHAT);
+        } else {
+          const textarea = document.createElement("textarea");
+          textarea.value = SUPPORT_WECHAT;
+          textarea.style.position = "fixed";
+          textarea.style.left = "-9999px";
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand("copy");
+          textarea.remove();
+        }
+        showToast("已复制微信：" + SUPPORT_WECHAT);
+      } catch {
+        showToast("请手动添加微信：" + SUPPORT_WECHAT);
+      }
+    }
 
     async function getJson(url) {
       const response = await fetch(url);
@@ -798,6 +894,7 @@
           <div class="result-actions">
             <div>请保留当前页面提示，方便后续联系客服核查。</div>
             <div>如果刚刚已经重复提交过，请先不要再继续操作，等待人工确认更稳妥。</div>
+            <button class="support-action" type="button" onclick="copySupportContact()">联系人工处理</button>
           </div>
         `;
     }
