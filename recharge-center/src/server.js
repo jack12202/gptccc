@@ -285,6 +285,11 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
+    if (req.method === "OPTIONS" && url.pathname.startsWith("/api/recharge/")) {
+      sendJson(res, 200, { success: true });
+      return;
+    }
+
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/activate" || url.pathname === "/activate/")) {
       servePrototype(res);
       return;
