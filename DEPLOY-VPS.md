@@ -11,11 +11,11 @@
 在仓库 `Settings -> Secrets and variables -> Actions` 里新增：
 
 - `PANEL_BASE`
-  - 例：`http://72.11.133.145:37764`
+  - 当前 VPS：`http://72.11.133.197:37764`
 - `PANEL_ENTRANCE`
-  - 例：`jack`
+  - 1Panel 安全入口路径，保存在 GitHub Secret 中
 - `PANEL_USER`
-  - 例：`zjk`
+  - 1Panel 登录用户名，保存在 GitHub Secret 中
 - `PANEL_PASS`
   - 你的 1Panel 登录密码
 - `PANEL_TARGET_DIR`
