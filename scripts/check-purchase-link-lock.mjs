@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 const LOCK_CONFIG_FILE = 'purchase-link-lock.json';
 const URL_RE = /https?:\/\/[^"'`\s<>]+/g;
 const PURCHASE_CTA_RE = /(立即购买|先购买|去购买|继续购买|购买\s*(?:ChatGPT\s*)?(?:Plus|AI)?\s*(?:激活码|卡密)|购买\s*(?:ChatGPT\s*)?(?:Plus|AI)|Plus\s*(?:月卡)?激活码\s*¥?\s*198|¥\s*198)/i;
+const BLOG_PURCHASE_CTA_RE = /(立即购买|先购买|去购买|继续购买|购买|卡密|激活码|开通\s*Plus|开通方案|查看.*开通方案|进入.*开通\s*Plus)/i;
 const ACTIVATION_CTA_RE = /(已买|已购买|进入.*激活|去激活|激活中心|激活系统|自助充值|充值中心)/i;
 
 const staged = process.argv.includes('--staged');
@@ -117,6 +118,17 @@ function isSameSiteUrl(url) {
   return SITE_HOSTS.has(hostOf(url));
 }
 
+function isSameSiteHomepageUrl(url) {
+  if (url === '/') return true;
+  if (!/^https?:\/\//.test(url)) return false;
+  try {
+    const parsed = new URL(url);
+    return SITE_HOSTS.has(parsed.hostname) && (parsed.pathname === '/' || parsed.pathname === '') && !parsed.search && !parsed.hash;
+  } catch {
+    return false;
+  }
+}
+
 function checkProtectedUrl(file, line, url) {
   const normalized = normalizeUrl(url);
   if (isAllowedPurchaseUrl(normalized)) {
@@ -131,6 +143,10 @@ function checkProtectedUrl(file, line, url) {
 function checkUrlBinding(file, line, url, label) {
   const normalized = normalizeUrl(url);
   checkProtectedUrl(file, line, normalized);
+  if (file.startsWith('blog/') && BLOG_PURCHASE_CTA_RE.test(label) && !ACTIVATION_CTA_RE.test(label) && isSameSiteHomepageUrl(normalized)) {
+    fail(file, line, `blog purchase CTA "${label}" must link directly to one configured purchase URL (${PURCHASE_URLS.join(', ')}), not the site homepage.`);
+    return;
+  }
   if (!PURCHASE_CTA_RE.test(label)) return;
   if (ACTIVATION_CTA_RE.test(label)) return;
   if (isSameSiteUrl(normalized)) return;
