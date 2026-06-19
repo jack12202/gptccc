@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+node scripts/check-purchase-link-lock.mjs --staged
+
+if git diff --cached --name-only | grep -Eq '(^AGENTS\.md$|^scripts/check-purchase-link-lock\.mjs$|^\.githooks/pre-commit$)'; then
+  if [ "${ALLOW_PURCHASE_LINK_LOCK_CHANGE:-}" != "confirmed" ]; then
+    echo "Purchase link lock files changed." >&2
+    echo "Commit again with ALLOW_PURCHASE_LINK_LOCK_CHANGE=confirmed only after explicit owner confirmation." >&2
+    exit 1
+  fi
+fi

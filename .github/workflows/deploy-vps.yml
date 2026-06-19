@@ -23,6 +23,10 @@ jobs:
         with:
           node-version: 22
 
+      - name: Check protected purchase links
+        run: |
+          node ./scripts/check-purchase-link-lock.mjs
+
       - name: Deploy homepage and blog to 1Panel
         env:
           PANEL_BASE: ${{ secrets.PANEL_BASE }}
