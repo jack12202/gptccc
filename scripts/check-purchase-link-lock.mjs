@@ -2,13 +2,10 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 
-const PURCHASE_URL = 'https://fe.dtyuedan.cn/shop/jiage';
-const ACTIVATION_URL = 'https://987ai.vip/recharge';
+const LOCK_CONFIG_FILE = 'purchase-link-lock.json';
 const URL_RE = /https?:\/\/[^"'`\s<>]+/g;
 const PURCHASE_CTA_RE = /(立即购买|先购买|去购买|继续购买|购买\s*(?:ChatGPT\s*)?(?:Plus|AI)?\s*(?:激活码|卡密)|购买\s*(?:ChatGPT\s*)?(?:Plus|AI)|Plus\s*(?:月卡)?激活码\s*¥?\s*198|¥\s*198)/i;
 const ACTIVATION_CTA_RE = /(已买|已购买|进入.*激活|去激活|激活中心|激活系统|自助充值|充值中心)/i;
-const PROTECTED_HOST_RE = /^https:\/\/fe\.dtyuedan\.cn\//;
-const RECHARGE_HOST_RE = /^https:\/\/987ai\.vip\//;
 
 const staged = process.argv.includes('--staged');
 const failures = [];
@@ -59,14 +56,75 @@ function normalizeUrl(url) {
   return url.replace(/[),.;，。；）]+$/g, '');
 }
 
+function hostOf(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return '';
+  }
+}
+
+function uniqueValues(values) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function readLockConfig() {
+  const content = staged
+    ? (readIndexedFile(LOCK_CONFIG_FILE) || readCurrentFile(LOCK_CONFIG_FILE))
+    : readCurrentFile(LOCK_CONFIG_FILE);
+  if (!content) {
+    console.error(`Purchase link lock config missing: ${LOCK_CONFIG_FILE}`);
+    process.exit(1);
+  }
+  try {
+    return JSON.parse(content);
+  } catch (error) {
+    console.error(`Purchase link lock config is not valid JSON: ${LOCK_CONFIG_FILE}`);
+    console.error(error.message);
+    process.exit(1);
+  }
+}
+
+function stringList(config, key) {
+  if (!Array.isArray(config[key]) || config[key].some((value) => typeof value !== 'string' || value.trim() === '')) {
+    console.error(`Purchase link lock config key "${key}" must be a non-empty string array.`);
+    process.exit(1);
+  }
+  return uniqueValues(config[key]);
+}
+
+const lockConfig = readLockConfig();
+const PURCHASE_URLS = stringList(lockConfig, 'purchaseUrls').map(normalizeUrl);
+const ACTIVATION_URLS = stringList(lockConfig, 'activationUrls').map(normalizeUrl);
+const SITE_HOSTS = new Set(stringList(lockConfig, 'siteHosts'));
+const PURCHASE_HOSTS = new Set(PURCHASE_URLS.map(hostOf).filter(Boolean));
+const ACTIVATION_HOSTS = new Set(ACTIVATION_URLS.map(hostOf).filter(Boolean));
+
+function isAllowedPurchaseUrl(url) {
+  return PURCHASE_URLS.includes(normalizeUrl(url));
+}
+
+function isConfiguredPurchaseHostUrl(url) {
+  return PURCHASE_HOSTS.has(hostOf(url));
+}
+
+function isActivationUrl(url) {
+  const normalized = normalizeUrl(url);
+  return ACTIVATION_URLS.includes(normalized) || ACTIVATION_HOSTS.has(hostOf(normalized));
+}
+
+function isSameSiteUrl(url) {
+  return SITE_HOSTS.has(hostOf(url));
+}
+
 function checkProtectedUrl(file, line, url) {
   const normalized = normalizeUrl(url);
-  if (normalized === PURCHASE_URL) {
+  if (isAllowedPurchaseUrl(normalized)) {
     purchaseUrlCount += 1;
     return;
   }
-  if (PROTECTED_HOST_RE.test(normalized)) {
-    fail(file, line, `purchase host URL must stay exactly ${PURCHASE_URL}, got ${normalized}`);
+  if (isConfiguredPurchaseHostUrl(normalized)) {
+    fail(file, line, `purchase host URL must be one of ${PURCHASE_URLS.join(', ')}, got ${normalized}`);
   }
 }
 
@@ -75,8 +133,10 @@ function checkUrlBinding(file, line, url, label) {
   checkProtectedUrl(file, line, normalized);
   if (!PURCHASE_CTA_RE.test(label)) return;
   if (ACTIVATION_CTA_RE.test(label)) return;
-  if (RECHARGE_HOST_RE.test(normalized)) {
-    fail(file, line, `purchase CTA "${label}" must not link to the activation/recharge URL ${normalized}. Use ${PURCHASE_URL}.`);
+  if (isSameSiteUrl(normalized)) return;
+  if (!isAllowedPurchaseUrl(normalized)) {
+    const activationHint = isActivationUrl(normalized) ? ' This looks like an activation/recharge URL.' : '';
+    fail(file, line, `purchase CTA "${label}" must use one configured purchase URL (${PURCHASE_URLS.join(', ')}), got ${normalized}.${activationHint}`);
   }
 }
 
@@ -102,8 +162,8 @@ function scanConstants(file, content) {
     const name = match[1];
     const url = normalizeUrl(match[2]);
     checkProtectedUrl(file, line, url);
-    if (url !== PURCHASE_URL) {
-      fail(file, line, `${name} is a purchase-related URL constant and must stay ${PURCHASE_URL}, got ${url}`);
+    if (!isAllowedPurchaseUrl(url) && !isSameSiteUrl(url)) {
+      fail(file, line, `${name} is a purchase-related URL constant and must use one configured purchase URL (${PURCHASE_URLS.join(', ')}), got ${url}`);
     }
   }
 }
@@ -123,18 +183,18 @@ for (const file of listFiles()) {
 }
 
 if (purchaseUrlCount === 0) {
-  failures.push(`No ${PURCHASE_URL} references found. Purchase flow may have been removed or replaced.`);
+  failures.push(`No configured purchase URL references found (${PURCHASE_URLS.join(', ')}). Purchase flow may have been removed or replaced.`);
 }
 
 if (failures.length > 0) {
   console.error('Purchase link lock failed.');
-  console.error(`Protected purchase URL: ${PURCHASE_URL}`);
-  console.error(`Activation/recharge URL: ${ACTIVATION_URL}`);
+  console.error(`Configured purchase URLs: ${PURCHASE_URLS.join(', ')}`);
+  console.error(`Configured activation/recharge URLs: ${ACTIVATION_URLS.join(', ')}`);
   console.error('');
   for (const failure of failures) console.error(`- ${failure}`);
   console.error('');
-  console.error('If the purchase URL really needs to change, get explicit owner confirmation first.');
+  console.error(`If the purchase URL really needs to change, get explicit owner confirmation first, then update ${LOCK_CONFIG_FILE} and the purchase CTAs together.`);
   process.exit(1);
 }
 
-console.log(`Purchase link lock passed. Protected purchase URL remains ${PURCHASE_URL}.`);
+console.log(`Purchase link lock passed. Configured purchase URLs: ${PURCHASE_URLS.join(', ')}.`);
