@@ -138,10 +138,11 @@ export const rechargeService = {
     const selectedProvider = resolveProvider(provider);
     const adapter = getProviderAdapter(selectedProvider);
     const upstream = await adapter.verifyCard({ cardInfo: cardInfo.trim() });
+    const status = upstream.status && upstream.status < 500 ? 200 : 502;
 
     return {
       ok: upstream.ok,
-      status: upstream.ok ? 200 : 502,
+      status: upstream.ok ? 200 : status,
       data: {
         ...upstream.data,
         selectedProvider,

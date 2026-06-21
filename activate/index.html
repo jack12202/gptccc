@@ -830,13 +830,17 @@
 
     function mapCardVerifyMessage(upstream) {
       const code = upstream?.message || "";
-      if (code === "CARD_NOT_FOUND") return "激活码不存在，请检查后重新输入。";
-      if (code === "CARD_ALREADY_USED") return "这张激活码已经使用过了，请更换其他激活码。";
+      if (code === "CARD_NOT_FOUND") return "卡密不存在，请检查后重新输入。";
+      if (code === "CARD_ALREADY_USED" || code === "卡密已被使用" || code === "卡密已使用") return "卡密已使用";
       if (code === "CARD_EXPIRED") return "这张激活码已过期，请联系处理。";
       if (code === "CARD_DISABLED") return "这张激活码当前已被停用，请联系处理。";
       if (code === "SYSTEM_BUSY") return "系统繁忙，请稍后再试。";
       if (typeof upstream?.message === "string" && upstream.message.trim()) return upstream.message;
       return "当前激活码无法用于充值。";
+    }
+
+    function isUsedCardMessage(message) {
+      return message === "卡密已使用" || message === "卡密已被使用" || message === "这张激活码已经使用过了，请更换其他激活码。";
     }
 
     function normalizeProvider(value) {
@@ -1009,12 +1013,14 @@
         });
         const upstream = data.data || data.upstream?.data || data.upstream || {};
         if (!data.success) {
-          setNotice("step1Notice", "激活码验证失败", data.message || "请检查激活码后重试。", "error");
+          const message = mapCardVerifyMessage({ message: data.data?.message || data.message });
+          setNotice("step1Notice", isUsedCardMessage(message) ? "卡密已使用" : "激活码验证失败", isUsedCardMessage(message) ? "" : message, "error");
           return;
         }
         const pass = upstream.success === true;
         if (!pass) {
-          setNotice("step1Notice", "激活码不可用", mapCardVerifyMessage(upstream), "error");
+          const message = mapCardVerifyMessage(upstream);
+          setNotice("step1Notice", isUsedCardMessage(message) ? "卡密已使用" : "激活码不可用", isUsedCardMessage(message) ? "" : message, "error");
           return;
         }
         setCurrentProvider(upstream.selectedProvider || upstream.provider || currentProvider, { locked: true });
