@@ -68,6 +68,21 @@ function normalizeStatus(raw) {
   };
 }
 
+function normalizeStartPayload(payload) {
+  const fullAuthData = typeof payload.fullAuthData === "string"
+    ? payload.fullAuthData
+    : JSON.stringify(payload.fullAuthData || {});
+
+  return {
+    cardInfo: payload.cardInfo,
+    userEmail: payload.userEmail || "",
+    userGptToken: payload.userGptToken || "",
+    fullAuthData,
+    productId: payload.productId || config.defaultProductId,
+    forceRecharge: Boolean(payload.forceRecharge ?? payload.overwriteRecharge)
+  };
+}
+
 async function postJson(endpoint, payload) {
   return requestJson(config.upstreamBaseUrl, endpoint, {
     method: "POST",
@@ -91,7 +106,7 @@ export const sangeAdapter = {
   },
 
   async startRecharge(payload) {
-    const raw = await postJson("/api/cards/verify-gpt", payload);
+    const raw = await postJson("/api/cards/verify-gpt", normalizeStartPayload(payload));
     const data = normalizeStart(raw);
     return {
       ok: data.success,

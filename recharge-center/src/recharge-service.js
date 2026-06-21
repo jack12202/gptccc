@@ -260,7 +260,7 @@ export const rechargeService = {
 
     return {
       ok: upstream.ok,
-      status: upstream.ok ? 200 : 502,
+      status: upstream.ok ? 200 : upstream.status && upstream.status < 500 ? 200 : 502,
       data: {
         orderId: order.id,
         taskId: upstreamTaskId,
