@@ -448,6 +448,12 @@ h1{
   cursor:pointer;
 }
 .modal-list{display:grid;gap:10px;margin:16px 0}
+.recharge-countdown{
+  margin:12px 0 0;
+  color:var(--brand-2);
+  font-weight:900;
+  text-align:center;
+}
 .modal-option{
   display:flex;
   align-items:center;
@@ -700,13 +706,15 @@ var _hmt = _hmt || [];
 <div class="modal-mask" id="rechargeModal" aria-hidden="true">
   <div class="modal" role="dialog" aria-labelledby="rechargeTitle" tabindex="-1">
     <div class="modal-head">
-      <h3 id="rechargeTitle">进入站内充值中心</h3>
+      <h3 id="rechargeTitle">即将进入 Plus 自助充值通道</h3>
       <button class="close" id="closeRecharge" type="button" aria-label="关闭">×</button>
     </div>
-    <p class="muted">购买激活码后，请进入 GPTC.cc 站内充值中心，按页面提示完成激活。</p>
+    <p class="muted">进入通道后，请按页面提示完成充值。充值成功前，请不要关闭已登录的 ChatGPT 网页，以免充值失败。</p>
+    <div class="recharge-countdown" id="rechargeCountdown">8 秒后自动进入充值通道</div>
     <div class="modal-list">
-      <button class="modal-option rs-option" data-url="/activate/" type="button"><span><strong>站内充值中心</strong><br><span class="muted">https://gptc.cc/activate/</span></span><span class="tag">进入</span></button>
+      <button class="modal-option rs-option" data-url="/activate/" type="button"><span><strong>我知道了，进入充值通道</strong><br><span class="muted">保持 ChatGPT 网页打开，不要退出登录或关闭页面</span></span><span class="tag">进入</span></button>
     </div>
+    <button class="btn btn-outline" id="cancelRecharge" type="button">暂不进入</button>
   </div>
 </div>
 
@@ -718,6 +726,11 @@ var _hmt = _hmt || [];
   const WX_ID = (document.getElementById('wxid')?.textContent || 'jiage01888').trim();
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const RECHARGE_COUNTDOWN_SECONDS = 8;
+  let rechargeTimer = null;
+  let rechargeRemaining = RECHARGE_COUNTDOWN_SECONDS;
+  let rechargeTargetUrl = RECHARGE_URL;
+  let rechargeNavigated = false;
 
   function openNew(url){ window.open(url, '_blank', 'noopener'); }
   function showToast(text){
@@ -749,26 +762,65 @@ var _hmt = _hmt || [];
   }
   function openRecharge(){
     const modal = $('#rechargeModal');
+    rechargeTargetUrl = RECHARGE_URL;
     modal?.classList.add('show');
     modal?.setAttribute('aria-hidden','false');
     document.body.classList.add('modal-open');
     setTimeout(()=>modal?.querySelector('[role="dialog"]')?.focus?.(),0);
+    startRechargeCountdown();
   }
   function closeRecharge(){
+    stopRechargeCountdown();
     const modal = $('#rechargeModal');
     modal?.classList.remove('show');
     modal?.setAttribute('aria-hidden','true');
     document.body.classList.remove('modal-open');
   }
+  function updateRechargeCountdown(){
+    const el = $('#rechargeCountdown');
+    if(el) el.textContent = rechargeRemaining + ' 秒后自动进入充值通道';
+  }
+  function stopRechargeCountdown(){
+    if(rechargeTimer){
+      clearInterval(rechargeTimer);
+      rechargeTimer = null;
+    }
+  }
+  function enterRecharge(){
+    if(rechargeNavigated) return;
+    rechargeNavigated = true;
+    stopRechargeCountdown();
+    openNew(rechargeTargetUrl);
+    closeRecharge();
+  }
+  function startRechargeCountdown(){
+    stopRechargeCountdown();
+    rechargeNavigated = false;
+    rechargeRemaining = RECHARGE_COUNTDOWN_SECONDS;
+    updateRechargeCountdown();
+    rechargeTimer = setInterval(()=>{
+      rechargeRemaining -= 1;
+      if(rechargeRemaining <= 0){
+        enterRecharge();
+        return;
+      }
+      updateRechargeCountdown();
+    }, 1000);
+  }
 
   $$('.copy-btn').forEach(btn=>btn.addEventListener('click', e=>{e.preventDefault();copyWx();}));
   $('#closeRecharge')?.addEventListener('click', closeRecharge);
+  $('#cancelRecharge')?.addEventListener('click', closeRecharge);
   $('#rechargeModal')?.addEventListener('click', e=>{if(e.target === e.currentTarget) closeRecharge();});
   document.addEventListener('keydown', e=>{if(e.key === 'Escape') closeRecharge();});
+  $$('#navRecharge, .recharge-btn, a[href="/activate/"]').forEach(link=>link.addEventListener('click', e=>{
+    e.preventDefault();
+    openRecharge();
+  }));
   $$('.rs-option').forEach(btn=>btn.addEventListener('click', e=>{
     e.preventDefault();
-    openNew(btn.getAttribute('data-url') || RECHARGE_URL);
-    closeRecharge();
+    rechargeTargetUrl = btn.getAttribute('data-url') || RECHARGE_URL;
+    enterRecharge();
   }));
 })();
 </script>
