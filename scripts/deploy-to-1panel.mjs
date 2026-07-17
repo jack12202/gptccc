@@ -180,8 +180,7 @@ async function main() {
     "robots.txt",
     "sitemap.xml",
     "activate/index.html",
-    "gpt-chongzhi/index.html",
-    "site-tracking.js"
+    "gpt-chongzhi/index.html"
   ].map(file => path.join(repoRoot, file));
 
   const blogFiles = walkTextFiles(path.join(repoRoot, "blog"));
