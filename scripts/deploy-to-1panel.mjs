@@ -148,6 +148,23 @@ class PanelClient {
       throw new Error(`Failed to save ${remoteFile}: ${JSON.stringify(result)}`);
     }
   }
+
+  async createDirectory(remoteDir) {
+    const result = await this.request(`${API_PREFIX}/files`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        path: remoteDir,
+        isDir: true,
+        mode: 0o755
+      })
+    });
+    if (result?.code !== 200) {
+      throw new Error(`Failed to create directory ${remoteDir}: ${JSON.stringify(result)}`);
+    }
+  }
 }
 
 function walkTextFiles(dir) {
@@ -170,6 +187,10 @@ function toRemotePath(localFile) {
   return `${PANEL_TARGET_DIR}/${rel}`;
 }
 
+function remoteDirectoryFor(localFile) {
+  return path.posix.dirname(toRemotePath(localFile));
+}
+
 async function main() {
   const client = new PanelClient();
   await client.login();
@@ -178,11 +199,30 @@ async function main() {
     "index.html",
     "robots.txt",
     "sitemap.xml",
-    "activate/index.html"
+    "activate/index.html",
+    "gpt-chongzhi/index.html",
+    "assets/site-tracking.js"
   ].map(file => path.join(repoRoot, file));
 
   const blogFiles = walkTextFiles(path.join(repoRoot, "blog"));
   const filesToUpload = [...staticFiles, ...blogFiles];
+
+  const remoteDirs = Array.from(new Set(
+    filesToUpload
+      .map(remoteDirectoryFor)
+      .filter(remoteDir => remoteDir !== PANEL_TARGET_DIR)
+  )).sort((a, b) => a.length - b.length);
+
+  for (const remoteDir of remoteDirs) {
+    try {
+      console.log(`Ensuring directory ${remoteDir}`);
+      await client.createDirectory(remoteDir);
+    } catch (error) {
+      const message = String(error?.message || error);
+      if (!/exist|已存在|文件已存在/.test(message)) throw error;
+      console.log(`Directory already exists: ${remoteDir}`);
+    }
+  }
 
   for (const localFile of filesToUpload) {
     const content = fs.readFileSync(localFile, "utf8");
