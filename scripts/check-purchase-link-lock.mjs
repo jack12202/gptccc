@@ -4,8 +4,8 @@ import { existsSync, readFileSync } from 'node:fs';
 
 const LOCK_CONFIG_FILE = 'purchase-link-lock.json';
 const URL_RE = /https?:\/\/[^"'`\s<>]+/g;
-const PURCHASE_CTA_RE = /(立即购买|先购买|去购买|继续购买|购买\s*(?:ChatGPT\s*)?(?:Plus|AI)?\s*(?:激活码|卡密)|购买\s*(?:ChatGPT\s*)?(?:Plus|AI)|Plus\s*(?:月卡)?激活码\s*¥?\s*198|¥\s*198)/i;
-const BLOG_PURCHASE_CTA_RE = /(立即购买|先购买|去购买|继续购买|购买|卡密|激活码|开通\s*Plus|开通方案|查看.*开通方案|进入.*开通\s*Plus)/i;
+const PURCHASE_CTA_RE = /(立即购买|立即充值|先购买|去购买|继续购买|充值\s*(?:ChatGPT\s*)?Plus|购买\s*(?:ChatGPT\s*)?(?:Plus|AI)?\s*(?:激活码|卡密)|购买\s*(?:ChatGPT\s*)?(?:Plus|AI)|Plus\s*(?:月卡)?激活码\s*¥?\s*188|¥\s*188)/i;
+const BLOG_PURCHASE_CTA_RE = /(立即购买|立即充值|先购买|去购买|继续购买|充值\s*Plus|购买|卡密|激活码|开通\s*Plus|开通方案|查看.*开通方案|进入.*开通\s*Plus)/i;
 const ACTIVATION_CTA_RE = /(已买|已购买|进入.*激活|去激活|激活中心|激活系统|自助充值|充值中心)/i;
 
 const staged = process.argv.includes('--staged');
