@@ -8,7 +8,7 @@ async function readResponseBody(response) {
   }
 }
 
-export async function requestJson(baseUrl, endpoint, { method = "GET", headers = {}, payload } = {}) {
+export async function requestJson(baseUrl, endpoint, { method = "GET", headers = {}, payload, body } = {}) {
   const init = {
     method,
     headers
@@ -20,6 +20,8 @@ export async function requestJson(baseUrl, endpoint, { method = "GET", headers =
       ...headers
     };
     init.body = JSON.stringify(payload);
+  } else if (body !== undefined) {
+    init.body = body;
   }
 
   const response = await fetch(new URL(endpoint, baseUrl), init);

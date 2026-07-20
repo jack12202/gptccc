@@ -39,12 +39,13 @@
 
 这样你的博客、首页和充值页主文件都可以继续自动发布，同时保留未来给 `activate/` 增加其他资源文件的空间。
 
-## 双源头充值后端
+## 多源头充值后端
 
 `recharge-center/` 是站内充值后端，已经支持：
 
 - 三哥：`sange`
 - 阿妍：`ayan`
+- CZGPT：`czgpt`
 - 后台默认源头切换：`/admin/provider`
 - 激活链接显式指定源头：`/activate/?provider=ayan&card=XXXX`
 
@@ -52,7 +53,7 @@
 
 - `DEFAULT_PROVIDER`
   - 默认值：`sange`
-  - 可选值：`sange` / `ayan`
+  - 可选值：`sange` / `ayan` / `czgpt`
 - `ADMIN_TOKEN`
   - 手机后台切换源头时输入的管理密码
 - `AYAN_BASE_URL`
@@ -61,6 +62,8 @@
   - 三哥接口地址，默认值：`https://kkk.ow800.com`
 - `UPSTREAM_AUTH_TOKEN`
   - 如果三哥接口需要鉴权，在这里配置
+- `RESELLER_BASE_URL`
+  - CZGPT 分销商 API 地址，默认值：`https://czgpt.plus`
 
 手机切换入口：
 
@@ -70,13 +73,14 @@
 
 - `https://gptc.cc/admin/provider#token=你的ADMIN_TOKEN`
 
-打开后不用输入账号密码，直接点“三哥”或“阿妍”即可切换默认源头。推荐使用 `#token=`，这样 token 不会发送到服务器日志里。
+打开后不用输入账号密码，直接点“三哥”“阿妍”或“CZGPT”即可切换默认源头。推荐使用 `#token=`，这样 token 不会发送到服务器日志里。
 
 手机一键切换链接（旧方式，会把 token 放进请求 URL，不建议长期保存）：
 
 - 切到三哥：`https://gptc.cc/admin/provider/switch?provider=sange&token=你的ADMIN_TOKEN`
 - 切到阿妍：`https://gptc.cc/admin/provider/switch?provider=ayan&token=你的ADMIN_TOKEN`
+- 切到 CZGPT：`https://gptc.cc/admin/provider/switch?provider=czgpt&token=你的ADMIN_TOKEN`
 
-这两个链接不需要账号密码，但 `ADMIN_TOKEN` 必须足够长、不要发给别人。
+这些链接不需要账号密码，但 `ADMIN_TOKEN` 必须足够长、不要发给别人。
 
 上线时要确认 Nginx / OpenResty 已把 `/api/recharge/*` 和 `/admin/provider` 转发到 `recharge-center` 后端服务。

@@ -1,0 +1,128 @@
+import { config } from "../config.js";
+import { extractCardCode } from "../utils.js";
+import { requestJson } from "./http-json.js";
+
+const SESSION_CARD_TYPES = new Set(["token", "th", "gpt_pro_20x", "gpt_pro_5x"]);
+
+function errorMessage(raw, fallback) {
+  const body = raw?.data;
+  if (typeof body?.detail === "string" && body.detail.trim()) return body.detail;
+  if (typeof body?.message === "string" && body.message.trim()) return body.message;
+  return fallback;
+}
+
+function normalizeVerify(raw, cardCode) {
+  const item = Array.isArray(raw.data) ? raw.data[0] || {} : {};
+  const cardType = typeof item.type === "string" ? item.type : "";
+  const isUnused = item.status === "unused";
+  const isSupported = SESSION_CARD_TYPES.has(cardType);
+  const isDistributed = item.is_distributed !== false;
+  const success = raw.ok && isUnused && isSupported && isDistributed;
+
+  let message = "";
+  if (!raw.ok) message = errorMessage(raw, "激活码查询失败，请稍后重试。");
+  else if (item.status === "not_found") message = "激活码不存在，请检查后重新输入。";
+  else if (!isUnused) message = item.status === "used" ? "卡密已被使用" : "当前激活码不可用。";
+  else if (!isDistributed) message = "激活码尚未发放，暂时不能使用。";
+  else if (!isSupported) message = "当前页面暂不支持这种卡密类型。";
+
+  return {
+    success,
+    provider: "czgpt",
+    providerLabel: "CZGPT",
+    cardCode,
+    cardType,
+    productId: config.defaultProductId,
+    message,
+    raw: item
+  };
+}
+
+function normalizeStart(raw) {
+  const body = raw.data || {};
+  const taskId = body.task_id || body.taskId || "";
+  const success = raw.ok && Boolean(taskId);
+
+  return {
+    success,
+    provider: "czgpt",
+    providerLabel: "CZGPT",
+    taskId,
+    status: success ? "processing" : "failed",
+    message: body.message || errorMessage(raw, success ? "充值任务已创建。" : "充值提交失败。"),
+    raw: body
+  };
+}
+
+function normalizeStatus(raw) {
+  const body = raw.data || {};
+  const upstreamStatus = body.status || "unknown";
+  const status = upstreamStatus === "succeeded"
+    ? "success"
+    : upstreamStatus === "failed" || upstreamStatus === "timeout"
+      ? "failed"
+      : "processing";
+
+  return {
+    success: raw.ok,
+    provider: "czgpt",
+    providerLabel: "CZGPT",
+    status,
+    upstreamStatus,
+    message: body.message || errorMessage(raw, upstreamStatus),
+    remainingSeconds: body.remaining_seconds ?? null,
+    queueAhead: body.queue_ahead ?? null,
+    raw: body
+  };
+}
+
+export const czgptAdapter = {
+  key: "czgpt",
+  label: "CZGPT",
+
+  async verifyCard({ cardInfo }) {
+    const cardCode = extractCardCode(cardInfo);
+    const raw = await requestJson(config.resellerBaseUrl, "/api/v1/kami/status", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: cardCode
+    });
+    const data = normalizeVerify(raw, cardCode);
+    return {
+      ok: data.success,
+      status: raw.status,
+      data
+    };
+  },
+
+  async startRecharge({ cardInfo, fullAuthData }) {
+    const cardCode = extractCardCode(cardInfo);
+    const session = typeof fullAuthData === "string" ? JSON.parse(fullAuthData) : fullAuthData;
+    const raw = await requestJson(config.resellerBaseUrl, "/api/v1/kami/use", {
+      method: "POST",
+      payload: {
+        code: cardCode,
+        session
+      }
+    });
+    const data = normalizeStart(raw);
+    return {
+      ok: data.success,
+      status: raw.status,
+      data
+    };
+  },
+
+  async queryTaskStatus({ taskId }) {
+    const raw = await requestJson(
+      config.resellerBaseUrl,
+      `/api/v1/kami/task/${encodeURIComponent(taskId)}`
+    );
+    const data = normalizeStatus(raw);
+    return {
+      ok: raw.ok,
+      status: raw.status,
+      data
+    };
+  }
+};

@@ -27,6 +27,10 @@ jobs:
         run: |
           node ./scripts/check-purchase-link-lock.mjs
 
+      - name: Test recharge providers
+        run: |
+          node --test ./recharge-center/test/*.test.js
+
       - name: Deploy homepage and blog to 1Panel
         env:
           PANEL_BASE: ${{ secrets.PANEL_BASE }}
@@ -65,6 +69,8 @@ jobs:
           curl -fsSL https://gptc.cc/activate/ > /tmp/gptccc-activate.html
           grep -q '<link rel="canonical" href="https://www.gptc.cc/activate/">' /tmp/gptccc-activate.html
           grep -q '<title>嘉哥AI Plus充值系统｜GPTC.cc</title>' /tmp/gptccc-activate.html
+          grep -q '/api/recharge/verify-card' /tmp/gptccc-activate.html
+          ! grep -q 'http-equiv="refresh"' /tmp/gptccc-activate.html
 
       - name: Verify recharge backend routes
         run: |

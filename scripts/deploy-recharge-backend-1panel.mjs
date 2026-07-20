@@ -258,6 +258,7 @@ DEFAULT_PROVIDER=sange
 ADMIN_TOKEN=${adminToken}
 AYAN_BASE_URL=https://api.987ai.vip
 UPSTREAM_BASE_URL=https://kkk.ow800.com
+RESELLER_BASE_URL=https://czgpt.plus
 DATA_FILE=/app/data/orders.json
 LOG_FILE=/app/logs/server.log
 EOF
