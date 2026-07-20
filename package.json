@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "check:site-host": "node scripts/check-site-host-consistency.mjs",
     "new:blog": "node scripts/new-blog-post.js"
   }
 }

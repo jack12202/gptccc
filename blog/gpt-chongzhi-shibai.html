@@ -113,8 +113,10 @@
 }
 </script>
 <script>
-var _hmt = _hmt || [];
+var _hmt = window._hmt || [];
+window._hmt = _hmt;
 (function() {
+  if (!/^(?:www\.)?gptc\.cc$/i.test(window.location.hostname)) return;
   var hm = document.createElement("script");
   hm.src = "https://hm.baidu.com/hm.js?8da1b6039025ccb7673c067c21447e58";
   var s = document.getElementsByTagName("script")[0];
