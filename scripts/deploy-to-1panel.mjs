@@ -149,6 +149,23 @@ class PanelClient {
     }
   }
 
+  async uploadFile(remoteDir, localFile, remoteName) {
+    const form = new FormData();
+    const fileBuffer = fs.readFileSync(localFile);
+
+    form.append("path", remoteDir);
+    form.append("file", new Blob([fileBuffer]), remoteName);
+
+    const result = await this.request(`${API_PREFIX}/files/upload`, {
+      method: "POST",
+      body: form
+    });
+
+    if (result?.code !== 200) {
+      throw new Error(`Failed to upload ${remoteName}: ${JSON.stringify(result)}`);
+    }
+  }
+
 }
 
 function walkTextFiles(dir) {
@@ -179,10 +196,10 @@ async function main() {
     "index.html",
     "robots.txt",
     "sitemap.xml",
-    "baidu_verify_codeva-pWYZ9Gvq7V.html",
     "activate/index.html",
     "gpt-chongzhi/index.html"
   ].map(file => path.join(repoRoot, file));
+  const baiduVerificationFile = path.join(repoRoot, "baidu_verify_codeva-pWYZ9Gvq7V.html");
 
   const blogFiles = walkTextFiles(path.join(repoRoot, "blog"));
   const filesToUpload = [...staticFiles, ...blogFiles];
@@ -194,7 +211,10 @@ async function main() {
     await client.saveTextFile(remoteFile, content);
   }
 
-  console.log(`Uploaded ${filesToUpload.length} text files to 1Panel.`);
+  console.log(`Uploading ${path.basename(baiduVerificationFile)} -> ${PANEL_TARGET_DIR}/${path.basename(baiduVerificationFile)}`);
+  await client.uploadFile(PANEL_TARGET_DIR, baiduVerificationFile, path.basename(baiduVerificationFile));
+
+  console.log(`Uploaded ${filesToUpload.length + 1} text files to 1Panel.`);
 }
 
 main().catch(error => {
