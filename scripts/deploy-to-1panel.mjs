@@ -179,6 +179,7 @@ async function main() {
     "index.html",
     "robots.txt",
     "sitemap.xml",
+    "baidu_verify_codeva-pWYZ9Gvq7V.html",
     "activate/index.html",
     "gpt-chongzhi/index.html"
   ].map(file => path.join(repoRoot, file));
