@@ -25,6 +25,21 @@ function servePrototype(res) {
   res.end(html);
 }
 
+function adminProviderLabel(provider, publicLabel) {
+  return provider === "czgpt" || provider === "czgpt_external" ? "廖" : publicLabel;
+}
+
+function adminProviderSettings(settings) {
+  return {
+    ...settings,
+    defaultProviderLabel: adminProviderLabel(settings.defaultProvider, settings.defaultProviderLabel),
+    providers: settings.providers.map(provider => ({
+      ...provider,
+      label: adminProviderLabel(provider.key, provider.label)
+    }))
+  };
+}
+
 function serveProviderAdmin(res) {
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -112,7 +127,7 @@ function serveProviderAdmin(res) {
       <div class="choices">
         <button type="button" data-provider="sange">三哥</button>
         <button type="button" data-provider="ayan">阿妍</button>
-        <button type="button" data-provider="czgpt">l</button>
+        <button type="button" data-provider="czgpt">廖</button>
       </div>
     </div>
     <div class="provider-group">
@@ -121,7 +136,7 @@ function serveProviderAdmin(res) {
       <div class="choices">
         <button type="button" data-provider="sange_external">三哥</button>
         <button type="button" data-provider="ayan_external">阿妍</button>
-        <button type="button" data-provider="czgpt_external">l</button>
+        <button type="button" data-provider="czgpt_external">廖</button>
         <button type="button" data-provider="dnscon">白</button>
         <button type="button" data-provider="9977ai">七七</button>
       </div>
@@ -224,8 +239,9 @@ function serveProviderSwitchResult(res, result) {
   const success = result.ok;
   const title = success ? "源头已切换" : "切换失败";
   const locationLabel = result.data?.defaultProviderMode === "redirect" ? "站外充值" : "站内充值";
+  const providerLabel = adminProviderLabel(result.data?.defaultProvider, result.data?.defaultProviderLabel);
   const message = success
-    ? `当前默认方式：${locationLabel} · ${result.data.defaultProviderLabel}`
+    ? `当前默认方式：${locationLabel} · ${providerLabel}`
     : result.message || "请检查链接或管理 token。";
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -352,7 +368,7 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, auth.status, { success: false, message: auth.message });
         return;
       }
-      sendJson(res, 200, { success: true, data: rechargeService.getProviderSettings() });
+      sendJson(res, 200, { success: true, data: adminProviderSettings(rechargeService.getProviderSettings()) });
       return;
     }
 
@@ -364,7 +380,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const result = rechargeService.updateDefaultProvider(body.provider, "admin");
-      sendJson(res, result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message });
+      sendJson(res, result.status, result.ok ? { success: true, data: adminProviderSettings(result.data) } : { success: false, message: result.message });
       return;
     }
 

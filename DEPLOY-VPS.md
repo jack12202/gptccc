@@ -46,11 +46,11 @@
 - 站内充值
   - 三哥：`sange`
   - 阿妍：`ayan`
-  - l 通道：`czgpt`
+  - 廖（用户端显示 `l`）：`czgpt`
 - 站外充值
   - 三哥：`sange_external`
   - 阿妍：`ayan_external`
-  - l 通道：`czgpt_external`
+  - 廖（用户端显示 `l`）：`czgpt_external`
   - 白：`dnscon`
   - 七七：`9977ai`
 - 后台默认源头切换：`/admin/provider`
@@ -86,10 +86,10 @@
 
 - 切到三哥：`https://gptc.cc/admin/provider/switch?provider=sange&token=你的ADMIN_TOKEN`
 - 切到阿妍：`https://gptc.cc/admin/provider/switch?provider=ayan&token=你的ADMIN_TOKEN`
-- 切到 l：`https://gptc.cc/admin/provider/switch?provider=czgpt&token=你的ADMIN_TOKEN`
+- 切到廖（站内）：`https://gptc.cc/admin/provider/switch?provider=czgpt&token=你的ADMIN_TOKEN`
 - 切到站外三哥：`https://gptc.cc/admin/provider/switch?provider=sange_external&token=你的ADMIN_TOKEN`
 - 切到站外阿妍：`https://gptc.cc/admin/provider/switch?provider=ayan_external&token=你的ADMIN_TOKEN`
-- 切到站外 l：`https://gptc.cc/admin/provider/switch?provider=czgpt_external&token=你的ADMIN_TOKEN`
+- 切到廖（站外）：`https://gptc.cc/admin/provider/switch?provider=czgpt_external&token=你的ADMIN_TOKEN`
 - 切到白：`https://gptc.cc/admin/provider/switch?provider=dnscon&token=你的ADMIN_TOKEN`
 - 切到七七：`https://gptc.cc/admin/provider/switch?provider=9977ai&token=你的ADMIN_TOKEN`
 
