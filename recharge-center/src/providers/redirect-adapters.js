@@ -9,7 +9,7 @@ function makeRedirectAdapter({ key, label, redirectUrl }) {
         providerLabel: label,
         providerMode: "redirect",
         redirectUrl,
-        message: `当前已切换到${label}备用通道，正在打开对应页面。`
+        message: `当前已切换到站外充值 · ${label}，正在打开对应页面。`
       }
     };
   }
@@ -24,6 +24,24 @@ function makeRedirectAdapter({ key, label, redirectUrl }) {
     queryTaskStatus: redirectResult
   };
 }
+
+export const sangeExternalAdapter = makeRedirectAdapter({
+  key: "sange_external",
+  label: "三哥",
+  redirectUrl: "https://ow800.com/auto"
+});
+
+export const ayanExternalAdapter = makeRedirectAdapter({
+  key: "ayan_external",
+  label: "阿妍",
+  redirectUrl: "https://987ai.vip/recharge"
+});
+
+export const czgptExternalAdapter = makeRedirectAdapter({
+  key: "czgpt_external",
+  label: "l",
+  redirectUrl: "https://666ai.vip/"
+});
 
 export const dnsconAdapter = makeRedirectAdapter({
   key: "dnscon",

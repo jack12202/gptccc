@@ -51,6 +51,9 @@ export function normalizeProvider(value, fallback = "sange") {
     provider === "sange" ||
     provider === "ayan" ||
     provider === "czgpt" ||
+    provider === "sange_external" ||
+    provider === "ayan_external" ||
+    provider === "czgpt_external" ||
     provider === "dnscon" ||
     provider === "9977ai"
   ) return provider;

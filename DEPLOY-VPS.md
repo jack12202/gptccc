@@ -41,13 +41,18 @@
 
 ## 多源头充值后端
 
-`recharge-center/` 是站内充值后端，已经支持：
+`recharge-center/` 是统一充值后端，已经支持：
 
-- 三哥：`sange`
-- 阿妍：`ayan`
-- l 通道：`czgpt`
-- 白（外部备用）：`dnscon`
-- 七七（外部备用）：`9977ai`
+- 站内充值
+  - 三哥：`sange`
+  - 阿妍：`ayan`
+  - l 通道：`czgpt`
+- 站外充值
+  - 三哥：`sange_external`
+  - 阿妍：`ayan_external`
+  - l 通道：`czgpt_external`
+  - 白：`dnscon`
+  - 七七：`9977ai`
 - 后台默认源头切换：`/admin/provider`
 - 激活链接显式指定源头：`/activate/?provider=ayan&card=XXXX`
 
@@ -55,7 +60,7 @@
 
 - `DEFAULT_PROVIDER`
   - 默认值：`czgpt`
-  - 可选值：`sange` / `ayan` / `czgpt` / `dnscon` / `9977ai`
+  - 可选值：`sange` / `ayan` / `czgpt` / `sange_external` / `ayan_external` / `czgpt_external` / `dnscon` / `9977ai`
 - `ADMIN_TOKEN`
   - 手机后台切换源头时输入的管理密码
 - `AYAN_BASE_URL`
@@ -75,13 +80,16 @@
 
 - `https://gptc.cc/admin/provider#token=你的ADMIN_TOKEN`
 
-打开后不用输入账号密码，直接点“三哥”“阿妍”“l”“白”或“七七”即可切换默认源头。前三者走 GPTC 站内流程；白和七七属于外部备用通道，切换后访问激活页会自动跳转。推荐使用 `#token=`，这样 token 不会发送到服务器日志里。
+打开后不用输入账号密码，先选择“站内充值”或“站外充值”，再点对应源头即可切换。站内充值留在 GPTC 完成；站外充值会在用户访问激活页时自动跳到所选源头。推荐使用 `#token=`，这样 token 不会发送到服务器日志里。
 
 手机一键切换链接（旧方式，会把 token 放进请求 URL，不建议长期保存）：
 
 - 切到三哥：`https://gptc.cc/admin/provider/switch?provider=sange&token=你的ADMIN_TOKEN`
 - 切到阿妍：`https://gptc.cc/admin/provider/switch?provider=ayan&token=你的ADMIN_TOKEN`
 - 切到 l：`https://gptc.cc/admin/provider/switch?provider=czgpt&token=你的ADMIN_TOKEN`
+- 切到站外三哥：`https://gptc.cc/admin/provider/switch?provider=sange_external&token=你的ADMIN_TOKEN`
+- 切到站外阿妍：`https://gptc.cc/admin/provider/switch?provider=ayan_external&token=你的ADMIN_TOKEN`
+- 切到站外 l：`https://gptc.cc/admin/provider/switch?provider=czgpt_external&token=你的ADMIN_TOKEN`
 - 切到白：`https://gptc.cc/admin/provider/switch?provider=dnscon&token=你的ADMIN_TOKEN`
 - 切到七七：`https://gptc.cc/admin/provider/switch?provider=9977ai&token=你的ADMIN_TOKEN`
 

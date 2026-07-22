@@ -85,9 +85,17 @@ jobs:
         run: |
           curl -fsSL https://www.gptc.cc/admin/provider > /tmp/gptccc-provider-admin.html
           grep -q '<title>源头切换后台｜GPTC.cc</title>' /tmp/gptccc-provider-admin.html
+          grep -q '站内充值' /tmp/gptccc-provider-admin.html
+          grep -q '站外充值' /tmp/gptccc-provider-admin.html
+          grep -q 'data-provider="sange_external"' /tmp/gptccc-provider-admin.html
+          grep -q 'data-provider="ayan_external"' /tmp/gptccc-provider-admin.html
+          grep -q 'data-provider="czgpt_external"' /tmp/gptccc-provider-admin.html
           grep -q 'data-provider="dnscon"' /tmp/gptccc-provider-admin.html
           grep -q 'data-provider="9977ai"' /tmp/gptccc-provider-admin.html
           curl -fsSL https://www.gptc.cc/api/recharge/provider > /tmp/gptccc-provider.json
           grep -q '"success":true' /tmp/gptccc-provider.json
+          grep -q '"key":"sange_external"' /tmp/gptccc-provider.json
+          grep -q '"key":"ayan_external"' /tmp/gptccc-provider.json
+          grep -q '"key":"czgpt_external"' /tmp/gptccc-provider.json
           grep -q '"key":"dnscon"' /tmp/gptccc-provider.json
           grep -q '"key":"9977ai"' /tmp/gptccc-provider.json

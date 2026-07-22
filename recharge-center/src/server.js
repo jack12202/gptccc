@@ -64,7 +64,11 @@ function serveProviderAdmin(res) {
       padding: 0 12px;
       font: inherit;
     }
-    .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(82px, 1fr)); gap: 10px; margin-top: 16px; }
+    .provider-group { margin-top: 18px; }
+    .provider-group + .provider-group { padding-top: 18px; border-top: 1px solid #e2e8f0; }
+    .group-title { margin: 0; color: #0f172a; font-size: 16px; font-weight: 950; }
+    .group-help { margin: 4px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }
+    .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(82px, 1fr)); gap: 10px; margin-top: 10px; }
     button {
       min-height: 52px;
       border: 1px solid #cbd5e1;
@@ -97,17 +101,30 @@ function serveProviderAdmin(res) {
 <body>
   <main>
     <h1>GPTC 源头切换</h1>
-    <p>点击下面按钮即可切换默认源头。激活链接如果带了 provider，会优先按链接里的源头处理。</p>
+    <p>先选择站内或站外充值，再点击对应源头。站内在 GPTC 完成，站外会直接打开对应充值页。</p>
     <label id="tokenField">
       管理密码
       <input id="adminToken" type="password" autocomplete="current-password" placeholder="请输入 ADMIN_TOKEN">
     </label>
-    <div class="choices">
-      <button type="button" data-provider="sange">三哥</button>
-      <button type="button" data-provider="ayan">阿妍</button>
-      <button type="button" data-provider="czgpt">l</button>
-      <button type="button" data-provider="dnscon">白</button>
-      <button type="button" data-provider="9977ai">七七</button>
+    <div class="provider-group">
+      <h2 class="group-title">站内充值</h2>
+      <p class="group-help">用户留在 GPTC 页面完成充值。</p>
+      <div class="choices">
+        <button type="button" data-provider="sange">三哥</button>
+        <button type="button" data-provider="ayan">阿妍</button>
+        <button type="button" data-provider="czgpt">l</button>
+      </div>
+    </div>
+    <div class="provider-group">
+      <h2 class="group-title">站外充值</h2>
+      <p class="group-help">用户进入激活页后，自动跳到所选源头。</p>
+      <div class="choices">
+        <button type="button" data-provider="sange_external">三哥</button>
+        <button type="button" data-provider="ayan_external">阿妍</button>
+        <button type="button" data-provider="czgpt_external">l</button>
+        <button type="button" data-provider="dnscon">白</button>
+        <button type="button" data-provider="9977ai">七七</button>
+      </div>
     </div>
     <div class="status" id="statusBox">输入管理密码后，点击源头即可切换。</div>
     <div class="hint" id="tokenHint"></div>
@@ -145,6 +162,10 @@ function serveProviderAdmin(res) {
       buttons.forEach((button) => button.classList.toggle("active", button.dataset.provider === provider));
     }
 
+    function providerLocationLabel(data) {
+      return data.defaultProviderMode === "redirect" ? "站外充值" : "站内充值";
+    }
+
     async function api(path, options = {}) {
       const token = tokenInput.value.trim();
       if (!token) throw new Error("请先输入管理密码。");
@@ -166,7 +187,7 @@ function serveProviderAdmin(res) {
       try {
         const data = await api("/api/admin/provider");
         setActive(data.defaultProvider);
-        setStatus("当前默认源头：" + data.defaultProviderLabel + (data.providerUpdatedAt ? "\\n最后切换：" + data.providerUpdatedAt : ""));
+        setStatus("当前默认方式：" + providerLocationLabel(data) + " · " + data.defaultProviderLabel + (data.providerUpdatedAt ? "\\n最后切换：" + data.providerUpdatedAt : ""));
       } catch (error) {
         setStatus(error.message, true);
       }
@@ -179,7 +200,7 @@ function serveProviderAdmin(res) {
           body: JSON.stringify({ provider })
         });
         setActive(data.defaultProvider);
-        setStatus("已切换为：" + data.defaultProviderLabel);
+        setStatus("已切换为：" + providerLocationLabel(data) + " · " + data.defaultProviderLabel);
       } catch (error) {
         setStatus(error.message, true);
       }
@@ -202,8 +223,9 @@ function serveProviderAdmin(res) {
 function serveProviderSwitchResult(res, result) {
   const success = result.ok;
   const title = success ? "源头已切换" : "切换失败";
+  const locationLabel = result.data?.defaultProviderMode === "redirect" ? "站外充值" : "站内充值";
   const message = success
-    ? `当前默认源头：${result.data.defaultProviderLabel}`
+    ? `当前默认方式：${locationLabel} · ${result.data.defaultProviderLabel}`
     : result.message || "请检查链接或管理 token。";
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
