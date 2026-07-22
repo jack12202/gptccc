@@ -45,7 +45,7 @@
 
 - 三哥：`sange`
 - 阿妍：`ayan`
-- 廖（666ai.vip）：`czgpt`
+- l 通道：`czgpt`
 - 白（外部备用）：`dnscon`
 - 七七（外部备用）：`9977ai`
 - 后台默认源头切换：`/admin/provider`
@@ -65,7 +65,7 @@
 - `UPSTREAM_AUTH_TOKEN`
   - 如果三哥接口需要鉴权，在这里配置
 - `RESELLER_BASE_URL`
-  - 廖的分销商 API 地址，默认值：`https://666ai.vip`
+  - l 通道的分销商 API 地址，默认值：`https://666ai.vip`
 
 手机切换入口：
 
@@ -75,13 +75,13 @@
 
 - `https://gptc.cc/admin/provider#token=你的ADMIN_TOKEN`
 
-打开后不用输入账号密码，直接点“三哥”“阿妍”“廖”“白”或“七七”即可切换默认源头。前三者走 GPTC 站内流程；白和七七属于外部备用通道，切换后访问激活页会自动跳转。推荐使用 `#token=`，这样 token 不会发送到服务器日志里。
+打开后不用输入账号密码，直接点“三哥”“阿妍”“l”“白”或“七七”即可切换默认源头。前三者走 GPTC 站内流程；白和七七属于外部备用通道，切换后访问激活页会自动跳转。推荐使用 `#token=`，这样 token 不会发送到服务器日志里。
 
 手机一键切换链接（旧方式，会把 token 放进请求 URL，不建议长期保存）：
 
 - 切到三哥：`https://gptc.cc/admin/provider/switch?provider=sange&token=你的ADMIN_TOKEN`
 - 切到阿妍：`https://gptc.cc/admin/provider/switch?provider=ayan&token=你的ADMIN_TOKEN`
-- 切到廖：`https://gptc.cc/admin/provider/switch?provider=czgpt&token=你的ADMIN_TOKEN`
+- 切到 l：`https://gptc.cc/admin/provider/switch?provider=czgpt&token=你的ADMIN_TOKEN`
 - 切到白：`https://gptc.cc/admin/provider/switch?provider=dnscon&token=你的ADMIN_TOKEN`
 - 切到七七：`https://gptc.cc/admin/provider/switch?provider=9977ai&token=你的ADMIN_TOKEN`
 

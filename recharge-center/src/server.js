@@ -105,7 +105,7 @@ function serveProviderAdmin(res) {
     <div class="choices">
       <button type="button" data-provider="sange">三哥</button>
       <button type="button" data-provider="ayan">阿妍</button>
-      <button type="button" data-provider="czgpt">廖</button>
+      <button type="button" data-provider="czgpt">l</button>
       <button type="button" data-provider="dnscon">白</button>
       <button type="button" data-provider="9977ai">七七</button>
     </div>

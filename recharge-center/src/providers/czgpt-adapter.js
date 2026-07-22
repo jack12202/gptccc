@@ -29,7 +29,7 @@ function normalizeVerify(raw, cardCode) {
   return {
     success,
     provider: "czgpt",
-    providerLabel: "廖",
+    providerLabel: "l",
     cardCode,
     cardType,
     productId: config.defaultProductId,
@@ -46,7 +46,7 @@ function normalizeStart(raw) {
   return {
     success,
     provider: "czgpt",
-    providerLabel: "廖",
+    providerLabel: "l",
     taskId,
     status: success ? "processing" : "failed",
     message: body.message || errorMessage(raw, success ? "充值任务已创建。" : "充值提交失败。"),
@@ -66,7 +66,7 @@ function normalizeStatus(raw) {
   return {
     success: raw.ok,
     provider: "czgpt",
-    providerLabel: "廖",
+    providerLabel: "l",
     status,
     upstreamStatus,
     message: body.message || errorMessage(raw, upstreamStatus),
@@ -78,7 +78,7 @@ function normalizeStatus(raw) {
 
 export const czgptAdapter = {
   key: "czgpt",
-  label: "廖",
+  label: "l",
 
   async verifyCard({ cardInfo }) {
     const cardCode = extractCardCode(cardInfo);
