@@ -85,5 +85,9 @@ jobs:
         run: |
           curl -fsSL https://www.gptc.cc/admin/provider > /tmp/gptccc-provider-admin.html
           grep -q '<title>源头切换后台｜GPTC.cc</title>' /tmp/gptccc-provider-admin.html
+          grep -q 'data-provider="dnscon"' /tmp/gptccc-provider-admin.html
+          grep -q 'data-provider="9977ai"' /tmp/gptccc-provider-admin.html
           curl -fsSL https://www.gptc.cc/api/recharge/provider > /tmp/gptccc-provider.json
           grep -q '"success":true' /tmp/gptccc-provider.json
+          grep -q '"key":"dnscon"' /tmp/gptccc-provider.json
+          grep -q '"key":"9977ai"' /tmp/gptccc-provider.json

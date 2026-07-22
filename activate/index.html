@@ -159,7 +159,7 @@
     .provider-cue::before { content: "Y"; }
     body.provider-ayan .provider-cue::before { content: "Y"; }
     body.provider-sange .provider-cue::before { content: "S"; }
-    body.provider-czgpt .provider-cue::before { content: "C"; }
+    body.provider-czgpt .provider-cue::before { content: "廖"; font-size: 14px; }
     body.provider-sange .provider-cue {
       border-radius: 9px;
       transform: translateY(-8px) rotate(-2deg);
@@ -819,6 +819,7 @@ window._hmt = _hmt;
     let currentProductId = 3;
     let currentParsedSecret = null;
     let providerLocked = false;
+    let currentSiteSource = "gptc";
     let toastTimer = 0;
 
     function showToast(text) {
@@ -927,6 +928,21 @@ window._hmt = _hmt;
       return "";
     }
 
+    function applySourceFromQuery() {
+      const value = new URLSearchParams(window.location.search).get("source") || "";
+      const normalized = value.trim().toLowerCase();
+      if (["aipass", "gplus", "gpt4pro", "gptc"].includes(normalized)) {
+        currentSiteSource = normalized;
+      }
+    }
+
+    function openRedirectProvider(settings) {
+      if (providerLocked || settings?.defaultProviderMode !== "redirect" || !settings?.redirectUrl) return false;
+      const target = new URL(settings.redirectUrl, window.location.href);
+      window.location.replace(target.toString());
+      return true;
+    }
+
     function applyProviderCue(provider) {
       const normalized = normalizeProvider(provider);
       document.body.classList.toggle("provider-ayan", normalized === "ayan");
@@ -945,6 +961,7 @@ window._hmt = _hmt;
     async function loadProviderState() {
       try {
         const result = await getJson("/api/recharge/provider");
+        if (openRedirectProvider(result?.data)) return;
         const provider = normalizeProvider(result?.data?.defaultProvider);
         if (!provider) return;
         if (!providerLocked) currentProvider = provider;
@@ -1163,7 +1180,7 @@ window._hmt = _hmt;
         authProvider: currentParsedSecret.authProvider || "",
         productId: currentProductId,
         overwriteRecharge: document.getElementById("overwriteRecharge").checked,
-        siteSource: "gptc.cc"
+        siteSource: currentSiteSource
       };
       button.disabled = true;
       button.textContent = "提交中...";
@@ -1259,6 +1276,7 @@ window._hmt = _hmt;
       }, 150);
     }
 
+    applySourceFromQuery();
     applyCardFromQuery();
     loadProviderState();
     window.addEventListener("focus", () => {

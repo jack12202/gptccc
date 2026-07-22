@@ -86,7 +86,9 @@ function normalizedProviderData(provider) {
   const adapter = getProviderAdapter(provider);
   return {
     provider: adapter.key,
-    providerLabel: adapter.label
+    providerLabel: adapter.label,
+    providerMode: adapter.mode || "api",
+    redirectUrl: adapter.mode === "redirect" ? adapter.redirectUrl : ""
   };
 }
 
@@ -98,10 +100,13 @@ export const rechargeService = {
   getProviderSettings() {
     const settings = store.getSettings();
     const provider = normalizeProvider(settings.defaultProvider, defaultProvider());
+    const adapter = getProviderAdapter(provider);
 
     return {
       defaultProvider: provider,
-      defaultProviderLabel: getProviderAdapter(provider).label,
+      defaultProviderLabel: adapter.label,
+      defaultProviderMode: adapter.mode || "api",
+      redirectUrl: adapter.mode === "redirect" ? adapter.redirectUrl : "",
       providerUpdatedAt: settings.providerUpdatedAt || "",
       providerUpdatedBy: settings.providerUpdatedBy || "",
       providers: listProviders()

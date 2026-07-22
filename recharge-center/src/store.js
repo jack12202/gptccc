@@ -3,6 +3,8 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { config } from "./config.js";
 
+const PROVIDER_CONFIG_VERSION = 2;
+
 function ensureDir(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
@@ -22,6 +24,7 @@ function createInitialState() {
     rechargeLogs: [],
     settings: {
       defaultProvider: config.defaultProvider,
+      providerConfigVersion: PROVIDER_CONFIG_VERSION,
       providerUpdatedAt: "",
       providerUpdatedBy: ""
     }
@@ -30,16 +33,26 @@ function createInitialState() {
 
 function normalizeState(state) {
   const initial = createInitialState();
+  const savedSettings = state?.settings || {};
+  const settings = {
+    ...initial.settings,
+    ...savedSettings
+  };
+
+  if (Number(savedSettings.providerConfigVersion || 0) < PROVIDER_CONFIG_VERSION) {
+    settings.defaultProvider = config.defaultProvider;
+    settings.providerConfigVersion = PROVIDER_CONFIG_VERSION;
+    settings.providerUpdatedAt = nowIso();
+    settings.providerUpdatedBy = "provider-config-v2";
+  }
+
   return {
     ...initial,
     ...state,
     orders: Array.isArray(state?.orders) ? state.orders : [],
     rechargeSessions: Array.isArray(state?.rechargeSessions) ? state.rechargeSessions : [],
     rechargeLogs: Array.isArray(state?.rechargeLogs) ? state.rechargeLogs : [],
-    settings: {
-      ...initial.settings,
-      ...(state?.settings || {})
-    }
+    settings
   };
 }
 

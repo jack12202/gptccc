@@ -64,7 +64,7 @@ function serveProviderAdmin(res) {
       padding: 0 12px;
       font: inherit;
     }
-    .choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+    .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(82px, 1fr)); gap: 10px; margin-top: 16px; }
     button {
       min-height: 52px;
       border: 1px solid #cbd5e1;
@@ -105,7 +105,9 @@ function serveProviderAdmin(res) {
     <div class="choices">
       <button type="button" data-provider="sange">三哥</button>
       <button type="button" data-provider="ayan">阿妍</button>
-      <button type="button" data-provider="czgpt">CZGPT</button>
+      <button type="button" data-provider="czgpt">廖</button>
+      <button type="button" data-provider="dnscon">白</button>
+      <button type="button" data-provider="9977ai">七七</button>
     </div>
     <div class="status" id="statusBox">输入管理密码后，点击源头即可切换。</div>
     <div class="hint" id="tokenHint"></div>

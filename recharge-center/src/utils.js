@@ -47,7 +47,13 @@ export function requiredString(value) {
 
 export function normalizeProvider(value, fallback = "sange") {
   const provider = typeof value === "string" ? value.trim().toLowerCase() : "";
-  if (provider === "sange" || provider === "ayan" || provider === "czgpt") return provider;
+  if (
+    provider === "sange" ||
+    provider === "ayan" ||
+    provider === "czgpt" ||
+    provider === "dnscon" ||
+    provider === "9977ai"
+  ) return provider;
   return fallback;
 }
 

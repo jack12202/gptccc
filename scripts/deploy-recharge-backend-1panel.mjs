@@ -254,11 +254,11 @@ fi
 cat > "$ENV_FILE" <<'EOF'
 HOST=0.0.0.0
 PORT=8788
-DEFAULT_PROVIDER=sange
+DEFAULT_PROVIDER=czgpt
 ADMIN_TOKEN=${adminToken}
 AYAN_BASE_URL=https://api.987ai.vip
 UPSTREAM_BASE_URL=https://kkk.ow800.com
-RESELLER_BASE_URL=https://czgpt.plus
+RESELLER_BASE_URL=https://666ai.vip
 DATA_FILE=/app/data/orders.json
 LOG_FILE=/app/logs/server.log
 EOF

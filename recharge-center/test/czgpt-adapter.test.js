@@ -16,7 +16,7 @@ function sendJson(res, status, value) {
   res.end(JSON.stringify(value));
 }
 
-test("CZGPT adapter verifies, starts and polls a GPT Pro task", async t => {
+test("廖通道 adapter verifies, starts and polls a GPT Pro task", async t => {
   let pollCount = 0;
   const upstream = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/v1/kami/status") {
