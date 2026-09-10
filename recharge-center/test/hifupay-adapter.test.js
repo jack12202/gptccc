@@ -45,7 +45,7 @@ test("hifupay adapter submits Plus PH tasks and normalizes polling status", asyn
       assert.equal(body.region, "PH");
       assert.equal(body.proxyRegion, "PH3");
       assert.equal(body.engine, "oaics");
-      assert.equal(body.hfpCardId, "7172");
+      assert.equal(body.hfpCardId, "7667");
       assert.equal(JSON.parse(body.token).accessToken, "token_test");
       sendJson(res, 200, { taskId: "H-TASK-1" });
       return;
@@ -135,6 +135,8 @@ test("hifupay adapter submits Plus PH tasks and normalizes polling status", asyn
   assert.equal(started.ok, true);
   assert.equal(started.data.taskId, "H-TASK-1");
   assert.equal(started.data.cardId, card.id);
+  assert.equal(started.data.hifupayCardId, "7667");
+  assert.equal(started.data.lastFour, "6737");
   assert.equal(new JsonStore(dataFile).getHCardByCode(card.code).status, "locked");
 
   const processing = await hifupayAdapter.queryTaskStatus({ taskId: "H-TASK-1" });

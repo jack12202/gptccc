@@ -37,7 +37,7 @@ function normalizeVerify(result, cardCode) {
   };
 }
 
-function normalizeStart(raw, cardId, hifupayCardId) {
+function normalizeStart(raw, cardId, hifupayCardId, lastFour = "") {
   const body = raw?.data && typeof raw.data === "object" ? raw.data : {};
   const taskId = body.taskId || body.task_id || "";
   const success = raw.ok && Boolean(taskId) && body.success !== false;
@@ -48,6 +48,7 @@ function normalizeStart(raw, cardId, hifupayCardId) {
     taskId,
     cardId,
     hifupayCardId,
+    lastFour,
     status: success ? "processing" : "failed",
     message: body.message || errorMessage(raw, success ? "充值任务已提交。" : "充值提交失败。"),
     raw: body
@@ -274,7 +275,7 @@ export const hifupayAdapter = {
         }
       };
     }
-    const data = normalizeStart(raw, reservation.cardId, hifupayCardId);
+    const data = normalizeStart(raw, reservation.cardId, hifupayCardId, hifupayReservation.lastFour || "");
     return { ok: data.success, status: raw.status, data };
   },
 

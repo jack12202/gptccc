@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-test("hifupay card pool fills cards in order and switches using live balance", async t => {
+test("hifupay card pool uses live balance and selects the lowest sufficient card", async t => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-pool-test-"));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const { JsonStore } = await import("../src/store.js");
@@ -55,4 +55,14 @@ test("hifupay card pool fills cards in order and switches using live balance", a
   const enough = store.reserveHifupayCard({ orderId: "plus-enough", plan: "plus", identity: { email: "user6@example.com" }, estimatedChargeUsd: store.getHifupayEstimatedCharge("plus") });
   assert.equal(enough.ok, true);
   assert.equal(enough.hifupayCardId, "7667");
+
+  // 足额卡片同时可用时，优先余额较少的卡，而不是固定优先配置卡。
+  store.clearHifupayReservation("7667", "plus-enough");
+  store.syncHifupayCards([
+    { id: "7172", lastFour: "4113", status: "active", balance: 18 },
+    { id: "7667", lastFour: "6737", status: "active", balance: 40 }
+  ]);
+  const lowerBalanceFirst = store.reserveHifupayCard({ orderId: "plus-lower-first", plan: "plus", identity: { email: "user7@example.com" }, estimatedChargeUsd: 16, preferredCardId: "7667" });
+  assert.equal(lowerBalanceFirst.ok, true);
+  assert.equal(lowerBalanceFirst.hifupayCardId, "7172");
 });

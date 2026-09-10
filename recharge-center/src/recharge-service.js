@@ -619,6 +619,8 @@ export const rechargeService = {
         orderId: order.id,
         provider: order.provider,
         cardMask: order.cardMask,
+        hifupayCardId: order.hifupayCardId || "",
+        hifupayCardLastFour: order.hifupayCardLastFour || "",
         status: order.status,
         userEmail: session?.userEmail || parsed.data?.userEmail || "",
         message: order.message || "",
@@ -631,78 +633,6 @@ export const rechargeService = {
           parseMessage: parsed.ok ? "" : parsed.message
         } : {})
       }
-    };
-  },
-
-  async retryRecovery(orderId, operator = "admin") {
-    const record = store.getRecoveryOrder(orderId);
-    if (!record) return { ok: false, status: 404, message: "订单不存在。" };
-    const { order, session } = record;
-    if (!["failed", "needs_review"].includes(order.status)) {
-      return { ok: false, status: 409, message: "当前订单不是待人工处理状态。" };
-    }
-    if (order.upstreamTaskId) {
-      return { ok: false, status: 409, message: "订单已有上游任务号，请先查询原任务，避免重复扣费。" };
-    }
-    const secret = parseStoredSecret(order, session);
-    if (!secret.ok) return { ok: false, status: 400, message: secret.message };
-    const cardInfo = storedCardCode(order);
-    if (!cardInfo) return { ok: false, status: 400, message: "订单没有保存完整卡密，无法自动重试。" };
-    const adapter = getProviderAdapter(order.provider);
-    if (adapter.mode === "redirect") return { ok: false, status: 400, message: "站外通道不能从这里自动重试。" };
-
-    store.updateOrder(order.id, {
-      status: "processing",
-      message: "管理员正在重新提交充值。",
-      manualRetryAt: new Date().toISOString(),
-      manualRetryBy: operator
-    });
-    let upstream;
-    try {
-      upstream = await adapter.startRecharge({
-        cardInfo,
-        orderId: order.id,
-        userEmail: secret.data.userEmail,
-        accountId: typeof secret.data.account?.id === "string" ? secret.data.account.id : "",
-        userGptToken: secret.data.userGptToken,
-        fullAuthData: secret.data.fullAuthData,
-        providerSessionId: order.providerSessionId || "",
-        authProvider: typeof secret.data.authProvider === "string" ? secret.data.authProvider : "",
-        productId: order.productId,
-        plan: config.hifupayPlan,
-        overwriteRecharge: Boolean(order.overwriteRecharge)
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "充值通道请求异常。";
-      store.updateOrder(order.id, { status: "failed", message: `重新提交失败：${message}` });
-      store.addLog({
-        orderId: order.id,
-        step: `${order.provider}.manual-retry.error`,
-        requestSummary: JSON.stringify({ provider: order.provider, cardMask: order.cardMask, operator }),
-        responseSummary: message
-      });
-      return { ok: false, status: 502, message: `重新提交失败：${message}` };
-    }
-    const upstreamTaskId = upstream.data?.taskId || "";
-    const status = upstream.ok ? upstream.data?.status || "processing" : "failed";
-    const message = upstream.data?.message || (upstream.ok ? "充值已重新提交，正在处理。" : "重新提交失败。");
-    store.updateOrder(order.id, {
-      upstreamTaskId,
-      ...(upstream.data?.cardId ? { hCardId: upstream.data.cardId } : {}),
-      ...(upstream.data?.hifupayCardId ? { hifupayCardId: upstream.data.hifupayCardId } : {}),
-      status,
-      message
-    });
-    store.addLog({
-      orderId: order.id,
-      step: `${order.provider}.manual-retry`,
-      requestSummary: JSON.stringify({ provider: order.provider, cardMask: order.cardMask, operator }),
-      responseSummary: JSON.stringify({ ok: upstream.ok, status: upstream.status, taskId: upstreamTaskId, message })
-    });
-    return {
-      ok: upstream.ok,
-      status: upstream.ok ? 200 : upstream.status && upstream.status < 500 ? 200 : 502,
-      data: { orderId: order.id, taskId: upstreamTaskId, status, message, ...normalizedProviderData(order.provider) }
     };
   },
 
@@ -960,7 +890,10 @@ export const rechargeService = {
     store.updateOrder(order.id, {
       upstreamTaskId,
       ...(selectedProvider === "h" ? { hCardId: upstream.data?.cardId || "" } : {}),
-      ...(selectedProvider === "h" && upstream.data?.hifupayCardId ? { hifupayCardId: upstream.data.hifupayCardId } : {}),
+      ...(selectedProvider === "h" && upstream.data?.hifupayCardId ? {
+        hifupayCardId: upstream.data.hifupayCardId,
+        hifupayCardLastFour: upstream.data.lastFour || ""
+      } : {}),
       status,
       message
     });

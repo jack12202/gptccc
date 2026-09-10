@@ -28,6 +28,8 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   store.updateOrder(successOrder.id, {
     status: "success",
     message: "充值成功，但自动续费关闭失败。",
+    hifupayCardId: "7172",
+    hifupayCardLastFour: "4113",
     subscriptionCancellationStatus: "failed",
     subscriptionActionRequired: true,
     subscriptionActionMessage: "充值成功，但自动续费未关闭，请联系用户手动取消连续订阅。"
@@ -52,6 +54,14 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   const batchPage = await fetch(`${baseUrl}/admin/cards/batch`);
   assert.equal(batchPage.status, 200);
   assert.match(await batchPage.text(), /<h1>批量查询<\/h1>/);
+  const generatorPage = await fetch(`${baseUrl}/admin/cards`);
+  assert.equal(generatorPage.status, 200);
+  const generatorHtml = await generatorPage.text();
+  assert.doesNotMatch(generatorHtml, /batchSummary|batchMeta|批次<\/strong>/);
+  const libraryPage = await fetch(`${baseUrl}/admin/cards/library`);
+  assert.equal(libraryPage.status, 200);
+  const libraryHtml = await libraryPage.text();
+  assert.doesNotMatch(libraryHtml, /batchFilter|>批次<\/th>/);
 
   async function post(urlPath, body, { ip = "127.0.0.1", token = "" } = {}) {
     const response = await fetch(`${baseUrl}${urlPath}`, {
@@ -114,6 +124,8 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   assert.equal(unauthorized.response.status, 401);
   const unauthorizedHandled = await post(`/api/admin/recoveries/${successOrder.id}/mark-subscription-handled`, {});
   assert.equal(unauthorizedHandled.response.status, 401);
+  const removedRetry = await post(`/api/admin/recoveries/${failedOrder.id}/retry`, {}, { token: "query-test-admin-token" });
+  assert.equal(removedRetry.response.status, 404);
 
   const mixed = await post("/api/admin/h-cards/query", {
     inputs: [
@@ -129,6 +141,15 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   assert.equal(mixed.payload.data.results[1].code, cards[4].code);
   assert.equal(JSON.stringify(mixed.payload).includes(failedOrder.id), false);
   assert.equal(JSON.stringify(mixed.payload).includes("upstream order 12345"), false);
+
+  const recordsResponse = await fetch(`${baseUrl}/api/admin/recharge-records`, {
+    headers: { "X-Admin-Token": "query-test-admin-token" }
+  });
+  assert.equal(recordsResponse.status, 200);
+  const recordsPayload = await recordsResponse.json();
+  const successRecord = recordsPayload.data.records.find(item => item.id === successOrder.id);
+  assert.equal(successRecord.hifupayCardId, "7172");
+  assert.equal(successRecord.hifupayCardLastFour, "4113");
 
   const tooMany = await post("/api/admin/h-cards/query", { inputs: Array.from({ length: 101 }, () => cards[0].code) }, { token: "query-test-admin-token" });
   assert.equal(tooMany.response.status, 400);

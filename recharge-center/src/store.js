@@ -190,7 +190,9 @@ export class JsonStore {
       status: input.status || "created",
       upstreamTaskId: input.upstreamTaskId || "",
       hCardId: input.hCardId || "",
+      hifupayCardId: input.hifupayCardId || "",
       providerSessionId: input.providerSessionId || "",
+      hifupayCardLastFour: input.hifupayCardLastFour || "",
       cardInfoCiphertext: input.cardInfoCiphertext || "",
       message: input.message || "",
       subscriptionCancellationStatus: input.subscriptionCancellationStatus || "",
@@ -561,7 +563,7 @@ export class JsonStore {
 
     for (const card of state.hifupayCards) {
       if (card.inFlightOrders?.some(item => item.orderId === normalizedOrderId)) {
-        return { ok: true, cardId: card.id, hifupayCardId: card.id, reused: true };
+        return { ok: true, cardId: card.id, hifupayCardId: card.id, lastFour: card.lastFour || "", reused: true };
       }
       if (card.enabled === false || hifupayRemoteStatus(card.status) !== "active") continue;
       if (card.balance === null || card.balance < charge + safetyBuffer) continue;
@@ -580,10 +582,12 @@ export class JsonStore {
     }
 
     candidates.sort((left, right) => {
-      const preferred = hifupayCardId(preferredCardId);
-      if (preferred && left.card.id === preferred && right.card.id !== preferred) return -1;
-      if (preferred && right.card.id === preferred && left.card.id !== preferred) return 1;
-      return (Number(left.card.priority) || 0) - (Number(right.card.priority) || 0) || left.card.id.localeCompare(right.card.id);
+      // 足额候选中优先消耗可用余额较少的卡，避免长期闲置低余额卡；priority 仅作为并列时的稳定排序。
+      const leftAvailable = Number(left.card.balance) - left.inFlight.reduce((sum, item) => sum + (Number(item.estimatedChargeUsd) || 0), 0);
+      const rightAvailable = Number(right.card.balance) - right.inFlight.reduce((sum, item) => sum + (Number(item.estimatedChargeUsd) || 0), 0);
+      return leftAvailable - rightAvailable
+        || (Number(left.card.priority) || 0) - (Number(right.card.priority) || 0)
+        || left.card.id.localeCompare(right.card.id);
     });
 
     const selected = candidates[0]?.card;
@@ -1000,6 +1004,8 @@ export class JsonStore {
           status: order.status,
           upstreamTaskId: order.upstreamTaskId || "",
           providerSessionId: order.providerSessionId || "",
+          hifupayCardId: order.hifupayCardId || "",
+          hifupayCardLastFour: order.hifupayCardLastFour || "",
           userEmail: session?.userEmail || "",
           message: order.message || "",
           subscriptionCancellationStatus: order.subscriptionCancellationStatus || "",

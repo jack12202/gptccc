@@ -991,10 +991,6 @@ window._hmt = _hmt;
                 <div class="kv"><span>充值激活码</span><span id="confirmCard">-</span></div>
                 <div class="kv"><span>充值通道</span><span id="confirmChannel">通道一</span></div>
               </div>
-              <div class="tip-box" id="hSubscriptionReminder" hidden>
-                <strong>关于连续订阅</strong>
-                系统会尝试自动关闭连续订阅。如果充值结果提示未关闭，请进入 ChatGPT“头像 → 设置 → 账户 → 订阅管理”手动取消。取消后，本月 Plus 仍可正常使用，到期后不再自动续费。
-              </div>
               <label class="checkbox">
                 <input type="checkbox" id="overwriteRecharge" onchange="updateConfirmButtonState()">
                 <span>我确认账号和激活码无误<br><small>提交后系统自动查询结果</small></span>
@@ -1166,8 +1162,6 @@ window._hmt = _hmt;
       document.body.classList.toggle("provider-czgpt", normalized === "czgpt");
       document.body.classList.toggle("provider-j", normalized === "j");
       document.body.classList.toggle("provider-h", normalized === "h");
-      const reminder = document.getElementById("hSubscriptionReminder");
-      if (reminder) reminder.hidden = normalized !== "h";
     }
 
     function setCurrentProvider(provider, options = {}) {
@@ -1303,9 +1297,6 @@ window._hmt = _hmt;
             取消后，本月 Plus 仍可正常使用，到期后不再自动续费。
           </div>
         `;
-      }
-      if (task.subscriptionCancellationStatus === "pending") {
-        return '<div class="subscription-pending"><strong>正在确认自动续费状态</strong>充值已经成功，页面会继续同步关闭自动续费的结果，请暂时不要关闭页面。</div>';
       }
       if (task.subscriptionCancellationStatus === "cancelled") {
         return '<div class="subscription-ok"><strong>自动续费已关闭</strong>本次充值已完成，无需再处理连续订阅。</div>';
