@@ -83,12 +83,23 @@ function extractCards(raw) {
   return candidates.filter(item => item && typeof item === "object");
 }
 
+function paymentStatusFrom(body, logText) {
+  const direct = String(
+    body.paymentStatus ?? body.payment_status ?? body.payStatus ?? body.pay_status ?? body.pay ?? ""
+  ).trim().toLowerCase();
+  if (["paid", "unpaid"].includes(direct)) return direct;
+  const matches = [...String(logText || "").matchAll(/\b(?:pay|payment(?:_status)?)\s*[=:]\s*(paid|unpaid)\b/gi)];
+  return matches.length ? String(matches.at(-1)[1]).toLowerCase() : "";
+}
+
 function normalizeStatus(raw) {
   const body = raw?.data && typeof raw.data === "object" ? raw.data : {};
   const upstreamStatus = String(body.status || "unknown").toLowerCase();
   const logs = Array.isArray(body.logs) ? body.logs : [];
   const logText = logs.map(item => typeof item === "string" ? item : JSON.stringify(item)).join("\n");
   const paymentSucceeded = body.paymentConfirmed === true || /payment succeeded|支付成功|充值已成功/i.test(logText);
+  const paymentStatus = paymentStatusFrom(body, logText);
+  const paymentConfirmedExplicitlyFalse = body.paymentConfirmed === false;
   const loggedCancellationStatus = cancellationStatusFromLogs(logs);
   const subscriptionCancellationStatus = !paymentSucceeded
     ? "not_started"
@@ -120,6 +131,9 @@ function normalizeStatus(raw) {
       : body.error || body.message || "充值处理中，请稍候。",
     account: typeof body.account === "string" ? body.account : "",
     paymentConfirmed: paymentSucceeded,
+    paymentConfirmedExplicitlyFalse,
+    paymentStatus,
+    unpaidTerminal: raw.ok && upstreamStatus === "failed" && paymentConfirmedExplicitlyFalse && paymentStatus === "unpaid" && !paymentSucceeded,
     autoCancelDone: body.autoCancelDone === true,
     subscriptionCancellationStatus,
     subscriptionActionRequired: subscriptionCancellationStatus === "failed",
@@ -232,11 +246,12 @@ export const hifupayAdapter = {
       };
     }
     hCardStore.syncHifupayCards(remoteCards);
+    const estimatedChargeUsd = hCardStore.getHifupayEstimatedCharge(plan);
     const hifupayReservation = hCardStore.reserveHifupayCard({
       orderId,
       plan,
       identity: accountIdentity(fullAuthData, userEmail, accountId),
-      estimatedChargeUsd: hCardStore.getHifupayEstimatedCharge(plan),
+      estimatedChargeUsd,
       preferredCardId: process.env.HIFUPAY_CARD_ID || config.hifupayCardId
     });
     if (!hifupayReservation.ok) {
@@ -247,6 +262,26 @@ export const hifupayAdapter = {
       };
     }
     const hifupayCardId = hifupayReservation.hifupayCardId;
+    const finalSafetyCheck = hCardStore.validateHifupayCardForSubmission({
+      cardId: hifupayCardId,
+      orderId,
+      plan,
+      estimatedChargeUsd
+    });
+    if (!finalSafetyCheck.ok) {
+      hCardStore.clearHifupayReservation(hifupayCardId, orderId);
+      return {
+        ok: false,
+        status: 409,
+        data: {
+          provider: "h",
+          providerLabel: "h",
+          cardId: reservation.cardId,
+          hifupayCardId,
+          message: finalSafetyCheck.message
+        }
+      };
+    }
 
     let raw;
     try {

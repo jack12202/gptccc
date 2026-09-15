@@ -517,6 +517,26 @@ export const rechargeService = {
     return { ok: result.ok, status: result.ok ? 200 : 404, data: result.ok ? result : undefined, message: result.message };
   },
 
+  protectHifupayCardForPro(cardId, input = {}) {
+    const result = store.protectHifupayCardForPro(cardId, input);
+    return {
+      ok: result.ok,
+      status: result.ok ? 200 : result.status === "not_found" ? 404 : 409,
+      data: result.ok ? result : undefined,
+      message: result.message
+    };
+  },
+
+  releaseHifupayCardProProtection(cardId) {
+    const result = store.releaseHifupayCardProProtection(cardId);
+    return {
+      ok: result.ok,
+      status: result.ok ? 200 : 404,
+      data: result.ok ? result : undefined,
+      message: result.message
+    };
+  },
+
   clearHifupayReservation(cardId, orderId) {
     const result = store.clearHifupayReservation(cardId, orderId);
     return {
@@ -604,6 +624,56 @@ export const rechargeService = {
     }
     const alerts = await this.dispatchHSubscriptionAlerts();
     return { checkedCount: orders.length, updatedCount, alertSentCount: alerts.sentCount };
+  },
+
+  async reconcileHifupayOrder(orderId) {
+    const order = store.getOrder(orderId);
+    if (!order || order.provider !== "h" || !order.upstreamTaskId || !order.hifupayCardId) {
+      return { checked: false, orderId: String(orderId || ""), reason: "not_eligible" };
+    }
+    const reservationBefore = store.inspectHifupayReservation(order.hifupayCardId, order.id, config.hifupayBalanceToleranceUsd);
+    if (!reservationBefore.ok) {
+      return { checked: false, orderId: order.id, reason: "no_reservation", reservationStillHeld: false };
+    }
+    const result = await this.queryTaskStatus(
+      { orderId: order.id },
+      { forceRefresh: true, suppressAlertDispatch: true }
+    );
+    const updated = store.getOrder(order.id) || order;
+    const reservationAfter = store.inspectHifupayReservation(order.hifupayCardId, order.id, config.hifupayBalanceToleranceUsd);
+    return {
+      checked: result.ok,
+      orderId: order.id,
+      status: updated.status,
+      safetyStatus: updated.hifupaySafetyStatus || "",
+      confirmationCount: Number(updated.hifupayUnpaidConfirmationCount || 0),
+      confirmationPending: updated.hifupaySafetyStatus === "confirming_unpaid",
+      reservationStillHeld: reservationAfter.ok
+    };
+  },
+
+  async reconcileStaleHifupayReservations({ limit = 20, includeManualReview = false } = {}) {
+    const candidates = store.listStaleHifupayReservationOrders({
+      staleMinutes: config.hifupayStaleReservationMinutes,
+      lookbackHours: config.hifupayProcessingLookbackHours,
+      limit,
+      includeManualReview
+    });
+    const results = [];
+    for (const candidate of candidates) {
+      try {
+        results.push(await this.reconcileHifupayOrder(candidate.orderId));
+      } catch {
+        results.push({ checked: false, orderId: candidate.orderId, reason: "status_unavailable", reservationStillHeld: true });
+      }
+    }
+    return {
+      checkedCount: results.filter(item => item.checked).length,
+      candidateCount: candidates.length,
+      releasedCount: results.filter(item => item.safetyStatus === "released_unpaid").length,
+      reviewCount: results.filter(item => item.reservationStillHeld && item.safetyStatus && item.safetyStatus !== "confirming_unpaid").length,
+      confirmationPendingOrderIds: results.filter(item => item.confirmationPending).map(item => item.orderId)
+    };
   },
 
   getRecoverySubmission(orderId, reveal = false) {
@@ -811,6 +881,15 @@ export const rechargeService = {
     const secret = parsed.data;
     const providerData = normalizedProviderData(selectedProvider);
     const cardMask = maskCard(cardInfo.trim());
+    const hCardCode = selectedProvider === "h" ? normalizeHCardCode(cardInfo) : "";
+    let hifupayReconciliation = null;
+    if (hCardCode && store.getHCardByCode(hCardCode)) {
+      try {
+        hifupayReconciliation = await this.reconcileStaleHifupayReservations({ limit: 1 });
+      } catch {
+        // 旧预留无法确认时仍保留占用，新订单会避开这部分余额。
+      }
+    }
     const order = store.createOrder({
       siteSource,
       provider: selectedProvider,
@@ -874,6 +953,7 @@ export const rechargeService = {
       return {
         ok: false,
         status: 200,
+        hifupaySafetyPendingOrderIds: hifupayReconciliation?.confirmationPendingOrderIds || [],
         data: {
           orderId: order.id,
           taskId: "",
@@ -913,6 +993,7 @@ export const rechargeService = {
     return {
       ok: upstream.ok,
       status: upstream.ok ? 200 : upstream.status && upstream.status < 500 ? 200 : 502,
+      hifupaySafetyPendingOrderIds: hifupayReconciliation?.confirmationPendingOrderIds || [],
       data: {
         orderId: order.id,
         taskId: upstreamTaskId,
@@ -990,11 +1071,133 @@ export const rechargeService = {
       ? await reconcileCzgptStatus(adapter, upstream.data || {}, input.cardInfo || "")
       : upstream.data || {};
     const reportedStatus = taskData.status || "processing";
-    const nextStatus = selectedProvider === "h" && order?.status === "success" ? "success" : reportedStatus;
-    const subscriptionPatch = hSubscriptionPatch(order, taskData, nextStatus);
-    const message = hSubscriptionMessage(taskData.message || "", subscriptionPatch);
+    let nextStatus = selectedProvider === "h" && order?.status === "success" ? "success" : reportedStatus;
+    let message = taskData.message || "";
+    let hifupaySafetyPatch = {};
+    let subscriptionPatch = {};
 
     if (order) {
+      if (selectedProvider === "h" && order.hifupayCardId && order.status !== "success") {
+        if (!upstream.ok) {
+          nextStatus = order.status === "needs_review" ? "needs_review" : "processing";
+          message = "充值状态暂未确认，系统会稍后复核，请勿重复提交。";
+        } else if (order.hifupayReservationReleasedAt && reportedStatus === "failed") {
+          nextStatus = "failed";
+          message = order.message || "支付未完成，资金卡预留已完成安全复核。";
+        } else if (reportedStatus === "failed" && ["balance_changed", "card_unavailable", "balance_check_failed", "manual_review"].includes(order.hifupaySafetyStatus)) {
+          nextStatus = "needs_review";
+          message = order.message || "资金卡占用已保留，请人工核查。";
+        } else if (reportedStatus === "failed") {
+          if (taskData.unpaidTerminal === true) {
+            const confirmation = store.confirmHifupayUnpaidFailure(order.id, config.hifupayFailureConfirmSeconds);
+            store.addLog({
+              orderId: order.id,
+              step: "h.reservation.unpaid-confirmation",
+              requestSummary: logPayload({ confirmation: confirmation.confirmations }),
+              responseSummary: confirmation.eligible ? "ready_for_balance_check" : "waiting_for_second_confirmation"
+            });
+            if (!confirmation.eligible) {
+              nextStatus = "needs_review";
+              message = "支付未完成，系统正在进行安全复核；资金卡预留暂未释放。";
+              store.recordHifupayResult({
+                cardId: order.hifupayCardId,
+                orderId: order.id,
+                plan: config.hifupayPlan,
+                paymentConfirmed: false,
+                status: "needs_review"
+              });
+            } else {
+              let balanceRefreshed = false;
+              if (typeof adapter.listCards === "function") {
+                try {
+                  const latestCards = await adapter.listCards();
+                  if (latestCards.ok && Array.isArray(latestCards.data?.cards)) {
+                    store.syncHifupayCards(latestCards.data.cards);
+                    balanceRefreshed = true;
+                  }
+                } catch {
+                  balanceRefreshed = false;
+                }
+              }
+              const latestOrder = store.getOrder(order.id);
+              const alreadyReleased = Boolean(latestOrder?.hifupayReservationReleasedAt);
+              const inspection = alreadyReleased
+                ? { ok: false, status: "already_released", safeToRelease: false }
+                : balanceRefreshed
+                  ? store.inspectHifupayReservation(order.hifupayCardId, order.id, config.hifupayBalanceToleranceUsd)
+                  : { ok: false, status: "balance_check_failed", safeToRelease: false };
+              if (alreadyReleased) {
+                nextStatus = "failed";
+                message = latestOrder.message || "支付未完成，资金卡预留已完成安全复核。";
+              } else if (inspection.safeToRelease) {
+                store.recordHifupayResult({
+                  cardId: order.hifupayCardId,
+                  orderId: order.id,
+                  plan: config.hifupayPlan,
+                  paymentConfirmed: false,
+                  status: "failed"
+                });
+                nextStatus = "failed";
+                message = "支付未完成，系统已完成安全复核；如已改用其他通道，无需重复提交。";
+                hifupaySafetyPatch = {
+                  hifupaySafetyStatus: "released_unpaid",
+                  hifupayReservationReleasedAt: new Date().toISOString(),
+                  hifupayReservationReleaseReason: "confirmed_terminal_unpaid_balance_unchanged"
+                };
+                store.addLog({
+                  orderId: order.id,
+                  step: "h.reservation.released",
+                  requestSummary: logPayload({ reason: "confirmed_terminal_unpaid" }),
+                  responseSummary: "balance_unchanged"
+                });
+              } else {
+                const safetyStatus = inspection.status || "balance_check_failed";
+                nextStatus = "needs_review";
+                message = safetyStatus === "balance_changed"
+                  ? "支付结果与资金卡余额不一致，已保留占用，请人工核查。"
+                  : "暂时无法安全确认资金卡余额，已保留占用，请人工核查。";
+                hifupaySafetyPatch = { hifupaySafetyStatus: safetyStatus };
+                store.recordHifupayResult({
+                  cardId: order.hifupayCardId,
+                  orderId: order.id,
+                  plan: config.hifupayPlan,
+                  paymentConfirmed: false,
+                  status: "needs_review"
+                });
+                store.addLog({
+                  orderId: order.id,
+                  step: "h.reservation.review",
+                  requestSummary: logPayload({ reason: safetyStatus }),
+                  responseSummary: "reservation_retained"
+                });
+              }
+            }
+          } else {
+            nextStatus = "needs_review";
+            message = "支付结果不够明确，资金卡预留未释放，请人工核查。";
+            hifupaySafetyPatch = { hifupaySafetyStatus: "manual_review" };
+            store.recordHifupayResult({
+              cardId: order.hifupayCardId,
+              orderId: order.id,
+              plan: config.hifupayPlan,
+              paymentConfirmed: false,
+              status: "needs_review"
+            });
+            store.addLog({
+              orderId: order.id,
+              step: "h.reservation.review",
+              requestSummary: logPayload({ reason: "ambiguous_terminal_failure" }),
+              responseSummary: "reservation_retained"
+            });
+          }
+        } else {
+          store.resetHifupayUnpaidFailure(order.id);
+        }
+      }
+
+      subscriptionPatch = hSubscriptionPatch(order, taskData, nextStatus);
+      message = hSubscriptionMessage(message, subscriptionPatch);
+
       if (selectedProvider === "h" && order.hCardId) {
         if (nextStatus === "success") {
           store.completeHCard(order.hCardId, order.id);
@@ -1005,6 +1208,7 @@ export const rechargeService = {
         selectedProvider === "h" &&
         order.hifupayCardId &&
         ["success", "failed", "needs_review"].includes(nextStatus) &&
+        reportedStatus !== "failed" &&
         (nextStatus !== "success" || order.status !== "success")
       ) {
         if (nextStatus === "success" && taskData.paymentConfirmed === true && typeof adapter.listCards === "function") {
@@ -1030,6 +1234,7 @@ export const rechargeService = {
       store.updateOrder(order.id, {
         status: nextStatus,
         message,
+        ...hifupaySafetyPatch,
         ...subscriptionPatch,
         lastStatusSyncAt: subscriptionPatch.lastStatusSyncAt || new Date().toISOString()
       });

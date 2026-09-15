@@ -71,6 +71,15 @@ function hifupayBalance(value) {
   return Number.isFinite(balance) ? balance : null;
 }
 
+function hifupayPlusMaxBalance() {
+  const maximum = Number(config.hifupayPlusMaxBalanceUsd);
+  return Number.isFinite(maximum) && maximum > 0 ? maximum : 66;
+}
+
+function activeHifupayProReservation(state, cardId) {
+  return state.hifupayProReservations.find(item => item.cardId === cardId && item.status === "active") || null;
+}
+
 function maxIsoDate(values = []) {
   const dates = values
     .map(value => String(value || ""))
@@ -123,6 +132,7 @@ function createInitialState() {
     rechargeLogs: [],
     hCards: [],
     hifupayCards: [],
+    hifupayProReservations: [],
     settings: {
       defaultProvider: config.defaultProvider,
       providerConfigVersion: PROVIDER_CONFIG_VERSION,
@@ -156,6 +166,7 @@ function normalizeState(state) {
     rechargeLogs: Array.isArray(state?.rechargeLogs) ? state.rechargeLogs : [],
     hCards: Array.isArray(state?.hCards) ? state.hCards : [],
     hifupayCards: Array.isArray(state?.hifupayCards) ? state.hifupayCards : [],
+    hifupayProReservations: Array.isArray(state?.hifupayProReservations) ? state.hifupayProReservations : [],
     settings
   };
 }
@@ -193,6 +204,13 @@ export class JsonStore {
       hifupayCardId: input.hifupayCardId || "",
       providerSessionId: input.providerSessionId || "",
       hifupayCardLastFour: input.hifupayCardLastFour || "",
+      hifupaySafetyStatus: input.hifupaySafetyStatus || "",
+      hifupayUnpaidConfirmationCount: Number(input.hifupayUnpaidConfirmationCount || 0),
+      hifupayUnpaidFirstSeenAt: input.hifupayUnpaidFirstSeenAt || "",
+      hifupayUnpaidLastConfirmedAt: input.hifupayUnpaidLastConfirmedAt || "",
+      hifupayUnpaidLastObservedAt: input.hifupayUnpaidLastObservedAt || "",
+      hifupayReservationReleasedAt: input.hifupayReservationReleasedAt || "",
+      hifupayReservationReleaseReason: input.hifupayReservationReleaseReason || "",
       cardInfoCiphertext: input.cardInfoCiphertext || "",
       message: input.message || "",
       subscriptionCancellationStatus: input.subscriptionCancellationStatus || "",
@@ -457,6 +475,7 @@ export class JsonStore {
         balance: null,
         expiryDate: "",
         enabled: true,
+        usageMode: "plus",
         priority: 0,
         plusUsers: [],
         inFlightOrders: [],
@@ -473,6 +492,7 @@ export class JsonStore {
       if (!Array.isArray(card.plusUsers)) card.plusUsers = [];
       if (!Array.isArray(card.inFlightOrders)) card.inFlightOrders = [];
       if (typeof card.enabled !== "boolean") card.enabled = true;
+      if (!card.usageMode) card.usageMode = "plus";
       if (!state.hifupayCards.includes(card)) state.hifupayCards.push(card);
     }
 
@@ -496,6 +516,7 @@ export class JsonStore {
       ? learnedCharge
       : Math.max(Number(config.hifupayEstimatedPlusChargeUsd) || 16, 0);
     const safetyBuffer = Math.max(Number(config.hifupaySafetyBufferUsd) || 0, 0);
+    const plusMaxBalance = hifupayPlusMaxBalance();
     return state.hifupayCards.map(card => {
       const plusUsers = Array.isArray(card.plusUsers) ? card.plusUsers : [];
       const inFlightOrders = Array.isArray(card.inFlightOrders) ? card.inFlightOrders : [];
@@ -504,9 +525,14 @@ export class JsonStore {
       const holdUntil = maxIsoDate(plusUsers.map(user => user.upgradeUntil));
       const full = false;
       const expiredHold = full && (!holdUntil || Date.parse(holdUntil) <= Date.now());
+      const proReservation = activeHifupayProReservation(state, card.id);
+      const proProtected = card.usageMode === "pro_reserved" || Boolean(proReservation);
+      const highBalanceProtected = card.balance !== null && card.balance > plusMaxBalance;
       let poolStatus = "ready";
-      if (!card.enabled) poolStatus = "disabled";
+      if (proProtected) poolStatus = "pro_protected";
+      else if (!card.enabled) poolStatus = "disabled";
       else if (hifupayRemoteStatus(card.status) !== "active") poolStatus = "upstream_unavailable";
+      else if (highBalanceProtected) poolStatus = "high_balance";
       else if (full) poolStatus = expiredHold ? "full_expired" : "full_hold";
       else if (card.balance === null || card.balance - reservedBalance < estimatedCharge + safetyBuffer) poolStatus = "low_balance";
       else if (plusInFlight > 0) poolStatus = "reserved";
@@ -517,6 +543,19 @@ export class JsonStore {
         status: hifupayRemoteStatus(card.status),
         poolStatus,
         enabled: card.enabled !== false,
+        usageMode: card.usageMode || "plus",
+        proProtected,
+        highBalanceProtected,
+        plusMaxBalance,
+        proReservation: proReservation ? {
+          id: proReservation.id,
+          type: proReservation.type || "Pro",
+          account: proReservation.account || "",
+          amountUsd: Number(proReservation.amountUsd) || 0,
+          renewalAt: proReservation.renewalAt || "",
+          note: proReservation.note || "",
+          createdAt: proReservation.createdAt || ""
+        } : null,
         priority: Number(card.priority) || 0,
         balance: card.balance,
         reservedBalance,
@@ -539,6 +578,9 @@ export class JsonStore {
         inFlightOrders: inFlightOrders.map(item => ({
           orderId: item.orderId || "",
           plan: item.plan || "",
+          email: item.email || "",
+          accountId: item.accountId || "",
+          estimatedChargeUsd: Number(item.estimatedChargeUsd) || 0,
           state: item.state || "processing",
           reservedAt: item.reservedAt || ""
         })),
@@ -556,6 +598,7 @@ export class JsonStore {
     const maxPlusUsers = Math.max(Number(config.hifupayMaxPlusUsers) || 4, 1);
     const charge = Math.max(Number(estimatedChargeUsd) || 0, 0);
     const safetyBuffer = Math.max(Number(config.hifupaySafetyBufferUsd) || 0, 0);
+    const plusMaxBalance = hifupayPlusMaxBalance();
     if (normalizedPlan !== "plus" && charge <= 0) {
       return { ok: false, status: "unavailable", message: "Pro 充值金额尚未配置，暂不自动选择卡片。" };
     }
@@ -563,9 +606,21 @@ export class JsonStore {
 
     for (const card of state.hifupayCards) {
       if (card.inFlightOrders?.some(item => item.orderId === normalizedOrderId)) {
+        if (normalizedPlan === "plus" && (
+          card.usageMode === "pro_reserved" ||
+          activeHifupayProReservation(state, card.id) ||
+          (card.balance !== null && card.balance > plusMaxBalance)
+        )) {
+          return { ok: false, status: "protected", message: "原预留卡片已进入 Pro 或高余额保护，充值未提交。" };
+        }
         return { ok: true, cardId: card.id, hifupayCardId: card.id, lastFour: card.lastFour || "", reused: true };
       }
       if (card.enabled === false || hifupayRemoteStatus(card.status) !== "active") continue;
+      if (normalizedPlan === "plus" && (
+        card.usageMode === "pro_reserved" ||
+        activeHifupayProReservation(state, card.id) ||
+        (card.balance !== null && card.balance > plusMaxBalance)
+      )) continue;
       if (card.balance === null || card.balance < charge + safetyBuffer) continue;
       const inFlight = Array.isArray(card.inFlightOrders) ? card.inFlightOrders : [];
       const reservedBalance = inFlight.reduce((sum, item) => sum + (Number(item.estimatedChargeUsd) || 0), 0);
@@ -596,7 +651,7 @@ export class JsonStore {
         ok: false,
         status: "unavailable",
         message: normalizedPlan === "plus"
-          ? "当前没有余额充足且状态正常的 Plus 卡片。"
+          ? `当前没有可用于 Plus 的卡片：余额需足够且不能超过 $${plusMaxBalance.toFixed(2)}，同时不能处于 Pro 保护。`
           : "当前账号没有处于 30 天升级期内的嗨付卡片。"
       };
     }
@@ -615,6 +670,187 @@ export class JsonStore {
     selected.updatedAt = nowIso();
     this.write(state);
     return { ok: true, cardId: selected.id, hifupayCardId: selected.id, lastFour: selected.lastFour || "", reused: false };
+  }
+
+  validateHifupayCardForSubmission({ cardId, orderId, plan = "plus", estimatedChargeUsd = 0 } = {}) {
+    const state = this.read();
+    const normalizedCardId = hifupayCardId(cardId);
+    const normalizedOrderId = String(orderId || "").trim();
+    const normalizedPlan = String(plan || "plus").trim().toLowerCase();
+    const card = state.hifupayCards.find(item => item.id === normalizedCardId);
+    if (!card) return { ok: false, status: "not_found", message: "嗨付卡片不在本地卡池中，充值未提交。" };
+    const inFlight = Array.isArray(card.inFlightOrders) ? card.inFlightOrders : [];
+    const reservation = inFlight.find(item => item.orderId === normalizedOrderId);
+    if (!reservation) return { ok: false, status: "reservation_missing", message: "嗨付卡片预留已失效，充值未提交。" };
+    if (card.enabled === false) return { ok: false, status: "disabled", message: "嗨付卡片已暂停使用，充值未提交。" };
+    if (hifupayRemoteStatus(card.status) !== "active") {
+      return { ok: false, status: "upstream_unavailable", message: "嗨付卡片当前不可用，充值未提交。" };
+    }
+
+    const charge = Math.max(Number(estimatedChargeUsd) || Number(reservation.estimatedChargeUsd) || 0, 0);
+    const safetyBuffer = Math.max(Number(config.hifupaySafetyBufferUsd) || 0, 0);
+    if (normalizedPlan === "plus") {
+      const plusMaxBalance = hifupayPlusMaxBalance();
+      if (card.usageMode === "pro_reserved" || activeHifupayProReservation(state, card.id)) {
+        return { ok: false, status: "pro_protected", message: "这张嗨付卡已为 Pro 续费保留，Plus 充值未提交。" };
+      }
+      if (card.balance !== null && card.balance > plusMaxBalance) {
+        return { ok: false, status: "high_balance", message: `这张嗨付卡余额超过 $${plusMaxBalance.toFixed(2)}，已触发高余额保护，Plus 充值未提交。` };
+      }
+    }
+    if (card.balance === null) return { ok: false, status: "balance_unknown", message: "无法确认嗨付卡实时余额，充值未提交。" };
+    const otherReservedBalance = inFlight
+      .filter(item => item.orderId !== normalizedOrderId)
+      .reduce((sum, item) => sum + (Number(item.estimatedChargeUsd) || 0), 0);
+    if (card.balance - otherReservedBalance < charge + safetyBuffer) {
+      return { ok: false, status: "low_balance", message: "嗨付卡可用余额不足，充值未提交。" };
+    }
+    return { ok: true, status: "ready", cardId: card.id, lastFour: card.lastFour || "", balance: card.balance };
+  }
+
+  protectHifupayCardForPro(cardId, input = {}) {
+    const state = this.read();
+    const normalizedCardId = hifupayCardId(cardId);
+    const card = state.hifupayCards.find(item => item.id === normalizedCardId);
+    if (!card) return { ok: false, status: "not_found", message: "嗨付卡片不存在。" };
+    if (Array.isArray(card.inFlightOrders) && card.inFlightOrders.length) {
+      return { ok: false, status: "in_flight", message: "这张卡还有充值待确认，请先处理后再设置 Pro 保护。" };
+    }
+    const account = String(input.account || "").trim().slice(0, 160);
+    if (!account) return { ok: false, status: "invalid", message: "请填写需要续费的 Pro 账号。" };
+    const timestamp = nowIso();
+    let reservation = activeHifupayProReservation(state, normalizedCardId);
+    if (!reservation) {
+      reservation = {
+        id: makeId("hpro"),
+        cardId: normalizedCardId,
+        status: "active",
+        createdAt: timestamp,
+        releasedAt: ""
+      };
+      state.hifupayProReservations.push(reservation);
+    }
+    Object.assign(reservation, {
+      type: String(input.type || "Pro").trim().slice(0, 40) || "Pro",
+      account,
+      amountUsd: Math.max(Number(input.amountUsd) || 0, 0),
+      renewalAt: String(input.renewalAt || "").trim().slice(0, 40),
+      note: String(input.note || "").trim().slice(0, 300),
+      status: "active",
+      updatedAt: timestamp,
+      releasedAt: ""
+    });
+    card.usageMode = "pro_reserved";
+    card.updatedAt = timestamp;
+    this.write(state);
+    return { ok: true, status: "protected", cardId: card.id, reservationId: reservation.id };
+  }
+
+  releaseHifupayCardProProtection(cardId) {
+    const state = this.read();
+    const normalizedCardId = hifupayCardId(cardId);
+    const card = state.hifupayCards.find(item => item.id === normalizedCardId);
+    if (!card) return { ok: false, status: "not_found", message: "嗨付卡片不存在。" };
+    const timestamp = nowIso();
+    for (const reservation of state.hifupayProReservations) {
+      if (reservation.cardId === normalizedCardId && reservation.status === "active") {
+        reservation.status = "released";
+        reservation.releasedAt = timestamp;
+        reservation.updatedAt = timestamp;
+      }
+    }
+    card.usageMode = "plus";
+    card.updatedAt = timestamp;
+    this.write(state);
+    return { ok: true, status: "released", cardId: card.id };
+  }
+
+  listStaleHifupayReservationOrders({ staleMinutes = 10, lookbackHours = 168, limit = 20, includeManualReview = false } = {}) {
+    const state = this.read();
+    const now = Date.now();
+    const staleCutoff = now - Math.max(Number(staleMinutes) || 10, 1) * 60 * 1000;
+    const lookbackCutoff = now - Math.max(Number(lookbackHours) || 168, 1) * 60 * 60 * 1000;
+    const orders = new Map(state.orders.map(order => [order.id, order]));
+    const candidates = [];
+    for (const card of state.hifupayCards) {
+      for (const reservation of Array.isArray(card.inFlightOrders) ? card.inFlightOrders : []) {
+        const order = orders.get(String(reservation.orderId || ""));
+        const reservedAt = Date.parse(reservation.reservedAt || order?.createdAt || "");
+        const createdAt = Date.parse(order?.createdAt || reservation.reservedAt || "");
+        if (!order || order.provider !== "h" || !order.upstreamTaskId) continue;
+        if (order.hifupayReservationReleasedAt) continue;
+        if (!includeManualReview && ["balance_changed", "card_unavailable", "balance_check_failed", "manual_review"].includes(order.hifupaySafetyStatus)) continue;
+        if (!Number.isFinite(reservedAt) || reservedAt > staleCutoff) continue;
+        if (!Number.isFinite(createdAt) || createdAt < lookbackCutoff) continue;
+        candidates.push({ orderId: order.id, cardId: card.id, reservedAt: new Date(reservedAt).toISOString() });
+      }
+    }
+    return candidates
+      .sort((left, right) => left.reservedAt.localeCompare(right.reservedAt))
+      .slice(0, Math.max(Number(limit) || 20, 1));
+  }
+
+  confirmHifupayUnpaidFailure(orderId, minimumGapSeconds = 60) {
+    const state = this.read();
+    const order = state.orders.find(item => item.id === String(orderId || ""));
+    if (!order) return { ok: false, status: "not_found", confirmations: 0, eligible: false };
+    const timestamp = nowIso();
+    const now = Date.parse(timestamp);
+    const lastConfirmedAt = Date.parse(order.hifupayUnpaidLastConfirmedAt || "");
+    let confirmations = Math.max(Number(order.hifupayUnpaidConfirmationCount) || 0, 0);
+    if (confirmations === 0 || !Number.isFinite(lastConfirmedAt)) {
+      confirmations = 1;
+      order.hifupayUnpaidFirstSeenAt = order.hifupayUnpaidFirstSeenAt || timestamp;
+      order.hifupayUnpaidLastConfirmedAt = timestamp;
+    } else if (now - lastConfirmedAt >= Math.max(Number(minimumGapSeconds) || 60, 1) * 1000) {
+      confirmations += 1;
+      order.hifupayUnpaidLastConfirmedAt = timestamp;
+    }
+    order.hifupayUnpaidConfirmationCount = confirmations;
+    order.hifupayUnpaidLastObservedAt = timestamp;
+    order.hifupaySafetyStatus = confirmations >= 2 ? "release_check" : "confirming_unpaid";
+    order.updatedAt = timestamp;
+    this.write(state);
+    return { ok: true, status: order.hifupaySafetyStatus, confirmations, eligible: confirmations >= 2 };
+  }
+
+  resetHifupayUnpaidFailure(orderId) {
+    const state = this.read();
+    const order = state.orders.find(item => item.id === String(orderId || ""));
+    if (!order) return false;
+    if (!order.hifupayUnpaidConfirmationCount && !order.hifupaySafetyStatus) return true;
+    order.hifupaySafetyStatus = "";
+    order.hifupayUnpaidConfirmationCount = 0;
+    order.hifupayUnpaidFirstSeenAt = "";
+    order.hifupayUnpaidLastConfirmedAt = "";
+    order.hifupayUnpaidLastObservedAt = "";
+    order.updatedAt = nowIso();
+    this.write(state);
+    return true;
+  }
+
+  inspectHifupayReservation(cardId, orderId, toleranceUsd = 0.5) {
+    const state = this.read();
+    const card = state.hifupayCards.find(item => item.id === hifupayCardId(cardId));
+    const reservation = card?.inFlightOrders?.find(item => item.orderId === String(orderId || ""));
+    if (!card || !reservation) return { ok: false, status: "not_found", safeToRelease: false };
+    const balanceBefore = reservation.balanceBefore === null || reservation.balanceBefore === undefined
+      ? Number.NaN
+      : Number(reservation.balanceBefore);
+    const currentBalance = card.balance === null || card.balance === undefined ? Number.NaN : Number(card.balance);
+    const tolerance = Math.max(Number(toleranceUsd) || 0, 0);
+    const active = hifupayRemoteStatus(card.status) === "active";
+    const balanceKnown = Number.isFinite(balanceBefore) && Number.isFinite(currentBalance);
+    const unchanged = balanceKnown && Math.abs(currentBalance - balanceBefore) <= tolerance;
+    return {
+      ok: true,
+      status: active && unchanged ? "unchanged" : !active ? "card_unavailable" : "balance_changed",
+      safeToRelease: active && unchanged,
+      cardId: card.id,
+      balanceBefore: balanceKnown ? balanceBefore : null,
+      currentBalance: Number.isFinite(currentBalance) ? currentBalance : null,
+      reservedAt: reservation.reservedAt || ""
+    };
   }
 
   recordHifupayResult({ cardId, orderId, plan = "plus", identity = {}, paymentConfirmed = false, status = "" } = {}) {
@@ -1006,6 +1242,8 @@ export class JsonStore {
           providerSessionId: order.providerSessionId || "",
           hifupayCardId: order.hifupayCardId || "",
           hifupayCardLastFour: order.hifupayCardLastFour || "",
+          hifupaySafetyStatus: order.hifupaySafetyStatus || "",
+          hifupayUnpaidConfirmationCount: Number(order.hifupayUnpaidConfirmationCount || 0),
           userEmail: session?.userEmail || "",
           message: order.message || "",
           subscriptionCancellationStatus: order.subscriptionCancellationStatus || "",

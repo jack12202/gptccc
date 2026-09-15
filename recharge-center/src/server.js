@@ -835,14 +835,15 @@ function serveHifupayCardAdmin(res) {
 </style></head><body><main>
 <section><div class="top"><div><h1>嗨付卡池</h1><p>这里管理真正提交充值的嗨付卡片，不是用户拿到的激活卡密。系统只读取余额和状态，不会自动开卡、提余额或注销卡片。</p></div><div class="actions"><a href="/admin/cards">卡密生成</a><a href="/admin/cards/library">卡密库</a><a href="/admin/recoveries">充值记录</a></div></div>
 <label>管理密码<input id="token" type="password" autocomplete="current-password" placeholder="请输入 ADMIN_TOKEN"></label><div class="actions" style="margin-top:14px"><button id="refresh">刷新嗨付卡片</button><button class="secondary" id="local">查看本地记录</button></div><div class="status" id="status">输入管理密码后，可以读取嗨付卡池。</div></section>
-<section><div class="top"><div><h2>卡片状态</h2><p class="hint">系统优先使用余额较少但足够完成本次充值的卡；每次充值前读取嗨付实时余额，不会选择余额不足的卡。</p></div><strong id="count">0 张</strong></div><div class="table"><table><thead><tr><th>卡片</th><th>顺序</th><th>余额</th><th>本站成功记录</th><th>状态</th><th>保留截止</th><th>绑定账号</th><th>操作</th></tr></thead><tbody id="cards"><tr><td colspan="8">暂无记录</td></tr></tbody></table></div></section>
+<section><div class="top"><div><h2>卡片状态</h2><p class="hint">Plus 自动充值只会使用余额足够且不超过 $66 的卡。设置“Pro 续费保护”后，整张卡会退出 Plus 卡池，直到你手动解除保护。</p></div><strong id="count">0 张</strong></div><label>搜索卡池<input id="cardSearch" type="search" placeholder="输入卡片 ID、尾号、账号或 Pro 备注"></label><div class="table"><table><thead><tr><th>卡片</th><th>顺序</th><th>余额</th><th>本站成功记录</th><th>用途/保护</th><th>状态</th><th>绑定账号</th><th>操作</th></tr></thead><tbody id="cards"><tr><td colspan="8">暂无记录</td></tr></tbody></table></div></section>
 </main><script>
 const token=document.getElementById("token"),statusBox=document.getElementById("status"),params=new URLSearchParams(location.search),hash=new URLSearchParams(location.hash.replace(/^#/,""));token.value=hash.get("token")||params.get("token")||localStorage.getItem("gptcProviderAdminToken")||"";if(token.value)localStorage.setItem("gptcProviderAdminToken",token.value);
-const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"}[c]));const date=value=>{if(!value)return"-";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleString("zh-CN",{hour12:false})};const money=value=>value===null||value===undefined?"未知":"$"+Number(value).toFixed(2);const labels={ready:"可用",low_balance:"余额偏低",reserved:"处理中",full_hold:"已满·保留中",full_expired:"已满·待处理",disabled:"已禁用",upstream_unavailable:"上游不可用"};
+const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"}[c]));const date=value=>{if(!value)return"-";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleString("zh-CN",{hour12:false})};const money=value=>value===null||value===undefined?"未知":"$"+Number(value).toFixed(2);const labels={ready:"可用",low_balance:"余额偏低",reserved:"处理中",pro_protected:"Pro 续费保护",high_balance:"高余额保护",full_hold:"已满·保留中",full_expired:"已满·待处理",disabled:"已禁用",upstream_unavailable:"上游不可用"};
 async function api(path,options={}){const current=token.value.trim();if(!current)throw Error("请先输入管理密码。");localStorage.setItem("gptcProviderAdminToken",current);const response=await fetch(path,{...options,headers:{"Content-Type":"application/json","X-Admin-Token":current,...(options.headers||{})}});const data=await response.json();if(!data.success)throw Error(data.message||"操作失败。");return data.data}
-function render(cards){return cards.map(card=>{const accounts=(card.plusUsers||[]).map(user=>esc((user.email||user.accountId||"未知账号")+(user.upgradeUntil?"（可升级至 "+date(user.upgradeUntil)+"）":""))).join("<br>")||"-";const pending=(card.inFlightOrders||[]).map(item=>'<br><small>待确认 '+esc(item.orderId)+' <button class="secondary" data-action="release" data-id="'+esc(card.id)+'" data-order-id="'+esc(item.orderId)+'">释放</button></small>').join("");const cls=["disabled"].includes(card.poolStatus)?"bad":["low_balance","reserved","upstream_unavailable"].includes(card.poolStatus)?"warn":"";const action=card.enabled?'<button class="danger" data-action="disable" data-id="'+esc(card.id)+'">禁用</button>':'<button class="secondary" data-action="enable" data-id="'+esc(card.id)+'">启用</button>';return '<tr><td>ID '+esc(card.id)+'<br>****'+esc(card.lastFour||"----")+'</td><td><input style="width:72px" type="number" min="0" data-setting="priority" data-id="'+esc(card.id)+'" value="'+esc(card.priority)+'"></td><td>'+esc(money(card.balance))+'<br><small>可用 '+esc(money(card.availableBalance))+'</small></td><td>'+esc(card.automaticPlusUsed)+' 人</td><td><span class="badge '+cls+'">'+esc(labels[card.poolStatus]||card.poolStatus||"未知")+'</span></td><td>'+esc(date(card.holdUntil))+'</td><td class="accounts">'+accounts+pending+'</td><td>'+action+'</td></tr>'}).join("")||'<tr><td colspan="8">暂无记录</td></tr>'}
-async function load(refresh=false){try{const data=await api("/api/admin/hifupay/cards"+(refresh?"?refresh=1":""));document.getElementById("cards").innerHTML=render(data.cards||[]);document.getElementById("count").textContent=(data.cards||[]).length+" 张";statusBox.textContent=refresh?"已刷新嗨付卡片余额和状态。":(data.updatedAt?"已加载本地卡池记录，最后同步："+date(data.updatedAt):"暂无本地卡池记录，请先刷新。");statusBox.classList.remove("error")}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error")}}
-document.getElementById("refresh").onclick=()=>load(true);document.getElementById("local").onclick=()=>load(false);document.getElementById("cards").onchange=async event=>{const input=event.target.closest("[data-setting]");if(!input)return;input.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(input.dataset.id)+"/settings",{method:"POST",body:JSON.stringify({field:input.dataset.setting,value:Number(input.value)})});statusBox.textContent="卡片顺序已保存。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");input.disabled=false}};document.getElementById("cards").onclick=async event=>{const button=event.target.closest("[data-action]");if(!button)return;if(button.dataset.action==="release"&&!confirm("确认释放这笔待确认占用？请先确认嗨付没有扣款。"))return;button.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(button.dataset.id)+"/"+button.dataset.action,{method:"POST",body:button.dataset.action==="release"?JSON.stringify({orderId:button.dataset.orderId}):"{}"});await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}};if(token.value)load(false);
+function render(cards){return cards.map(card=>{const accounts=(card.plusUsers||[]).map(user=>esc((user.email||user.accountId||"未知账号")+(user.upgradeUntil?"（可升级至 "+date(user.upgradeUntil)+"）":""))).join("<br>")||"-";const pending=(card.inFlightOrders||[]).map(item=>'<br><small>待确认 '+esc(item.email||item.accountId||item.orderId)+' · '+esc(money(item.estimatedChargeUsd))+' · '+esc(date(item.reservedAt))+' <button class="secondary" data-action="release" data-id="'+esc(card.id)+'" data-order-id="'+esc(item.orderId)+'">释放</button></small>').join("");const pro=card.proReservation;const purpose=pro?'<strong>'+esc(pro.type||"Pro")+'</strong><br>'+esc(pro.account||"-")+(pro.amountUsd?'<br><small>预留 '+esc(money(pro.amountUsd))+'</small>':'')+(pro.renewalAt?'<br><small>续费 '+esc(date(pro.renewalAt))+'</small>':'')+(pro.note?'<br><small>'+esc(pro.note)+'</small>':''):card.highBalanceProtected?'Plus 高余额保护<br><small>余额超过 '+esc(money(card.plusMaxBalance))+'</small>':'Plus 自动充值';const cls=["disabled","pro_protected"].includes(card.poolStatus)?"bad":["low_balance","reserved","upstream_unavailable","high_balance"].includes(card.poolStatus)?"warn":"";const enabledAction=card.enabled?'<button class="danger" data-action="disable" data-id="'+esc(card.id)+'">禁用</button>':'<button class="secondary" data-action="enable" data-id="'+esc(card.id)+'">启用</button>';const protectAction=card.proProtected?'<button class="secondary" data-action="release-pro" data-id="'+esc(card.id)+'">解除 Pro 保护</button>':'<button class="secondary" data-action="protect-pro" data-id="'+esc(card.id)+'">Pro 续费保护</button>';return '<tr><td>ID '+esc(card.id)+'<br>****'+esc(card.lastFour||"----")+'</td><td><input style="width:72px" type="number" min="0" data-setting="priority" data-id="'+esc(card.id)+'" value="'+esc(card.priority)+'"></td><td>'+esc(money(card.balance))+'<br><small>可用 '+esc(money(card.availableBalance))+'</small></td><td>'+esc(card.automaticPlusUsed)+' 人</td><td class="accounts">'+purpose+'</td><td><span class="badge '+cls+'">'+esc(labels[card.poolStatus]||card.poolStatus||"未知")+'</span></td><td class="accounts">'+accounts+pending+'</td><td><div class="actions">'+protectAction+enabledAction+'</div></td></tr>'}).join("")||'<tr><td colspan="8">暂无匹配卡片</td></tr>'}
+let allCards=[];function cardSearchText(card){const pro=card.proReservation||{};const users=(card.plusUsers||[]).flatMap(user=>[user.email,user.accountId,user.orderId]);const pending=(card.inFlightOrders||[]).flatMap(item=>[item.email,item.accountId,item.orderId]);return [card.id,card.lastFour,card.status,card.poolStatus,labels[card.poolStatus],pro.type,pro.account,pro.note,pro.renewalAt,...users,...pending].join(" ").toLowerCase()}function applyCardSearch(){const keyword=document.getElementById("cardSearch").value.trim().toLowerCase();const filtered=keyword?allCards.filter(card=>cardSearchText(card).includes(keyword)):allCards;document.getElementById("cards").innerHTML=render(filtered);document.getElementById("count").textContent=filtered.length+(keyword?" / "+allCards.length:"")+" 张"}
+async function load(refresh=false){try{const data=await api("/api/admin/hifupay/cards"+(refresh?"?refresh=1":""));allCards=data.cards||[];applyCardSearch();statusBox.textContent=refresh?"已刷新嗨付卡片余额和状态。":(data.updatedAt?"已加载本地卡池记录，最后同步："+date(data.updatedAt):"暂无本地卡池记录，请先刷新。");statusBox.classList.remove("error")}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error")}}
+document.getElementById("cardSearch").oninput=applyCardSearch;document.getElementById("refresh").onclick=()=>load(true);document.getElementById("local").onclick=()=>load(false);document.getElementById("cards").onchange=async event=>{const input=event.target.closest("[data-setting]");if(!input)return;input.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(input.dataset.id)+"/settings",{method:"POST",body:JSON.stringify({field:input.dataset.setting,value:Number(input.value)})});statusBox.textContent="卡片顺序已保存。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");input.disabled=false}};document.getElementById("cards").onclick=async event=>{const button=event.target.closest("[data-action]");if(!button)return;const action=button.dataset.action;if(action==="release"&&!confirm("确认释放这笔待确认占用？请先确认嗨付没有扣款。"))return;if(action==="release-pro"&&!confirm("确认 Pro 已续费完成或不再需要保留？解除后，这张卡仍需余额不超过 $66 才会进入 Plus 卡池。"))return;let body={};if(action==="release")body={orderId:button.dataset.orderId};if(action==="protect-pro"){const type=prompt("请输入 Pro 类型，例如 20X Pro 或 5X Pro：","20X Pro");if(type===null)return;const account=prompt("请输入需要续费的 Pro 账号：","");if(account===null)return;if(!account.trim()){statusBox.textContent="请填写 Pro 账号。";statusBox.classList.add("error");return}const defaultAmount=String(type).toUpperCase().includes("5X")?"130":"150";const amountUsd=prompt("请输入计划预留金额（美元）：",defaultAmount);if(amountUsd===null)return;const renewalAt=prompt("请输入预计续费日期（可留空，例如 2026-10-15）：","");if(renewalAt===null)return;const note=prompt("备注（可留空）：","");if(note===null)return;body={type,account,amountUsd:Number(amountUsd)||0,renewalAt,note}}button.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(button.dataset.id)+"/"+action,{method:"POST",body:JSON.stringify(body)});statusBox.textContent=action==="protect-pro"?"已设置 Pro 续费保护，这张卡不会用于 Plus。":action==="release-pro"?"已解除 Pro 保护；只有余额不超过 $66 时才会重新进入 Plus 卡池。":"操作已完成。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}};if(token.value)load(false);
 </script></body></html>`;
   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
   res.end(html);
@@ -954,7 +955,7 @@ function serveRecoveryAdmin(res) {
         + '<td>' + escapeHtml(item.userEmail || "-") + '</td>'
         + '<td>' + escapeHtml(item.cardMask || "-") + '<br><small>通道 ' + escapeHtml(item.provider) + '</small></td>'
         + '<td>' + (item.hifupayCardLastFour ? '****' + escapeHtml(item.hifupayCardLastFour) : '-') + '</td>'
-        + '<td>' + escapeHtml(statusLabel(item.status)) + (item.needsAttention ? '<br><span class="attention-badge">需取消续费</span>' : item.subscriptionCancellationStatus === 'cancelled' ? '<br><small>续费已关闭</small>' : '') + '</td>'
+        + '<td>' + escapeHtml(statusLabel(item.status)) + (item.hifupaySafetyStatus === 'confirming_unpaid' ? '<br><small>安全复核中</small>' : item.needsAttention ? '<br><span class="attention-badge">需取消续费</span>' : item.subscriptionCancellationStatus === 'cancelled' ? '<br><small>续费已关闭</small>' : '') + '</td>'
         + '<td class="message">' + escapeHtml(item.needsAttention ? item.subscriptionActionMessage : item.message || "-") + '</td>'
         + '<td>' + escapeHtml(formatDate(item.createdAt)) + '</td>'
         + '<td><div class="row-actions">'
@@ -1155,6 +1156,40 @@ function assertAdmin(req, url, body = {}) {
 }
 
 const hCardQueryRateLimiter = createHCardQueryRateLimiter();
+const hifupayReconcileTimers = new Map();
+
+function scheduleHifupayOrderReconciliation(orderId, delayMs) {
+  const normalizedOrderId = String(orderId || "").trim();
+  if (!normalizedOrderId || hifupayReconcileTimers.has(normalizedOrderId)) return false;
+  const timer = setTimeout(async () => {
+    hifupayReconcileTimers.delete(normalizedOrderId);
+    try {
+      const result = await rechargeService.reconcileHifupayOrder(normalizedOrderId);
+      if (result.confirmationPending) {
+        scheduleHifupayOrderReconciliation(
+          normalizedOrderId,
+          Math.max(Number(config.hifupayFailureConfirmSeconds) || 60, 1) * 1000
+        );
+      }
+    } catch {
+      // 网络或上游异常不会释放预留，交由下一次启动/每日兜底复核。
+    }
+  }, Math.max(Number(delayMs) || 0, 1));
+  timer.unref?.();
+  hifupayReconcileTimers.set(normalizedOrderId, timer);
+  return true;
+}
+
+async function reconcileStaleHifupayReservations(limit = 100) {
+  const result = await rechargeService.reconcileStaleHifupayReservations({ limit, includeManualReview: true });
+  for (const orderId of result.confirmationPendingOrderIds) {
+    scheduleHifupayOrderReconciliation(
+      orderId,
+      Math.max(Number(config.hifupayFailureConfirmSeconds) || 60, 1) * 1000
+    );
+  }
+  return result;
+}
 
 export const server = http.createServer(async (req, res) => {
   try {
@@ -1293,7 +1328,7 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const hifupayCardAction = url.pathname.match(/^\/api\/admin\/hifupay\/cards\/([^/]+)\/(disable|enable|release|settings)$/);
+    const hifupayCardAction = url.pathname.match(/^\/api\/admin\/hifupay\/cards\/([^/]+)\/(disable|enable|release|settings|protect-pro|release-pro)$/);
     if (req.method === "POST" && hifupayCardAction) {
       const body = await readJsonBody(req);
       const auth = assertAdmin(req, url, body);
@@ -1303,7 +1338,11 @@ export const server = http.createServer(async (req, res) => {
       }
       const cardId = decodeURIComponent(hifupayCardAction[1]);
       const action = hifupayCardAction[2];
-      const result = action === "release"
+      const result = action === "protect-pro"
+        ? rechargeService.protectHifupayCardForPro(cardId, body)
+        : action === "release-pro"
+          ? rechargeService.releaseHifupayCardProProtection(cardId)
+        : action === "release"
         ? rechargeService.clearHifupayReservation(cardId, body.orderId)
         : action === "settings"
           ? (body.field === "priority"
@@ -1454,6 +1493,18 @@ export const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/recharge/confirm") {
       const body = await readJsonBody(req);
       const result = await rechargeService.confirmRecharge(body);
+      for (const orderId of result.hifupaySafetyPendingOrderIds || []) {
+        scheduleHifupayOrderReconciliation(
+          orderId,
+          Math.max(Number(config.hifupayFailureConfirmSeconds) || 60, 1) * 1000
+        );
+      }
+      if (result.ok && result.data?.provider === "h" && result.data?.orderId && result.data?.taskId) {
+        scheduleHifupayOrderReconciliation(
+          result.data.orderId,
+          Math.max(Number(config.hifupayStaleReservationMinutes) || 10, 1) * 60 * 1000
+        );
+      }
       sendJson(res, result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message || "充值提交失败。", data: result.data });
       return;
     }
@@ -1488,8 +1539,17 @@ if (isMainModule) {
   });
   const initialSyncTimer = setTimeout(() => {
     rechargeService.reconcileHSubscriptionStatuses({ limit: 100 }).catch(() => {
-      // 旧记录纠正失败不影响服务启动，也不会启动常驻轮询。
+      // 旧订阅记录纠正失败不影响服务启动。
+    });
+    reconcileStaleHifupayReservations().catch(() => {
+      // 资金卡预留状态不明确时保持占用，等待下次安全复核。
     });
   }, 5000);
   initialSyncTimer.unref?.();
+  const dailyReconcileTimer = setInterval(() => {
+    reconcileStaleHifupayReservations().catch(() => {
+      // 每日兜底失败不会释放任何预留。
+    });
+  }, Math.max(Number(config.hifupayReconcileIntervalHours) || 24, 1) * 60 * 60 * 1000);
+  dailyReconcileTimer.unref?.();
 }

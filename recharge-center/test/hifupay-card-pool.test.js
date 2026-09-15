@@ -66,3 +66,103 @@ test("hifupay card pool uses live balance and selects the lowest sufficient card
   assert.equal(lowerBalanceFirst.ok, true);
   assert.equal(lowerBalanceFirst.hifupayCardId, "7172");
 });
+
+test("Plus selection excludes Pro-protected and over-66-dollar cards until manual release", async t => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-protection-test-"));
+  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const { JsonStore } = await import("../src/store.js");
+  const dataFile = path.join(tempDir, "orders.json");
+  const store = new JsonStore(dataFile);
+  store.syncHifupayCards([
+    { id: "pro-150", lastFour: "0150", status: "active", balance: 150 },
+    { id: "pro-130", lastFour: "0130", status: "active", balance: 130 },
+    { id: "plus-40", lastFour: "0040", status: "active", balance: 40 },
+    { id: "plus-66", lastFour: "0066", status: "active", balance: 66 }
+  ]);
+
+  const protectedResult = store.protectHifupayCardForPro("plus-40", {
+    type: "20X Pro",
+    account: "pro-user@example.com",
+    amountUsd: 150,
+    renewalAt: "2026-10-15",
+    note: "等待续费"
+  });
+  assert.equal(protectedResult.ok, true);
+
+  const cards = new Map(store.listHifupayCards().map(card => [card.id, card]));
+  assert.equal(cards.get("pro-150").poolStatus, "high_balance");
+  assert.equal(cards.get("pro-130").poolStatus, "high_balance");
+  assert.equal(cards.get("plus-40").poolStatus, "pro_protected");
+  assert.equal(cards.get("plus-40").proReservation.account, "pro-user@example.com");
+  assert.equal(cards.get("plus-66").poolStatus, "ready", "$66 is eligible; only balances above $66 are blocked");
+
+  store.setHifupayCardPriority("plus-40", 0);
+  store.setHifupayCardEnabled("plus-40", true);
+  const selected = store.reserveHifupayCard({
+    orderId: "plus-safe",
+    plan: "plus",
+    identity: { email: "plus-user@example.com" },
+    estimatedChargeUsd: 16
+  });
+  assert.equal(selected.ok, true);
+  assert.equal(selected.hifupayCardId, "plus-66", "priority and enable must not bypass Pro protection");
+  assert.equal(store.validateHifupayCardForSubmission({ cardId: "plus-66", orderId: "plus-safe", plan: "plus", estimatedChargeUsd: 16 }).ok, true);
+
+  const reloaded = new JsonStore(dataFile);
+  assert.equal(reloaded.listHifupayCards().find(card => card.id === "plus-40").proProtected, true, "protection survives a restart");
+  reloaded.clearHifupayReservation("plus-66", "plus-safe");
+  reloaded.setHifupayCardEnabled("plus-66", false);
+  const noneAvailable = reloaded.reserveHifupayCard({
+    orderId: "plus-blocked",
+    plan: "plus",
+    identity: { email: "blocked@example.com" },
+    estimatedChargeUsd: 16
+  });
+  assert.equal(noneAvailable.ok, false);
+  assert.match(noneAvailable.message, /Pro|66/);
+
+  const released = reloaded.releaseHifupayCardProProtection("plus-40");
+  assert.equal(released.ok, true);
+  const afterRelease = reloaded.reserveHifupayCard({
+    orderId: "plus-after-release",
+    plan: "plus",
+    identity: { email: "released@example.com" },
+    estimatedChargeUsd: 16
+  });
+  assert.equal(afterRelease.ok, true);
+  assert.equal(afterRelease.hifupayCardId, "plus-40");
+});
+
+test("final submission validation fails closed when protection changes", async t => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-final-check-test-"));
+  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const { JsonStore } = await import("../src/store.js");
+  const store = new JsonStore(path.join(tempDir, "orders.json"));
+  store.syncHifupayCards([{ id: "card-1", lastFour: "0001", status: "active", balance: 40 }]);
+  const reservation = store.reserveHifupayCard({
+    orderId: "order-1",
+    plan: "plus",
+    identity: { email: "test@example.com" },
+    estimatedChargeUsd: 16
+  });
+  assert.equal(reservation.ok, true);
+
+  const state = store.read();
+  state.hifupayProReservations.push({
+    id: "hpro-test",
+    cardId: "card-1",
+    status: "active",
+    account: "protected@example.com",
+    type: "5X Pro",
+    createdAt: new Date().toISOString()
+  });
+  store.write(state);
+  const finalCheck = store.validateHifupayCardForSubmission({
+    cardId: "card-1",
+    orderId: "order-1",
+    plan: "plus",
+    estimatedChargeUsd: 16
+  });
+  assert.equal(finalCheck.ok, false);
+  assert.equal(finalCheck.status, "pro_protected");
+});
