@@ -8,6 +8,7 @@ import vm from "node:vm";
 test("Hifupay admin groups cards, searches all groups and expands actions without changing card data", async t => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-admin-ui-"));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  process.env.ADMIN_TOKEN = "ui-test-password";
   process.env.DATA_FILE = path.join(tempDir, "orders.json");
   const { server } = await import(`../src/server.js?admin-ui=${Date.now()}`);
   await new Promise((resolve, reject) => {
@@ -15,7 +16,10 @@ test("Hifupay admin groups cards, searches all groups and expands actions withou
     server.listen(0, "127.0.0.1", resolve);
   });
   t.after(() => new Promise(resolve => server.close(resolve)));
-  const response = await fetch(`http://127.0.0.1:${server.address().port}/admin/hifupay/cards`);
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const loginResponse = await fetch(`${base}/api/admin/login`, { method: "POST", headers: { Origin: "https://www.gptc.cc", "X-Admin-Request": "1", "Content-Type": "application/json" }, body: JSON.stringify({ password: "ui-test-password" }) });
+  const cookie = loginResponse.headers.get("set-cookie").split(";")[0];
+  const response = await fetch(`${base}/admin/hifupay/cards`, { headers: { Cookie: cookie } });
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /搜索全部分类/);
@@ -33,7 +37,7 @@ test("Hifupay admin groups cards, searches all groups and expands actions withou
     }
   };
   const context = vm.createContext({ document, location: { search: "", hash: "" }, URLSearchParams,
-    localStorage: { getItem: () => "", setItem() {} }, fetch: () => { throw Error("No request expected"); } });
+    window: { adminApi: () => new Promise(() => {}) }, fetch: () => { throw Error("No request expected"); } });
   vm.runInContext(script, context);
   const cards = [
     { id: "plus", enabled: true, poolStatus: "ready", status: "active", balance: 40, availableBalance: 40, lastFour: "1001", automaticPlusUsed: 1, priority: 0, plusUsers: [{ email: "plus@example.com" }] },

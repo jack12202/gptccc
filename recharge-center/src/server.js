@@ -3,6 +3,9 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
+import { createAdminAuth } from "./admin-auth.js";
+
+const adminAuth = createAdminAuth({ password: config.adminToken, file: path.join(path.dirname(config.dataFile), "admin-sessions.json"), origin: config.publicBaseUrl });
 import { rechargeService } from "./recharge-service.js";
 import { readJsonBody, sendJson } from "./utils.js";
 
@@ -89,6 +92,7 @@ function serveProviderAdmin(res) {
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+  <script src="/admin/session.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>源头切换后台｜GPTC.cc</title>
@@ -162,10 +166,7 @@ function serveProviderAdmin(res) {
   <main>
     <h1>GPTC 源头切换</h1>
     <p>先选择站内或站外充值，再点击对应源头。站内在 GPTC 完成，站外会直接打开对应充值页。</p>
-    <label id="tokenField">
-      管理密码
-      <input id="adminToken" type="password" autocomplete="current-password" placeholder="请输入 ADMIN_TOKEN">
-    </label>
+
     <div class="provider-group">
       <h2 class="group-title">站内充值</h2>
       <p class="group-help">用户留在 GPTC 页面完成充值。</p>
@@ -189,33 +190,13 @@ function serveProviderAdmin(res) {
         <button type="button" data-provider="9977ai">七七</button>
       </div>
     </div>
-    <div class="status" id="statusBox">输入管理密码后，点击源头即可切换。</div>
+    <div class="status" id="statusBox">正在读取当前通道…</div>
     <div class="hint"><a href="/admin/cards">打开 h 通道卡密生成后台</a></div>
-    <div class="hint" id="tokenHint"></div>
+
   </main>
   <script>
-    const tokenInput = document.getElementById("adminToken");
-    const tokenField = document.getElementById("tokenField");
-    const tokenHint = document.getElementById("tokenHint");
     const statusBox = document.getElementById("statusBox");
     const buttons = Array.from(document.querySelectorAll("[data-provider]"));
-    const params = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const tokenFromHash = hashParams.get("token") || "";
-    const tokenFromQuery = params.get("token") || "";
-    const tokenFromUrl = tokenFromHash || tokenFromQuery;
-    tokenInput.value = tokenFromUrl || localStorage.getItem("gptcProviderAdminToken") || "";
-    if (tokenFromUrl) {
-      tokenField.classList.add("hidden");
-      tokenHint.textContent = tokenFromHash
-        ? "已通过本机私密链接进入。#token 不会发送到服务器日志。"
-        : "已通过旧版私密链接进入。页面已隐藏地址栏 token。";
-      localStorage.setItem("gptcProviderAdminToken", tokenFromUrl);
-      if (tokenFromQuery) {
-        const cleanUrl = window.location.pathname + (window.location.hash || "");
-        window.history.replaceState(null, "", cleanUrl);
-      }
-    }
 
     function setStatus(message, error = false) {
       statusBox.textContent = message;
@@ -230,22 +211,7 @@ function serveProviderAdmin(res) {
       return data.defaultProviderMode === "redirect" ? "站外充值" : "站内充值";
     }
 
-    async function api(path, options = {}) {
-      const token = tokenInput.value.trim();
-      if (!token) throw new Error("请先输入管理密码。");
-      localStorage.setItem("gptcProviderAdminToken", token);
-      const response = await fetch(path, {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-Token": token,
-          ...(options.headers || {})
-        }
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || "操作失败。");
-      return data.data;
-    }
+    const api = window.adminApi;
 
     async function loadCurrent() {
       try {
@@ -273,7 +239,7 @@ function serveProviderAdmin(res) {
     buttons.forEach((button) => {
       button.addEventListener("click", () => switchProvider(button.dataset.provider));
     });
-    if (tokenInput.value) loadCurrent();
+    loadCurrent();
   </script>
 </body>
 </html>`;
@@ -288,6 +254,7 @@ function serveHCardAdmin(res) {
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+  <script src="/admin/session.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
@@ -339,39 +306,22 @@ function serveHCardAdmin(res) {
     <section>
       <h1>卡密工作台</h1>
       <p>按销售来源生成卡密，并复制或下载适合 Excel、卡网和客户交付的格式。</p>
-      <div class="auth-row">
-        <label>
-          管理密码
-          <input id="adminToken" type="password" autocomplete="current-password" placeholder="请输入 ADMIN_TOKEN">
-        </label>
-        <button class="secondary" id="verifyAdmin" type="button">验证管理密码</button>
-      </div>
+
       <div class="form">
         <label>生成数量<input id="count" type="number" min="1" max="100" value="10"></label>
         <label>销售来源<select id="source"><option>卡网</option><option>微信</option><option>漫飞公司</option><option value="custom">其他</option></select><input id="customSource" type="text" maxlength="40" placeholder="请备注来源，例如：秋风店铺" hidden></label>
         <button id="generate" type="button">生成卡密</button>
       </div>
-      <div class="status" id="statusBox">输入管理密码，选择数量和来源后生成。</div>
+      <div class="status" id="statusBox">选择数量和来源后生成。</div>
       <div class="page-actions"><a class="action-link" href="/admin/cards/library">卡密库</a><a class="action-link" href="/admin/cards/batch">批量查询</a><a class="action-link" href="/admin/hifupay/cards">嗨付卡池</a><a class="action-link" href="/admin/recoveries">充值记录</a></div>
       <div class="output-actions" id="outputActions"><button class="secondary" id="copyCodes">复制全部卡密</button><button class="secondary" id="copyLinks">复制全部链接</button><button class="secondary" id="downloadLinkZip">下载链接 ZIP</button></div>
       <div class="generated" id="generated"></div>
     </section>
   </main>
   <script>
-    const tokenInput = document.getElementById("adminToken");
     const statusBox = document.getElementById("statusBox");
     const generated = document.getElementById("generated");
     let generatedCards = [];
-    const params = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const tokenFromHash = hashParams.get("token") || "";
-    const tokenFromQuery = params.get("token") || "";
-    const token = tokenFromHash || tokenFromQuery || localStorage.getItem("gptcProviderAdminToken") || "";
-    tokenInput.value = token;
-    if (tokenFromHash || tokenFromQuery) {
-      localStorage.setItem("gptcProviderAdminToken", token);
-      if (tokenFromQuery) window.history.replaceState(null, "", window.location.pathname + (window.location.hash || ""));
-    }
 
     function setStatus(message, error = false) {
       statusBox.textContent = message;
@@ -398,15 +348,7 @@ function serveHCardAdmin(res) {
       } catch { setStatus("复制失败，请手动选择卡密复制。", true); }
     }
 
-    async function api(path, options = {}) {
-      const currentToken = tokenInput.value.trim();
-      if (!currentToken) throw new Error("请先输入管理密码。");
-      localStorage.setItem("gptcProviderAdminToken", currentToken);
-      const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", "X-Admin-Token": currentToken, ...(options.headers || {}) } });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || "操作失败。");
-      return data.data;
-    }
+    const api = window.adminApi;
 
     function currentSource() {
       const selected = document.getElementById("source").value;
@@ -473,15 +415,6 @@ function serveHCardAdmin(res) {
     document.getElementById("source").addEventListener("change", syncCustomSource);
     window.addEventListener("pageshow", syncCustomSource);
     syncCustomSource();
-    tokenInput.addEventListener("input", () => {
-      setStatus("点击“验证管理密码”后即可确认是否正确。");
-    });
-    document.getElementById("verifyAdmin").addEventListener("click", async () => {
-      try {
-        await api("/api/admin/h-cards?limit=1");
-        setStatus("管理密码验证成功，可以生成卡密。");
-      } catch (error) { setStatus(error.message || "管理密码验证失败。", true); }
-    });
     document.getElementById("copyCodes").onclick = () => copyOutput("codes");
     document.getElementById("copyLinks").onclick = () => copyOutput("links");
     document.getElementById("downloadLinkZip").onclick = zipLinks;
@@ -512,6 +445,7 @@ function serveHCardLibraryAdmin(res) {
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+  <script src="/admin/session.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
@@ -558,11 +492,8 @@ function serveHCardLibraryAdmin(res) {
         <div><h1>h 通道卡密库</h1><p class="hint">按来源、状态和生成日期筛选，支持批量管理。提交过资料的卡密只能归档，不能删除。</p></div>
         <div class="top-actions"><a class="back-link" href="/admin/cards">返回生成页</a><a class="back-link" href="/admin/cards/batch">批量查询</a><a class="back-link" href="/admin/hifupay/cards">嗨付卡池</a><a class="back-link" href="/admin/recoveries">充值记录</a><button class="secondary" id="refresh" type="button">刷新列表</button></div>
       </div>
-      <label>
-        管理密码
-        <input id="adminToken" type="password" autocomplete="current-password" placeholder="请输入 ADMIN_TOKEN">
-      </label>
-      <div class="status" id="statusBox">输入管理密码后，可以查看和管理卡密。</div>
+
+      <div class="status" id="statusBox">正在加载卡密…</div>
     </section>
     <section>
       <div class="toolbar"><label>搜索<input id="cardSearch" type="search" placeholder="账号、卡密、后四位"></label><label>来源<select id="sourceFilter"><option value="">全部来源</option></select></label><label>状态<select id="cardStatusFilter"><option value="">全部状态</option><option value="unused">未使用</option><option value="locked">已锁定</option><option value="used">已使用</option><option value="disabled">已禁用</option><option value="archived">已归档</option></select></label><label>生成日期<input id="dateFilter" type="date"></label><label style="display:flex;grid-auto-flow:column;align-items:center;justify-content:start"><input id="showArchived" type="checkbox" class="check">显示归档</label><span class="count" id="libraryCount">-</span></div>
@@ -576,18 +507,7 @@ function serveHCardLibraryAdmin(res) {
     </section>
   </main>
   <script>
-    const tokenInput = document.getElementById("adminToken");
     const statusBox = document.getElementById("statusBox");
-    const params = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const tokenFromHash = hashParams.get("token") || "";
-    const tokenFromQuery = params.get("token") || "";
-    const token = tokenFromHash || tokenFromQuery || localStorage.getItem("gptcProviderAdminToken") || "";
-    tokenInput.value = token;
-    if (tokenFromHash || tokenFromQuery) {
-      localStorage.setItem("gptcProviderAdminToken", token);
-      if (tokenFromQuery) window.history.replaceState(null, "", window.location.pathname + (window.location.hash || ""));
-    }
 
     function setStatus(message, error = false) {
       statusBox.textContent = message;
@@ -614,15 +534,7 @@ function serveHCardLibraryAdmin(res) {
       } catch { setStatus("复制失败，请手动选择卡密复制。", true); }
     }
 
-    async function api(path, options = {}) {
-      const currentToken = tokenInput.value.trim();
-      if (!currentToken) throw new Error("请先输入管理密码。");
-      localStorage.setItem("gptcProviderAdminToken", currentToken);
-      const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", "X-Admin-Token": currentToken, ...(options.headers || {}) } });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || "操作失败。");
-      return data.data;
-    }
+    const api = window.adminApi;
 
     const statusLabels = { unused: "未使用", locked: "已锁定", reserved: "处理中", used: "已使用", disabled: "已禁用", expired: "已过期", archived: "已归档" };
     let allCards = [];
@@ -815,7 +727,7 @@ function serveHCardLibraryAdmin(res) {
         button.disabled = false;
       }
     });
-    if (token) loadLibrary();
+    loadLibrary();
   </script>
 </body>
 </html>`;
@@ -829,17 +741,18 @@ function serveHCardLibraryAdmin(res) {
 
 function serveHifupayCardAdmin(res) {
   const html = `<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>嗨付卡池｜GPTC.cc</title>
+<html lang="zh-CN"><head>
+  <script src="/admin/session.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>嗨付卡池｜GPTC.cc</title>
 <style>
 *{box-sizing:border-box}body{margin:0;padding:20px;background:#f4f7fb;color:#132033;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:1200px;margin:auto}section{padding:22px;margin-bottom:16px;background:#fff;border:1px solid #dbe4ee;border-radius:14px;box-shadow:0 18px 48px rgba(15,23,42,.08)}h1,h2{margin:0 0 8px}p{color:#64748b;line-height:1.6}.top,.actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.actions{justify-content:flex-start}label{display:grid;gap:8px;margin-top:16px;font-weight:800;max-width:620px}input{min-height:44px;padding:0 12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}button,a{min-height:42px;padding:0 14px;border-radius:10px;font:inherit;font-weight:900;cursor:pointer}button{border:0;background:#0f766e;color:#fff}button.secondary,a{background:#ecfdf5;color:#0f766e;border:1px solid #99f6e4;text-decoration:none;display:inline-flex;align-items:center}button.danger{background:#fff1f2;color:#9f1239;border:1px solid #fda4af}.status{margin-top:16px;padding:12px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;white-space:pre-wrap}.error{background:#fff1f2;border-color:#fda4af;color:#9f1239}.table{overflow:auto;margin-top:14px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 8px;text-align:left;vertical-align:middle;border-bottom:1px solid #e2e8f0;white-space:nowrap}th{color:#475569}td small{color:#64748b}.purpose{max-width:240px;overflow:hidden;text-overflow:ellipsis}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:900}.warn{background:#fff7ed;color:#c2410c}.bad{background:#fff1f2;color:#be123c}.hint{margin:8px 0 0;font-size:13px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.tabs button{background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:14px}.tabs button.active{background:#0f766e;border-color:#0f766e;color:#fff}.detail-row td{background:#f8fafc;white-space:normal;line-height:1.6;padding:16px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 28px}.detail-grid p{margin:4px 0}.detail-grid .actions{grid-column:1/-1}.detail-grid label{margin:0;display:flex;align-items:center;gap:8px}.detail-grid input{width:80px}.pagination{margin-top:14px;display:flex;align-items:center;justify-content:flex-end;gap:12px}.pagination button:disabled{opacity:.45;cursor:default}@media(max-width:640px){body{padding:12px}section{padding:16px}.top>.actions a{min-height:38px}.detail-grid{grid-template-columns:1fr}.tabs button{flex:1}.table{margin-left:-8px;margin-right:-8px}.actions a,.detail-grid .actions button{width:100%;justify-content:center}}
 </style></head><body><main>
 <section><div class="top"><div><h1>嗨付卡池</h1><p>这里管理真正提交充值的嗨付卡片，不是用户拿到的激活卡密。系统只读取余额和状态，不会自动开卡、提余额或注销卡片。</p></div><div class="actions"><a href="/admin/cards">卡密生成</a><a href="/admin/cards/library">卡密库</a><a href="/admin/recoveries">充值记录</a></div></div>
-<label>管理密码<input id="token" type="password" autocomplete="current-password" placeholder="请输入 ADMIN_TOKEN"></label><div class="actions" style="margin-top:14px"><button id="refresh">刷新嗨付卡片</button><button class="secondary" id="local">查看本地记录</button></div><div class="status" id="status">输入管理密码后，可以读取嗨付卡池。</div></section>
+<div class="actions" style="margin-top:14px"><button id="refresh">刷新嗨付卡片</button><button class="secondary" id="local">查看本地记录</button></div><div class="status" id="status">正在加载嗨付卡池…</div></section>
 <section><div class="top"><div><h2>卡片状态</h2><p class="hint">Plus 自动充值只会使用余额足够且不超过 $66 的卡。Pro 保护卡不会被用于 Plus；账号、顺序和操作可展开查看。</p></div><strong id="count">0 张</strong></div><nav class="tabs" id="cardTabs" aria-label="卡片分类"></nav><label>搜索卡池<input id="cardSearch" type="search" placeholder="输入卡片 ID、尾号、账号或升级类型；搜索全部分类"></label><div class="table"><table><thead><tr><th>卡片</th><th>余额</th><th>本站成功记录</th><th>用途/保护</th><th>状态</th><th>详情</th></tr></thead><tbody id="cards"><tr><td colspan="6">暂无记录</td></tr></tbody></table></div><div class="pagination" id="pagination"><button class="secondary" id="prevPage" type="button">上一页</button><span id="pageInfo">第 1 / 1 页</span><button class="secondary" id="nextPage" type="button">下一页</button></div></section>
 </main><script>
-const token=document.getElementById("token"),statusBox=document.getElementById("status"),params=new URLSearchParams(location.search),hash=new URLSearchParams(location.hash.replace(/^#/,""));token.value=hash.get("token")||params.get("token")||localStorage.getItem("gptcProviderAdminToken")||"";if(token.value)localStorage.setItem("gptcProviderAdminToken",token.value);
+const statusBox=document.getElementById("status");
 const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"}[c]));const date=value=>{if(!value)return"-";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleString("zh-CN",{hour12:false})};const day=value=>{const raw=String(value||"");const match=raw.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);return match?match[1]+"/"+Number(match[2])+"/"+Number(match[3]):date(value)};const normalizeRenewal=value=>{const raw=String(value||"").trim();let match=raw.match(/^(\\d{4})[./-](\\d{1,2})[./-](\\d{1,2})$/);let year,month,dayOfMonth;if(match){year=Number(match[1]);month=Number(match[2]);dayOfMonth=Number(match[3])}else{match=raw.match(/^(\\d{1,2})[./-](\\d{1,2})$/);if(!match)return"";const now=new Date();year=now.getFullYear();month=Number(match[1]);dayOfMonth=Number(match[2]);const candidate=new Date(year,month-1,dayOfMonth);if(candidate.getTime()<new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())year+=1}const candidate=new Date(year,month-1,dayOfMonth);if(candidate.getFullYear()!==year||candidate.getMonth()!==month-1||candidate.getDate()!==dayOfMonth)return"";return String(year).padStart(4,"0")+"-"+String(month).padStart(2,"0")+"-"+String(dayOfMonth).padStart(2,"0")};const money=value=>value===null||value===undefined?"未知":"$"+Number(value).toFixed(2);const labels={ready:"可用",low_balance:"余额偏低",reserved:"处理中",pro_protected:"Pro 续费保护",high_balance:"高余额保护",full_hold:"已满·保留中",full_expired:"已满·待处理",disabled:"已禁用",upstream_unavailable:"上游不可用"};
-async function api(path,options={}){const current=token.value.trim();if(!current)throw Error("请先输入管理密码。");localStorage.setItem("gptcProviderAdminToken",current);const response=await fetch(path,{...options,headers:{"Content-Type":"application/json","X-Admin-Token":current,...(options.headers||{})}});const data=await response.json();if(!data.success)throw Error(data.message||"操作失败。");return data.data}
+const api=window.adminApi;
 function render(cards){return cards.map(card=>{
   const id=esc(card.id),pro=card.proReservation,expanded=expandedCards.has(String(card.id));
   const accounts=(card.plusUsers||[]).map(user=>'<p>'+esc(user.email||user.accountId||"未知账号")+(user.upgradeUntil?' <small>可升级至 '+esc(date(user.upgradeUntil))+'</small>':'')+'</p>').join("")||"-";
@@ -868,7 +781,7 @@ function applyCardSearch(){const keyword=document.getElementById("cardSearch").v
 async function load(refresh=false){try{const data=await api("/api/admin/hifupay/cards"+(refresh?"?refresh=1":""));allCards=data.cards||[];applyCardSearch();statusBox.textContent=refresh?"已刷新嗨付卡片余额和状态。":(data.updatedAt?"已加载本地卡池记录，最后同步："+date(data.updatedAt):"暂无本地卡池记录，请先刷新。");statusBox.classList.remove("error")}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error")}}
 document.getElementById("cardSearch").oninput=()=>{page=0;applyCardSearch()};document.getElementById("cardTabs").onclick=event=>{const button=event.target.closest("[data-category]");if(!button)return;activeCategory=button.dataset.category;page=0;applyCardSearch()};document.getElementById("prevPage").onclick=()=>{if(page>0){page--;applyCardSearch()}};document.getElementById("nextPage").onclick=()=>{page++;applyCardSearch()};document.getElementById("refresh").onclick=()=>load(true);document.getElementById("local").onclick=()=>load(false);
 document.getElementById("cards").onchange=async event=>{const input=event.target.closest("[data-setting]");if(!input)return;input.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(input.dataset.id)+"/settings",{method:"POST",body:JSON.stringify({field:input.dataset.setting,value:Number(input.value)})});statusBox.textContent="卡片顺序已保存。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");input.disabled=false}};
-document.getElementById("cards").onclick=async event=>{const toggle=event.target.closest("[data-toggle]");if(toggle){const id=toggle.dataset.toggle;if(expandedCards.has(id))expandedCards.delete(id);else expandedCards.add(id);applyCardSearch();return}const button=event.target.closest("[data-action]");if(!button)return;const action=button.dataset.action;if(action==="release"&&!confirm("确认释放这笔待确认占用？请先确认嗨付没有扣款。"))return;if(action==="release-pro"&&!confirm("确认 Pro 已续费完成或不再需要保留？解除后，这张卡仍需余额不超过 $66 才会进入 Plus 卡池。"))return;let body={};if(action==="release")body={orderId:button.dataset.orderId};if(action==="protect-pro"){const account=prompt("请输入需要续费的 Pro 账号：",button.dataset.account||"");if(account===null)return;if(!account.trim()){statusBox.textContent="请填写 Pro 账号。";statusBox.classList.add("error");return}const type=prompt("请输入升级类型，例如 20X Pro 或 5X Pro：",button.dataset.type||"20X Pro");if(type===null)return;if(!type.trim()){statusBox.textContent="请填写升级类型。";statusBox.classList.add("error");return}const renewalInput=prompt("请输入预计续费日期，可输入 2026-09-19 或 9.19：",button.dataset.renewal||"");if(renewalInput===null)return;const renewalAt=normalizeRenewal(renewalInput);if(!renewalAt){statusBox.textContent="预计续费日期格式不正确，请输入 2026-09-19 或 9.19。";statusBox.classList.add("error");return}body={type,account,renewalAt}}button.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(button.dataset.id)+"/"+action,{method:"POST",body:JSON.stringify(body)});statusBox.textContent=action==="protect-pro"?"Pro 保护信息已保存，这张卡不会用于 Plus。":action==="release-pro"?"已解除 Pro 保护；只有余额不超过 $66 时才会重新进入 Plus 卡池。":"操作已完成。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}};if(token.value)load(false);
+document.getElementById("cards").onclick=async event=>{const toggle=event.target.closest("[data-toggle]");if(toggle){const id=toggle.dataset.toggle;if(expandedCards.has(id))expandedCards.delete(id);else expandedCards.add(id);applyCardSearch();return}const button=event.target.closest("[data-action]");if(!button)return;const action=button.dataset.action;if(action==="release"&&!confirm("确认释放这笔待确认占用？请先确认嗨付没有扣款。"))return;if(action==="release-pro"&&!confirm("确认 Pro 已续费完成或不再需要保留？解除后，这张卡仍需余额不超过 $66 才会进入 Plus 卡池。"))return;let body={};if(action==="release")body={orderId:button.dataset.orderId};if(action==="protect-pro"){const account=prompt("请输入需要续费的 Pro 账号：",button.dataset.account||"");if(account===null)return;if(!account.trim()){statusBox.textContent="请填写 Pro 账号。";statusBox.classList.add("error");return}const type=prompt("请输入升级类型，例如 20X Pro 或 5X Pro：",button.dataset.type||"20X Pro");if(type===null)return;if(!type.trim()){statusBox.textContent="请填写升级类型。";statusBox.classList.add("error");return}const renewalInput=prompt("请输入预计续费日期，可输入 2026-09-19 或 9.19：",button.dataset.renewal||"");if(renewalInput===null)return;const renewalAt=normalizeRenewal(renewalInput);if(!renewalAt){statusBox.textContent="预计续费日期格式不正确，请输入 2026-09-19 或 9.19。";statusBox.classList.add("error");return}body={type,account,renewalAt}}button.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(button.dataset.id)+"/"+action,{method:"POST",body:JSON.stringify(body)});statusBox.textContent=action==="protect-pro"?"Pro 保护信息已保存，这张卡不会用于 Plus。":action==="release-pro"?"已解除 Pro 保护；只有余额不超过 $66 时才会重新进入 Plus 卡池。":"操作已完成。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}};load(false);
 </script></body></html>`;
   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
   res.end(html);
@@ -878,6 +791,7 @@ function serveRecoveryAdmin(res) {
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+  <script src="/admin/session.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
@@ -922,9 +836,9 @@ function serveRecoveryAdmin(res) {
         <div><h1>充值记录</h1><p class="hint">查看全部通道的提交记录。JSON 加密保存，成功订单完成45天后自动清除敏感内容。</p></div>
         <div class="top-actions"><a class="back-link" href="/admin/cards">卡密生成</a><a class="back-link" href="/admin/cards/library">卡密库</a></div>
       </div>
-      <label>管理密码<input id="adminToken" type="password" autocomplete="current-password" placeholder="请输入 ADMIN_TOKEN"></label>
+
       <div class="top-actions" style="margin-top:14px"><button id="enableAlerts" type="button">开启桌面提醒</button><button class="secondary" id="refresh" type="button">立即刷新</button></div>
-      <div class="status" id="statusBox">输入管理密码后，可以查看全部充值记录。</div>
+      <div class="status" id="statusBox">正在加载充值记录…</div>
     </section>
     <section>
       <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="输入账号或卡密"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需取消续费</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>通道<select id="providerFilter"><option value="">全部通道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
@@ -938,13 +852,8 @@ function serveRecoveryAdmin(res) {
     </section>
   </main>
   <script>
-    const tokenInput = document.getElementById("adminToken");
     const statusBox = document.getElementById("statusBox");
-    const params = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const token = hashParams.get("token") || params.get("token") || localStorage.getItem("gptcProviderAdminToken") || "";
-    tokenInput.value = token;
-    if (token) localStorage.setItem("gptcProviderAdminToken", token);
+
     let previousIds = new Set();
     let firstLoad = true;
     let audioContext = null;
@@ -962,15 +871,7 @@ function serveRecoveryAdmin(res) {
       const date = new Date(value);
       return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("zh-CN", { hour12: false });
     }
-    async function api(path, options = {}) {
-      const currentToken = tokenInput.value.trim();
-      if (!currentToken) throw new Error("请先输入管理密码。");
-      localStorage.setItem("gptcProviderAdminToken", currentToken);
-      const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", "X-Admin-Token": currentToken, ...(options.headers || {}) } });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || "操作失败。");
-      return data.data;
-    }
+    const api = window.adminApi;
     function statusLabel(status) {
       return ({ needs_review: "待确认", failed: "失败", success: "成功", processing: "处理中", syncing: "同步中", created: "已创建" })[status] || status;
     }
@@ -1080,8 +981,8 @@ function serveRecoveryAdmin(res) {
       } catch (error) { setStatus(error.message, true); }
       finally { button.disabled = false; }
     });
-    if (token) loadRecoveries();
-    window.setInterval(() => { if (tokenInput.value.trim()) loadRecoveries(); }, 10000);
+    loadRecoveries();
+    window.setInterval(() => { loadRecoveries(); }, 10000);
   </script>
 </body>
 </html>`;
@@ -1093,91 +994,57 @@ function serveRecoveryAdmin(res) {
   res.end(html);
 }
 
-function serveProviderSwitchResult(res, result) {
-  const success = result.ok;
-  const title = success ? "源头已切换" : "切换失败";
-  const locationLabel = result.data?.defaultProviderMode === "redirect" ? "站外充值" : "站内充值";
-  const providerLabel = adminProviderLabel(result.data?.defaultProvider, result.data?.defaultProviderLabel);
-  const message = success
-    ? `当前默认方式：${locationLabel} · ${providerLabel}`
-    : result.message || "请检查链接或管理 token。";
-  const html = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title}｜GPTC.cc</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 20px;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: #132033;
-      background: #f4f7fb;
-    }
-    main {
-      width: min(420px, 100%);
-      padding: 24px;
-      border-radius: 14px;
-      background: #fff;
-      border: 1px solid #dbe4ee;
-      box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
-      text-align: center;
-    }
-    h1 { margin: 0 0 10px; font-size: 26px; }
-    p { margin: 0; color: #475569; line-height: 1.7; }
-    a {
-      margin-top: 18px;
-      min-height: 46px;
-      padding: 0 16px;
-      border-radius: 10px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: #0f766e;
-      color: #fff;
-      text-decoration: none;
-      font-weight: 900;
-    }
-  </style>
-</head>
-<body>
-  <main>
-    <h1>${title}</h1>
-    <p>${message}</p>
-    <a href="/admin/provider">打开切换后台</a>
-  </main>
-</body>
-</html>`;
-  res.writeHead(success ? 200 : result.status || 400, {
-    "Content-Type": "text/html; charset=utf-8",
-    "Cache-Control": "no-store"
-  });
-  res.end(html);
+function assertAdmin(req) {
+  return adminAuth.authorize(req);
 }
 
-function readAdminToken(req, url, body = {}) {
-  return (
-    req.headers["x-admin-token"] ||
-    url.searchParams.get("adminToken") ||
-    url.searchParams.get("token") ||
-    body.adminToken ||
-    ""
-  ).toString();
+function serveAdminAsset(res, name, contentType = "text/html; charset=utf-8") {
+  res.writeHead(200, { "Content-Type": contentType, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY" });
+  res.end(fs.readFileSync(path.join(config.rootDir, "admin", name), "utf8"));
 }
 
-function assertAdmin(req, url, body = {}) {
-  if (!config.adminToken) {
-    return { ok: false, status: 403, message: "请先在服务端配置 ADMIN_TOKEN。" };
+async function handleAdminAuth(req, res, url) {
+  if (!url.pathname.startsWith("/admin/") && !url.pathname.startsWith("/api/admin/")) return false;
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  if (req.method === "GET" && url.pathname === "/admin/session.js") {
+    serveAdminAsset(res, "session.js", "application/javascript; charset=utf-8"); return true;
   }
-  if (readAdminToken(req, url, body) !== config.adminToken) {
-    return { ok: false, status: 401, message: "管理密码不正确。" };
+  if (req.method === "GET" && ["/admin/login", "/admin/login/"].includes(url.pathname)) {
+    serveAdminAsset(res, "login.html"); return true;
   }
-  return { ok: true };
+  if (req.method === "POST" && url.pathname === "/api/admin/login") {
+    let body;
+    try { body = await readJsonBody(req, 4096); }
+    catch { sendJson(res, 400, { success: false, message: "登录请求格式不正确。" }); return true; }
+    const result = adminAuth.login(req, body);
+    if (result.cookie) res.setHeader("Set-Cookie", result.cookie);
+    if (result.status === 429) res.setHeader("Retry-After", "900");
+    sendJson(res, result.ok ? 200 : result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message });
+    return true;
+  }
+  if (url.pathname.startsWith("/admin/")) {
+    // Legacy credential-bearing links are never authentication, even with a session.
+    if (url.searchParams.has("token") || url.searchParams.has("adminToken") || !adminAuth.session(req)) {
+      res.writeHead(303, { Location: "/admin/login?next=" + encodeURIComponent(url.pathname) }); res.end(); return true;
+    }
+    return false;
+  }
+  const auth = adminAuth.authorize(req);
+  if (!auth.ok) { sendJson(res, auth.status, { success: false, message: auth.message }); return true; }
+  if (req.method === "GET" && url.pathname === "/api/admin/session") {
+    const { csrf, expiresAt, remembered } = auth.session;
+    sendJson(res, 200, { success: true, data: { csrf, expiresAt, remembered } }); return true;
+  }
+  if (req.method === "POST" && ["/api/admin/logout", "/api/admin/logout-all"].includes(url.pathname)) {
+    const result = adminAuth.logout(req, url.pathname.endsWith("logout-all"));
+    res.setHeader("Set-Cookie", result.cookie);
+    sendJson(res, 200, { success: true, data: {} }); return true;
+  }
+  return false;
 }
 
 const hCardQueryRateLimiter = createHCardQueryRateLimiter();
@@ -1219,6 +1086,7 @@ async function reconcileStaleHifupayReservations(limit = 100) {
 export const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+    if (await handleAdminAuth(req, res, url)) return;
 
     if (req.method === "OPTIONS" && url.pathname.startsWith("/api/recharge/")) {
       sendJson(res, 200, { success: true });
@@ -1261,13 +1129,8 @@ export const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/admin/provider/switch") {
-      const auth = assertAdmin(req, url);
-      if (!auth.ok) {
-        serveProviderSwitchResult(res, auth);
-        return;
-      }
-      const result = rechargeService.updateDefaultProvider(url.searchParams.get("provider"), "direct-link");
-      serveProviderSwitchResult(res, result);
+      res.writeHead(303, { Location: "/admin/provider" });
+      res.end();
       return;
     }
 

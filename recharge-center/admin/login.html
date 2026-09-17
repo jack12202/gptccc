@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer">
+  <title>登录后台｜GPTC.cc</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f7fb;color:#132033;font:16px system-ui,-apple-system,sans-serif}main{width:min(420px,100%);padding:32px;border:1px solid #dbe4ee;border-radius:18px;background:white;box-shadow:0 18px 48px #0f172a14}h1{font-size:26px;margin:0 0 10px}p{color:#64748b;line-height:1.6}label{display:block;margin-top:24px;font-weight:600}input[type=password]{width:100%;margin-top:8px;padding:12px;border:1px solid #cbd5e1;border-radius:9px;font:inherit}.remember{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:400}button{width:100%;margin-top:24px;padding:12px;border:0;border-radius:9px;background:#0f766e;color:white;font:inherit;font-weight:700;cursor:pointer}button:disabled{opacity:.6;cursor:wait}#status{min-height:24px;color:#b91c1c;font-size:14px}.help{font-size:13px;margin-bottom:0}
+  </style>
+</head>
+<body><main>
+  <h1>登录卡密工作台</h1><p>登录后可直接使用卡密库、嗨付卡池和充值记录。</p>
+  <form id="loginForm">
+    <label for="password">管理密码</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024" autofocus>
+    <label class="remember"><input id="remember" type="checkbox">记住此设备 7 天（仅限自己的设备）</label>
+    <button id="submit" type="submit">登录</button>
+    <p id="status" role="status" aria-live="polite"></p>
+  </form><p class="help">未勾选时，本次登录最长保持 8 小时。可随时退出当前或所有设备。</p>
+</main><script>
+  try { localStorage.removeItem("gptcProviderAdminToken"); } catch {}
+  const allowed = new Set(["/admin/cards", "/admin/cards/", "/admin/cards/library", "/admin/cards/library/", "/admin/cards/batch", "/admin/cards/batch/", "/admin/hifupay/cards", "/admin/hifupay/cards/", "/admin/recoveries", "/admin/recoveries/", "/admin/provider", "/admin/provider/"]);
+  const next = new URLSearchParams(location.search).get("next");
+  const destination = allowed.has(next) ? next : "/admin/cards";
+  history.replaceState(null, "", "/admin/login?next=" + encodeURIComponent(destination));
+  document.getElementById("loginForm").onsubmit = async event => {
+    event.preventDefault();
+    const button = document.getElementById("submit"), status = document.getElementById("status"), password = document.getElementById("password");
+    button.disabled = true; button.textContent = "登录中…"; status.textContent = "";
+    try {
+      const response = await fetch("/api/admin/login", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Admin-Request": "1" }, body: JSON.stringify({ password: password.value, remember: document.getElementById("remember").checked }) });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || "登录失败，请重试。");
+      password.value = ""; location.replace(destination);
+    } catch (error) { status.textContent = error.message || "网络异常，请稍后重试。"; }
+    finally { button.disabled = false; button.textContent = "登录"; }
+  };
+</script></body></html>

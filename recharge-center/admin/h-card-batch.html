@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  <script src="/admin/session.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
@@ -48,7 +49,6 @@
         <div><h1>批量查询</h1><p>每行一张完整 HPLUS 卡密，或一条带 provider=h 和 card 参数的 gptc.cc 充值链接，最多 100 张。</p></div>
         <div class="actions"><a href="/admin/cards">卡密生成</a><a href="/admin/cards/library">卡密库</a></div>
       </div>
-      <label class="auth">管理密码<input id="adminToken" type="password" autocomplete="current-password" placeholder="请输入 ADMIN_TOKEN"></label>
       <label class="query">卡密或充值链接<textarea id="inputs" spellcheck="false" placeholder="HPLUS...&#10;https://www.gptc.cc/activate/?provider=h&amp;card=HPLUS..."></textarea></label>
       <div class="toolbar">
         <button id="query" type="button">开始查询</button>
@@ -56,7 +56,7 @@
         <button class="secondary" id="copy" type="button" disabled>复制当前结果</button>
         <span id="count">0 条</span>
       </div>
-      <div class="status" id="status">输入管理密码和卡密后开始查询。此页面只读取本站数据库。</div>
+      <div class="status" id="status">输入卡密后开始查询。此页面只读取本站数据库。</div>
       <div class="table">
         <table>
           <thead><tr><th>序号</th><th>完整卡密</th><th>状态</th><th>绑定账号</th><th>来源</th><th>批次</th><th>生成时间</th><th>提交时间</th><th>完成时间</th><th>简化失败原因</th></tr></thead>
@@ -66,19 +66,10 @@
     </section>
   </main>
   <script>
-    const tokenInput = document.getElementById("adminToken");
     const inputBox = document.getElementById("inputs");
     const statusBox = document.getElementById("status");
     const filter = document.getElementById("statusFilter");
     const copyButton = document.getElementById("copy");
-    const params = new URLSearchParams(location.search);
-    const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
-    const tokenFromQuery = params.get("token") || "";
-    const token = hash.get("token") || tokenFromQuery || localStorage.getItem("gptcProviderAdminToken") || "";
-    tokenInput.value = token;
-    if (token) localStorage.setItem("gptcProviderAdminToken", token);
-    if (tokenFromQuery) history.replaceState(null, "", location.pathname + (location.hash || ""));
-
     let allResults = [];
     let visibleResults = [];
     const headers = ["序号", "完整卡密", "状态", "绑定账号", "来源", "批次", "生成时间", "提交时间", "完成时间", "简化失败原因"];
@@ -107,15 +98,7 @@
       document.getElementById("count").textContent = visibleResults.length + " / " + allResults.length + " 条";
       copyButton.disabled = visibleResults.length === 0;
     }
-    async function api(path, options = {}) {
-      const currentToken = tokenInput.value.trim();
-      if (!currentToken) throw new Error("请先输入管理密码。");
-      localStorage.setItem("gptcProviderAdminToken", currentToken);
-      const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", "X-Admin-Token": currentToken, ...(options.headers || {}) } });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || "查询失败。");
-      return data.data;
-    }
+    const api = window.adminApi;
     document.getElementById("query").onclick = async () => {
       const inputs = inputBox.value.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
       if (!inputs.length) return setStatus("请至少输入一张卡密。", true);

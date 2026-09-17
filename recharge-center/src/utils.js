@@ -12,9 +12,14 @@ export function sendJson(res, statusCode, payload) {
   res.end(body);
 }
 
-export async function readJsonBody(req) {
+export async function readJsonBody(req, maxBytes = Infinity) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let bytes = 0;
+  for await (const chunk of req) {
+    bytes += chunk.length;
+    if (bytes > maxBytes) throw new Error("Request body too large");
+    chunks.push(chunk);
+  }
   const raw = Buffer.concat(chunks).toString("utf8");
   if (!raw.trim()) return {};
   return JSON.parse(raw);

@@ -51,14 +51,22 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   const address = server.address();
   const baseUrl = `http://127.0.0.1:${address.port}`;
 
-  const batchPage = await fetch(`${baseUrl}/admin/cards/batch`);
+  const loginResponse = await fetch(`${baseUrl}/api/admin/login`, {
+    method: "POST", headers: { "Content-Type": "application/json", Origin: "https://www.gptc.cc", "X-Admin-Request": "1" },
+    body: JSON.stringify({ password: "query-test-admin-token" })
+  });
+  assert.equal(loginResponse.status, 200);
+  const cookie = loginResponse.headers.get("set-cookie").split(";")[0];
+  const csrf = (await loginResponse.json()).data.csrf;
+  const adminHeaders = { Cookie: cookie, Origin: "https://www.gptc.cc", "X-CSRF-Token": csrf };
+  const batchPage = await fetch(`${baseUrl}/admin/cards/batch`, { headers: adminHeaders });
   assert.equal(batchPage.status, 200);
   assert.match(await batchPage.text(), /<h1>批量查询<\/h1>/);
-  const generatorPage = await fetch(`${baseUrl}/admin/cards`);
+  const generatorPage = await fetch(`${baseUrl}/admin/cards`, { headers: adminHeaders });
   assert.equal(generatorPage.status, 200);
   const generatorHtml = await generatorPage.text();
   assert.doesNotMatch(generatorHtml, /batchSummary|batchMeta|批次<\/strong>/);
-  const libraryPage = await fetch(`${baseUrl}/admin/cards/library`);
+  const libraryPage = await fetch(`${baseUrl}/admin/cards/library`, { headers: adminHeaders });
   assert.equal(libraryPage.status, 200);
   const libraryHtml = await libraryPage.text();
   assert.doesNotMatch(libraryHtml, /batchFilter|>批次<\/th>/);
@@ -69,7 +77,7 @@ test("h card query APIs are read-only, authenticated where required, and rate li
       headers: {
         "Content-Type": "application/json",
         "X-Real-IP": ip,
-        ...(token ? { "X-Admin-Token": token } : {})
+        ...(token ? adminHeaders : {})
       },
       body: JSON.stringify(body)
     });
@@ -143,7 +151,7 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   assert.equal(JSON.stringify(mixed.payload).includes("upstream order 12345"), false);
 
   const recordsResponse = await fetch(`${baseUrl}/api/admin/recharge-records`, {
-    headers: { "X-Admin-Token": "query-test-admin-token" }
+    headers: adminHeaders
   });
   assert.equal(recordsResponse.status, 200);
   const recordsPayload = await recordsResponse.json();
