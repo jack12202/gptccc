@@ -575,7 +575,7 @@ export const rechargeService = {
       data: {
         records,
         totalCount: records.length,
-        pendingCount: records.filter(item => ["failed", "needs_review"].includes(item.status) || item.needsAttention).length
+        pendingCount: records.filter(item => ["failed", "needs_review", "manual_queued", "manual_processing", "needs_info"].includes(item.status) || item.needsAttention).length
       }
     };
   },

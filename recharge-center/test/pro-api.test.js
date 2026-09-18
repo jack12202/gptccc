@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import vm from "node:vm";
 
 test("Pro HTTP flow uses card possession, admin CSRF, manual sync and no upstream request", async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-pro-http-"));
@@ -30,6 +31,18 @@ test("Pro HTTP flow uses card possession, admin CSRF, manual sync and no upstrea
   const page = await fetch(base + "/admin/pro-orders", { headers: admin });
   assert.equal(page.status, 200);
   assert.match(await page.text(), /Pro 5x 自动充值设置/);
+  const recoveryPage = await fetch(base + "/admin/recoveries", { headers: admin });
+  assert.equal(recoveryPage.status, 200);
+  const recoveryHtml = await recoveryPage.text();
+  assert.match(recoveryHtml, /确认充值成功/);
+  assert.match(recoveryHtml, /mark-pro-success/);
+  assert.match(recoveryHtml, /账号：/);
+  const inlineScript = recoveryHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(inlineScript);
+  assert.doesNotThrow(() => new vm.Script(inlineScript));
+  const deployScript = fs.readFileSync(new URL("../../scripts/deploy-recharge-backend-1panel.mjs", import.meta.url), "utf8");
+  assert.match(deployScript, /location = \/admin\/pro-orders \{/);
+  assert.match(deployScript, /location \^~ \/admin\/pro-orders\/ \{/);
   assert.equal((await fetch(base + "/api/admin/pro/orders")).status, 401);
   assert.equal((await json("/api/admin/pro/settings", { enabled: true, cardId: "", region: "EG", estimatedChargeUsd: 0, safetyBufferUsd: 0 }, admin)).status, 400);
   const input = { cardInfo: card.code, provider: "czgpt", secretJsonText: JSON.stringify({ userEmail: "test@example.invalid", accessToken: "synthetic", account: { id: "local" } }) };
@@ -46,9 +59,17 @@ test("Pro HTTP flow uses card possession, admin CSRF, manual sync and no upstrea
   assert.equal((await fetch(base + "/api/recharge/status/" + id)).status, 404);
   assert.equal((await json("/api/recharge/pro-order-status", { orderId: id, cardInfo: "other" })).status, 404);
   assert.equal((await json("/api/recharge/pro-order-status", { cardInfo: card.code })).body.data.status, "manual_queued");
+  const records = await fetch(base + "/api/admin/recharge-records", { headers: admin }).then(res => res.json());
+  assert.equal(records.data.pendingCount, 1);
+  assert.equal(records.data.records.find(item => item.id === id)?.fulfillmentMode, "manual");
+  assert.equal((await json("/api/admin/recoveries/" + id + "/mark-success", {}, admin)).status, 409);
   assert.equal((await json("/api/admin/pro/orders/" + id + "/mark-success", {}, { Cookie: cookie, Origin: "https://www.gptc.cc" })).status, 403);
   const marked = await json("/api/admin/pro/orders/" + id + "/mark-success", { note: "测试人工完成" }, admin);
   assert.equal(marked.status, 200);
+  assert.equal((await json("/api/admin/pro/orders/" + id + "/mark-success", {}, admin)).status, 200);
   assert.equal((await json("/api/recharge/pro-order-status", { cardInfo: card.code })).body.data.status, "success");
   assert.equal(store.getHCardByCode(card.code).status, "used");
+  assert.equal(store.read().rechargeLogs.filter(item => item.orderId === id && item.step === "pro.admin.mark-success").length, 1);
+  const after = await fetch(base + "/api/admin/recharge-records", { headers: admin }).then(res => res.json());
+  assert.equal(after.data.pendingCount, 0);
 });

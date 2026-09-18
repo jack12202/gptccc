@@ -839,15 +839,15 @@ function serveRecoveryAdmin(res) {
     <section>
       <div class="topbar">
         <div><h1>充值记录</h1><p class="hint">查看全部通道的提交记录。JSON 加密保存，成功订单完成45天后自动清除敏感内容。</p></div>
-        <div class="top-actions"><a class="back-link" href="/admin/cards">卡密生成</a><a class="back-link" href="/admin/cards/library">卡密库</a></div>
+        <div class="top-actions"><a class="back-link" href="/admin/cards">卡密生成</a><a class="back-link" href="/admin/cards/library">卡密库</a><a class="back-link" href="/admin/pro-orders">Pro 订单工作台</a></div>
       </div>
 
       <div class="top-actions" style="margin-top:14px"><button id="enableAlerts" type="button">开启桌面提醒</button><button class="secondary" id="refresh" type="button">立即刷新</button></div>
       <div class="status" id="statusBox">正在加载充值记录…</div>
     </section>
     <section>
-      <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="输入账号或卡密"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需取消续费</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>通道<select id="providerFilter"><option value="">全部通道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
-      <p class="hint">充值失败时请先复制 JSON 完成人工充值，成功后点击“同步成功”；该按钮只更新本站订单和卡密状态，不会再次调用充值通道。</p>
+      <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="输入账号或卡密"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需取消续费</option><option value="manual_queued">待人工</option><option value="manual_processing">人工处理中</option><option value="needs_info">需补资料</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>通道<select id="providerFilter"><option value="">全部通道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
+      <p class="hint">人工充值完成后再点击“确认充值成功”；该按钮只更新本站订单和卡密状态，不会再次调用充值通道。自动任务“待确认”时请先核实原任务，不要直接补充充值。</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>账号</th><th>卡密/通道</th><th>嗨付卡</th><th>状态</th><th>结果说明</th><th>提交时间</th><th>操作</th></tr></thead>
@@ -878,20 +878,29 @@ function serveRecoveryAdmin(res) {
     }
     const api = window.adminApi;
     function statusLabel(status) {
-      return ({ needs_review: "待确认", failed: "失败", success: "成功", processing: "处理中", syncing: "同步中", created: "已创建" })[status] || status;
+      return ({ manual_queued: "待人工", manual_processing: "人工处理中", needs_info: "需补资料", queued: "自动排队", submitting: "提交中", needs_review: "待确认", failed: "失败", success: "成功", processing: "处理中", syncing: "同步中", created: "已创建" })[status] || status;
+    }
+    function isPro(item) {
+      return ["pro_x5", "pro_x20"].includes(item.plan);
+    }
+    function canConfirmProManual(item) {
+      return isPro(item) && item.fulfillmentMode === "manual" && ["manual_queued", "manual_processing", "needs_info"].includes(item.status);
+    }
+    function needsFollowup(item) {
+      return ["failed", "needs_review", "manual_queued", "manual_processing", "needs_info"].includes(item.status) || item.needsAttention;
     }
     function renderRows(items) {
       if (!items.length) return '<tr><td class="empty" colspan="7">暂无匹配记录</td></tr>';
       return items.map(item => '<tr class="' + (item.needsAttention ? 'needs-attention' : '') + '">'
         + '<td>' + escapeHtml(item.userEmail || "-") + '</td>'
-        + '<td>' + escapeHtml(item.cardMask || "-") + '<br><small>通道 ' + escapeHtml(item.provider) + '</small></td>'
+        + '<td>' + escapeHtml(item.cardMask || "-") + '<br><small>' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") + " · " + (item.fulfillmentMode === "manual" ? "人工" : "自动") : "通道 " + item.provider) + '</small></td>'
         + '<td>' + (item.hifupayCardLastFour ? '****' + escapeHtml(item.hifupayCardLastFour) : '-') + '</td>'
         + '<td>' + escapeHtml(statusLabel(item.status)) + (item.hifupaySafetyStatus === 'confirming_unpaid' ? '<br><small>安全复核中</small>' : item.needsAttention ? '<br><span class="attention-badge">需取消续费</span>' : item.subscriptionCancellationStatus === 'cancelled' ? '<br><small>续费已关闭</small>' : '') + '</td>'
         + '<td class="message">' + escapeHtml(item.needsAttention ? item.subscriptionActionMessage : item.message || "-") + '</td>'
         + '<td>' + escapeHtml(formatDate(item.createdAt)) + '</td>'
         + '<td><div class="row-actions">'
         + (item.hasOriginalJson ? '<button class="secondary" type="button" data-action="copy-json" data-order-id="' + escapeHtml(item.id) + '">复制JSON</button>' : '')
-        + (["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
+        + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : !isPro(item) && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
         + (item.needsAttention ? '<button type="button" data-action="mark-subscription-handled" data-order-id="' + escapeHtml(item.id) + '">标记已处理</button>' : '')
         + '</div></td></tr>').join("");
     }
@@ -942,7 +951,7 @@ function serveRecoveryAdmin(res) {
         providerSelect.innerHTML = '<option value="">全部通道</option>' + providers.map(value => '<option value="' + escapeHtml(value) + '">' + escapeHtml(value) + '</option>').join("");
         providerSelect.value = selectedProvider;
         applyRecordFilters();
-        const pending = allRecords.filter(item => ["failed", "needs_review"].includes(item.status) || item.needsAttention);
+        const pending = allRecords.filter(needsFollowup);
         notifyNew(pending);
         setStatus(data.pendingCount ? "共 " + allRecords.length + " 条记录，其中 " + data.pendingCount + " 条需要处理。" : "共 " + allRecords.length + " 条记录，当前没有待处理订单。");
       } catch (error) { setStatus(error.message, true); }
@@ -969,7 +978,12 @@ function serveRecoveryAdmin(res) {
       if (!button) return;
       const action = button.dataset.action;
       const orderId = button.dataset.orderId;
-      if (action === "mark-success" && !window.confirm("确认人工充值已经成功？系统只会同步本站订单和卡密，不会再次提交充值。")) return;
+      const record = allRecords.find(item => item.id === orderId);
+      if (!record) { setStatus("订单记录已更新，请刷新后重试。", true); return; }
+      if (["mark-success", "mark-pro-success"].includes(action)) {
+        const plan = record.plan === "pro_x5" ? "Pro 5x" : record.plan === "pro_x20" ? "Pro 20x" : "Plus";
+        if (!window.confirm("确认这笔订单已在外部完成充值？\\n账号：" + (record.userEmail || "-") + "\\n套餐：" + plan + "\\n订单：" + orderId + "\\n只同步本站状态，不会再次提交充值。")) return;
+      }
       if (action === "mark-subscription-handled" && !window.confirm("确认已经联系用户并完成自动续费处理？")) return;
       button.disabled = true;
       try {
@@ -978,9 +992,11 @@ function serveRecoveryAdmin(res) {
           await navigator.clipboard.writeText(detail.secretJsonText || "");
           setStatus("JSON 已复制到剪贴板，请注意不要转发给无关人员。");
         } else {
-          const endpoint = action === "mark-success" ? "mark-success" : "mark-subscription-handled";
-          const data = await api("/api/admin/recoveries/" + encodeURIComponent(orderId) + "/" + endpoint, { method: "POST", body: JSON.stringify({}) });
-          setStatus(action === "mark-success" ? "已同步为充值成功。" : "已标记为人工处理完成。");
+          const endpoint = action === "mark-pro-success"
+            ? "/api/admin/pro/orders/" + encodeURIComponent(orderId) + "/mark-success"
+            : "/api/admin/recoveries/" + encodeURIComponent(orderId) + "/" + (action === "mark-success" ? "mark-success" : "mark-subscription-handled");
+          await api(endpoint, { method: "POST", body: JSON.stringify({}) });
+          setStatus(["mark-success", "mark-pro-success"].includes(action) ? "已同步为充值成功。" : "已标记为人工处理完成。");
           await loadRecoveries();
         }
       } catch (error) { setStatus(error.message, true); }

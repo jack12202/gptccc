@@ -423,6 +423,22 @@ location ^~ /admin/cards/ {
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 
+location = /admin/pro-orders {
+    proxy_pass http://127.0.0.1:8788;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location ^~ /admin/pro-orders/ {
+    proxy_pass http://127.0.0.1:8788;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
 location = /admin/recoveries {
     proxy_pass http://127.0.0.1:8788;
     proxy_set_header Host $host;
@@ -478,7 +494,7 @@ cleanup_recharge_locations() {
         if (depth <= 0) skip = 0
         next
       }
-      if ($0 ~ /^[[:space:]]*location[[:space:]]/ && (index($0, "/api/recharge/") || index($0, "/api/admin/") || index($0, "/admin/provider") || index($0, "/admin/cards") || index($0, "/admin/recoveries") || index($0, "/admin/hifupay/cards") || index($0, "/admin/login") || index($0, "/admin/session.js"))) {
+      if ($0 ~ /^[[:space:]]*location[[:space:]]/ && (index($0, "/api/recharge/") || index($0, "/api/admin/") || index($0, "/admin/provider") || index($0, "/admin/cards") || index($0, "/admin/pro-orders") || index($0, "/admin/recoveries") || index($0, "/admin/hifupay/cards") || index($0, "/admin/login") || index($0, "/admin/session.js"))) {
         skip = 1
         depth = delta($0)
         if (depth <= 0) skip = 0
@@ -500,7 +516,7 @@ for root in $CLEANUP_ROOTS; do
   [ -d "$root" ] || continue
   find "$root" -maxdepth 8 -type f -name "*.conf" 2>/dev/null
 done | sort -u | while IFS= read -r conf_file; do
-  if grep -qE "GPTC RECHARGE CENTER|/api/recharge/|/api/admin/|/admin/provider|/admin/cards|/admin/recoveries|/admin/hifupay/cards|/admin/login|/admin/session.js" "$conf_file"; then
+  if grep -qE "GPTC RECHARGE CENTER|/api/recharge/|/api/admin/|/admin/provider|/admin/cards|/admin/pro-orders|/admin/recoveries|/admin/hifupay/cards|/admin/login|/admin/session.js" "$conf_file"; then
     echo "[gptc] cleaning $conf_file"
     cleanup_recharge_locations "$conf_file"
   fi
@@ -559,7 +575,7 @@ if [ -n "$SITE_CONF" ]; then
         if (depth <= 0) skip = 0
         next
       }
-      if ($0 ~ /^[[:space:]]*location[[:space:]]/ && (index($0, "/api/recharge/") || index($0, "/api/admin/") || index($0, "/admin/provider") || index($0, "/admin/cards") || index($0, "/admin/recoveries") || index($0, "/admin/hifupay/cards") || index($0, "/admin/login") || index($0, "/admin/session.js"))) {
+      if ($0 ~ /^[[:space:]]*location[[:space:]]/ && (index($0, "/api/recharge/") || index($0, "/api/admin/") || index($0, "/admin/provider") || index($0, "/admin/cards") || index($0, "/admin/pro-orders") || index($0, "/admin/recoveries") || index($0, "/admin/hifupay/cards") || index($0, "/admin/login") || index($0, "/admin/session.js"))) {
         skip = 1
         depth = delta($0)
         if (depth <= 0) skip = 0
