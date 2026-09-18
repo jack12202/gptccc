@@ -80,6 +80,11 @@ function activeHifupayProReservation(state, cardId) {
   return state.hifupayProReservations.find(item => item.cardId === cardId && item.status === "active") || null;
 }
 
+function pro5xCardHeld(state, cardId) {
+  return state.settings.pro5xCardId === cardId || state.orders.some(order => order.plan === "pro_x5" && order.fulfillmentMode === "auto" &&
+    order.hifupayCardId === cardId && ["queued", "submitting", "processing", "needs_review"].includes(order.status));
+}
+
 function maxIsoDate(values = []) {
   const dates = values
     .map(value => String(value || ""))
@@ -97,7 +102,7 @@ function hCardQueryStatus(card, order) {
   if (order?.status === "failed") return "failed";
   if (
     card.status === "reserved" ||
-    ["created", "queued", "processing", "syncing", "needs_review"].includes(order?.status)
+    ["created", "queued", "processing", "syncing", "needs_review", "manual_queued", "manual_processing", "needs_info", "submitting"].includes(order?.status)
   ) return "processing";
   return "locked";
 }
@@ -121,8 +126,10 @@ function decryptProtected(value, context) {
   return decryptSecretText(value, protectionKey(), context);
 }
 
-function generateCardCode() {
-  return `HPLUS${crypto.randomBytes(16).toString("hex").toUpperCase()}`;
+function generateCardCode(plan = "plus") {
+  const prefix = { plus: "HPLUS", pro_x5: "HPRO5", pro_x20: "HPRO20" }[plan];
+  if (!prefix) throw new Error("不支持的卡密套餐。");
+  return `${prefix}${crypto.randomBytes(16).toString("hex").toUpperCase()}`;
 }
 
 function createInitialState() {
@@ -138,7 +145,12 @@ function createInitialState() {
       providerConfigVersion: PROVIDER_CONFIG_VERSION,
       providerUpdatedAt: "",
       providerUpdatedBy: "",
-      hifupayCardsUpdatedAt: ""
+      hifupayCardsUpdatedAt: "",
+      pro5xAutoEnabled: false,
+      pro5xCardId: "",
+      pro5xRegion: "EG",
+      pro5xEstimatedChargeUsd: 0,
+      pro5xSafetyBufferUsd: 0
     }
   };
 }
@@ -187,7 +199,9 @@ export class JsonStore {
 
   write(state) {
     ensureDir(this.filePath);
-    fs.writeFileSync(this.filePath, JSON.stringify(state, null, 2));
+    const temporary = `${this.filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
+    fs.writeFileSync(temporary, JSON.stringify(state, null, 2), { mode: 0o600 });
+    fs.renameSync(temporary, this.filePath);
   }
 
   createOrder(input) {
@@ -333,6 +347,107 @@ export class JsonStore {
     return state.settings;
   }
 
+  updatePro5xSettings(input) {
+    const state = this.read();
+    const cardId = String(input.cardId || "").trim();
+    const region = String(input.region || "EG").trim().toUpperCase();
+    const charge = Number(input.estimatedChargeUsd);
+    const buffer = Number(input.safetyBufferUsd);
+    if (cardId && !state.hifupayCards.some(card => card.id === cardId)) return { ok: false, message: "指定卡片不在本地卡池中。" };
+    if (!/^[A-Z]{2}$/.test(region) || !Number.isFinite(charge) || charge < 0 || !Number.isFinite(buffer) || buffer < 0) return { ok: false, message: "地区或余额参数无效。" };
+    if (input.enabled && (!cardId || charge <= 0)) return { ok: false, message: "开启前请指定卡片并填写预计扣款额。" };
+    Object.assign(state.settings, {
+      pro5xAutoEnabled: input.enabled === true,
+      pro5xCardId: cardId,
+      pro5xRegion: region,
+      pro5xEstimatedChargeUsd: charge,
+      pro5xSafetyBufferUsd: buffer
+    });
+    this.write(state);
+    return { ok: true, settings: state.settings };
+  }
+
+  // A synchronous transaction: one card can own only one effective order, even for concurrent HTTP requests.
+  createProOrder({ code, identity, source, ciphertext, session }) {
+    const state = this.read();
+    const card = state.hCards.find(item => item.codeHash === cardCodeHash(String(code).toUpperCase()));
+    if (!card || !["pro_x5", "pro_x20"].includes(card.plan)) return { ok: false, status: 404, message: "未找到 Pro 套餐卡密。" };
+    const existing = state.orders.find(item => item.id === card.orderId);
+    if (existing) {
+      if (!cardIdentityMatches(card, identity)) return { ok: false, status: 409, message: "卡密已绑定其他账号。" };
+      return { ok: true, existing: true, order: existing };
+    }
+    if (card.disabledAt || card.archivedAt || card.status !== "unused") return { ok: false, status: 409, message: "卡密当前不可使用。" };
+    const settings = state.settings;
+    const configuredId = card.plan === "pro_x5" ? settings.pro5xCardId || "" : "";
+    const selectedId = settings.pro5xAutoEnabled ? configuredId : "";
+    const selected = state.hifupayCards.find(item => item.id === selectedId);
+    const charge = Number(settings.pro5xEstimatedChargeUsd);
+    const buffer = Number(settings.pro5xSafetyBufferUsd);
+    const protection = selected && (selected.usageMode === "pro_reserved" || activeHifupayProReservation(state, selected.id));
+    const available = selected && selected.enabled !== false && hifupayRemoteStatus(selected.status) === "active" && !protection &&
+      selected.balance !== null && Number.isFinite(charge) && charge > 0 && selected.balance >= charge + buffer;
+    const auto = Boolean(selectedId && available);
+    const reason = card.plan === "pro_x5" && settings.pro5xAutoEnabled && !auto ? "指定付款卡不可用或余额不足，已转人工处理。" : "已进入充值队列，请稍后，完成后可在本页查询结果。";
+    const timestamp = nowIso();
+    const order = {
+      id: makeId("order"), provider: "h", plan: card.plan, productId: card.productId,
+      fulfillmentMode: auto ? "auto" : "manual", initialFulfillmentMode: auto ? "auto" : "manual",
+      autoEnabledSnapshot: card.plan === "pro_x5" && settings.pro5xAutoEnabled === true,
+      selectedCardSnapshotId: configuredId, status: auto ? "queued" : "manual_queued",
+      siteSource: source || "unknown", cardMask: card.cardMask, hCardId: card.id,
+      hifupayCardId: auto ? selectedId : "", hifupayCardLastFour: auto ? selected.lastFour || "" : "",
+      proRegion: settings.pro5xRegion || "EG", estimatedChargeUsd: Number.isFinite(charge) ? charge : 0,
+      safetyBufferUsd: Number.isFinite(buffer) ? buffer : 0, message: reason, processingNote: "",
+      cardInfoCiphertext: ciphertext, upstreamTaskId: "", paymentConfirmed: false, autoCancelDone: false,
+      subscriptionCancellationStatus: "not_started", createdAt: timestamp, updatedAt: timestamp
+    };
+    Object.assign(card, { status: "locked", orderId: order.id, boundEmail: normalizeEmail(identity.email),
+      boundAccountId: normalizeAccountId(identity.accountId), boundAt: timestamp, hasSubmission: true, submittedAt: timestamp, updatedAt: timestamp });
+    state.orders.push(order);
+    state.rechargeSessions.push({ id: makeId("session"), orderId: order.id, userEmail: session.userEmail,
+      tokenHash: session.tokenHash, authDataCiphertext: session.authDataCiphertext,
+      rawSecretCiphertext: session.rawSecretCiphertext, createdAt: timestamp });
+    state.rechargeLogs.push({ id: makeId("log"), orderId: order.id, step: "pro.created", requestSummary: "",
+      responseSummary: order.fulfillmentMode, createdAt: timestamp });
+    this.write(state);
+    return { ok: true, existing: false, order };
+  }
+
+  claimNextProOrder() {
+    const state = this.read();
+    const order = state.orders.find(item => item.plan === "pro_x5" && item.fulfillmentMode === "auto" && item.status === "queued");
+    if (!order) return null;
+    const card = state.hifupayCards.find(item => item.id === order.hifupayCardId);
+    if (!card) return this.moveProToManual(order.id, "指定付款卡不存在，已转人工处理。");
+    if ((card.inFlightOrders || []).length) return null;
+    if (card.enabled === false || hifupayRemoteStatus(card.status) !== "active" || card.usageMode === "pro_reserved" || activeHifupayProReservation(state, card.id) ||
+      card.balance === null || card.balance < order.estimatedChargeUsd + order.safetyBufferUsd) {
+      return this.moveProToManual(order.id, "指定付款卡不可用或余额不足，已转人工处理。");
+    }
+    card.inFlightOrders ||= [];
+    card.inFlightOrders.push({ orderId: order.id, plan: "pro_x5", email: state.rechargeSessions.find(item => item.orderId === order.id)?.userEmail || "",
+      estimatedChargeUsd: order.estimatedChargeUsd, balanceBefore: card.balance, state: "submitting", reservedAt: nowIso() });
+    order.status = "submitting"; order.message = "充值任务正在提交，请勿重复操作。"; order.updatedAt = nowIso();
+    this.write(state);
+    return order;
+  }
+
+  moveProToManual(orderId, reason) {
+    const state = this.read();
+    const order = state.orders.find(item => item.id === orderId && item.plan === "pro_x5");
+    if (!order || order.status !== "queued") return null;
+    order.status = "manual_queued"; order.fulfillmentMode = "manual"; order.message = reason;
+    order.updatedAt = nowIso(); this.write(state);
+    return order;
+  }
+
+  listProOrders() {
+    const state = this.read();
+    return state.orders.filter(item => item.plan === "pro_x5" || item.plan === "pro_x20")
+      .map(order => ({ ...order, session: state.rechargeSessions.find(item => item.orderId === order.id) || null }));
+  }
+
   getHifupayEstimatedCharge(plan = "plus") {
     const normalizedPlan = String(plan || "plus").toLowerCase();
     if (normalizedPlan !== "plus") return Math.max(Number(config.hifupayEstimatedProChargeUsd) || 0, 0);
@@ -372,7 +487,8 @@ export class JsonStore {
     return log;
   }
 
-  createHCards({ count = 1, productId = 3, source = "未分类" } = {}) {
+  createHCards({ count = 1, productId = 3, source = "未分类", plan = "plus" } = {}) {
+    if (!["plus", "pro_x5", "pro_x20"].includes(plan)) throw new Error("不支持的卡密套餐。");
     const safeCount = Math.min(Math.max(Number(count) || 1, 1), 100);
     const createdAt = nowIso();
     const batchId = makeId("batch");
@@ -381,13 +497,14 @@ export class JsonStore {
     const result = [];
 
     for (let index = 0; index < safeCount; index += 1) {
-      const code = generateCardCode();
+      const code = generateCardCode(plan);
       const card = {
         id: makeId("hcard"),
         provider: "h",
         batchId,
         source: normalizedSource,
         productId: Number(productId) || 3,
+        plan,
         codeHash: cardCodeHash(code),
         codeCiphertext: encryptProtected(code, "h-card-code"),
         cardMask: cardMask(code),
@@ -413,6 +530,7 @@ export class JsonStore {
         code,
         cardMask: card.cardMask,
         status: card.status,
+        plan,
         source: card.source,
         batchId,
         createdAt,
@@ -438,6 +556,7 @@ export class JsonStore {
         batchId: card.batchId || "",
         source: card.source || "未分类",
         productId: card.productId,
+        plan: card.plan || "plus",
         cardMask: card.cardMask,
         ...(reveal && card.codeCiphertext ? { code: decryptProtected(card.codeCiphertext, "h-card-code") } : {}),
         status: card.disabledAt ? "disabled" : card.status,
@@ -527,9 +646,10 @@ export class JsonStore {
       const expiredHold = full && (!holdUntil || Date.parse(holdUntil) <= Date.now());
       const proReservation = activeHifupayProReservation(state, card.id);
       const proProtected = card.usageMode === "pro_reserved" || Boolean(proReservation);
+      const pro5xSelected = pro5xCardHeld(state, card.id);
       const highBalanceProtected = card.balance !== null && card.balance > plusMaxBalance;
       let poolStatus = "ready";
-      if (proProtected) poolStatus = "pro_protected";
+      if (proProtected || pro5xSelected) poolStatus = "pro_protected";
       else if (!card.enabled) poolStatus = "disabled";
       else if (hifupayRemoteStatus(card.status) !== "active") poolStatus = "upstream_unavailable";
       else if (highBalanceProtected) poolStatus = "high_balance";
@@ -545,6 +665,7 @@ export class JsonStore {
         enabled: card.enabled !== false,
         usageMode: card.usageMode || "plus",
         proProtected,
+        pro5xSelected,
         highBalanceProtected,
         plusMaxBalance,
         proReservation: proReservation ? {
@@ -609,6 +730,7 @@ export class JsonStore {
         if (normalizedPlan === "plus" && (
           card.usageMode === "pro_reserved" ||
           activeHifupayProReservation(state, card.id) ||
+          pro5xCardHeld(state, card.id) ||
           (card.balance !== null && card.balance > plusMaxBalance)
         )) {
           return { ok: false, status: "protected", message: "原预留卡片已进入 Pro 或高余额保护，充值未提交。" };
@@ -619,6 +741,7 @@ export class JsonStore {
       if (normalizedPlan === "plus" && (
         card.usageMode === "pro_reserved" ||
         activeHifupayProReservation(state, card.id) ||
+        pro5xCardHeld(state, card.id) ||
         (card.balance !== null && card.balance > plusMaxBalance)
       )) continue;
       if (card.balance === null || card.balance < charge + safetyBuffer) continue;
@@ -691,7 +814,7 @@ export class JsonStore {
     const safetyBuffer = Math.max(Number(config.hifupaySafetyBufferUsd) || 0, 0);
     if (normalizedPlan === "plus") {
       const plusMaxBalance = hifupayPlusMaxBalance();
-      if (card.usageMode === "pro_reserved" || activeHifupayProReservation(state, card.id)) {
+      if (card.usageMode === "pro_reserved" || activeHifupayProReservation(state, card.id) || pro5xCardHeld(state, card.id)) {
         return { ok: false, status: "pro_protected", message: "这张嗨付卡已为 Pro 续费保留，Plus 充值未提交。" };
       }
       if (card.balance !== null && card.balance > plusMaxBalance) {
@@ -984,6 +1107,7 @@ export class JsonStore {
         boundEmail: card.boundEmail || "",
         boundAccountId: card.boundAccountId || "",
         source: card.source || "未分类",
+        plan: card.plan || "plus",
         batchId: card.batchId || "",
         createdAt: card.createdAt || "",
         submittedAt: card.submittedAt || card.boundAt || "",
@@ -1018,6 +1142,7 @@ export class JsonStore {
       status: card.status,
       cardId: card.id,
       productId: card.productId,
+      plan: card.plan || "plus",
       expiresAt: card.expiresAt || ""
     };
   }
@@ -1237,6 +1362,11 @@ export class JsonStore {
           provider: order.provider,
           cardMask: order.cardMask,
           productId: order.productId,
+          plan: order.plan || "plus",
+          fulfillmentMode: order.fulfillmentMode || "auto",
+          processingNote: order.processingNote || "",
+          paymentConfirmed: order.paymentConfirmed === true,
+          waitingMinutes: Math.max(0, Math.floor((Date.now() - Date.parse(order.createdAt)) / 60000)),
           status: order.status,
           upstreamTaskId: order.upstreamTaskId || "",
           providerSessionId: order.providerSessionId || "",

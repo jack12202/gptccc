@@ -31,6 +31,7 @@ function normalizeVerify(result, cardCode) {
     cardCode,
     productId: result.productId || config.hifupayProductId,
     cardId: result.cardId || "",
+    plan: result.plan || "plus",
     expiresAt: result.expiresAt || "",
     status: result.status || "",
     message: success ? "" : result.message || "卡密验证失败，请检查后重试。"
@@ -171,6 +172,7 @@ async function login() {
   const raw = await requestJson(config.hifupayBaseUrl, "/api/hfp/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(15000),
     payload: { apiKey: key, platform: "haifupaytop" }
   });
   const body = raw.data && typeof raw.data === "object" ? raw.data : {};
@@ -203,6 +205,7 @@ export const hifupayAdapter = {
     const raw = await requestJson(config.hifupayBaseUrl, "/api/hfp/cards", {
       method: "POST",
       headers: apiHeaders(session.apiKey),
+      signal: AbortSignal.timeout(15000),
       payload: {}
     });
     const cards = extractCards(raw);
@@ -214,6 +217,18 @@ export const hifupayAdapter = {
       };
     }
     return { ok: true, status: raw.status, data: { cards } };
+  },
+
+  // Strict card path: caller has already persisted its order and reservation.
+  async startPro5x({ token, cardId, region }) {
+    const session = await login();
+    if (!session.ok) return { ok: false, preflight: true };
+    return requestJson(config.hifupayBaseUrl, "/api/start", {
+      method: "POST", headers: apiHeaders(session.apiKey),
+      signal: AbortSignal.timeout(Math.max(Number(config.hifupayProStartTimeoutMs) || 30000, 1000)),
+      payload: { token, plan: "pro_x5", region, proxyRegion: config.hifupayProxyRegion,
+        engine: config.hifupayEngine, hfpCardId: cardId }
+    });
   },
 
   async startRecharge({ cardInfo, fullAuthData, orderId, userEmail, accountId, plan = config.hifupayPlan }) {

@@ -102,6 +102,7 @@ test("h card query APIs are read-only, authenticated where required, and rate li
       "boundAccount",
       "canRecharge",
       "message",
+      "plan",
       "status",
       "statusLabel",
       "subscriptionActionMessage",

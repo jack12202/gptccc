@@ -1,6 +1,7 @@
 import { config } from "./config.js";
 import { getProviderAdapter, listProviders } from "./providers/index.js";
 import { JsonStore } from "./store.js";
+import { proService } from "./pro-orders.js";
 import {
   decodeJson,
   decryptSecretText,
@@ -15,7 +16,7 @@ import {
 
 const store = new JsonStore();
 
-const H_CARD_CODE_PATTERN = /^HPLUS[0-9A-F]{32}$/;
+const H_CARD_CODE_PATTERN = /^(?:HPLUS|HPRO5|HPRO20)[0-9A-F]{32}$/;
 const H_CARD_STATUS_LABELS = {
   unused: "未使用",
   locked: "已锁定",
@@ -383,10 +384,12 @@ export const rechargeService = {
   },
 
   createHCards(input = {}) {
+    if (input.plan && !["plus", "pro_x5", "pro_x20"].includes(input.plan)) return { ok: false, status: 400, message: "不支持的卡密套餐。" };
     const cards = store.createHCards({
       count: input.count,
       productId: input.productId || config.hifupayProductId,
-      source: input.source
+      source: input.source,
+      plan: input.plan || "plus"
     });
     return { ok: true, status: 200, data: { cards } };
   },
@@ -400,7 +403,7 @@ export const rechargeService = {
       return { ok: false, status: 400, message: "仅支持查询 h 通道卡密。" };
     }
     const code = normalizeHCardCode(cardInfo);
-    if (!code) return { ok: false, status: 400, message: "请输入完整的 HPLUS 卡密。" };
+    if (!code) return { ok: false, status: 400, message: "请输入完整的卡密。" };
     const record = store.queryHCardsByCodes([code])[0];
     if (!record?.found) return { ok: false, status: 404, message: "未查询到这张卡密，请核对后重新输入。" };
     return {
@@ -408,6 +411,7 @@ export const rechargeService = {
       status: 200,
       data: {
         status: record.status,
+        plan: record.plan || "plus",
         statusLabel: H_CARD_STATUS_LABELS[record.status],
         boundAccount: maskedBoundAccount(record),
         canRecharge: record.status === "unused",
@@ -538,6 +542,7 @@ export const rechargeService = {
   },
 
   clearHifupayReservation(cardId, orderId) {
+    if (["pro_x5", "pro_x20"].includes(store.getOrder(orderId)?.plan)) return { ok: false, status: 409, message: "Pro 占用必须从 Pro 订单工作台核查，不能直接释放。" };
     const result = store.clearHifupayReservation(cardId, orderId);
     return {
       ok: result.ok,
@@ -710,6 +715,7 @@ export const rechargeService = {
     const record = store.getRecoveryOrder(orderId);
     if (!record) return { ok: false, status: 404, message: "订单不存在。" };
     const { order } = record;
+    if (["pro_x5", "pro_x20"].includes(order.plan)) return { ok: false, status: 409, message: "Pro 订单请在 Pro 工作台操作。" };
     if (order.status === "success") {
       return { ok: true, status: 200, data: { orderId: order.id, status: "success", message: order.message } };
     }
@@ -797,7 +803,8 @@ export const rechargeService = {
       return { ok: false, status: 400, message: "请先输入卡密。" };
     }
 
-    const selectedProvider = resolveProvider(provider);
+    const localCard = store.getHCardByCode(cardInfo);
+    const selectedProvider = localCard ? "h" : resolveProvider(provider);
     const adapter = getProviderAdapter(selectedProvider);
     const upstream = await adapter.verifyCard({ cardInfo: cardInfo.trim() });
     const status = upstream.status && upstream.status < 500 ? 200 : 502;
@@ -876,7 +883,19 @@ export const rechargeService = {
     const parsed = parseRechargeInput(input);
     if (!parsed.ok) return { ok: false, status: 400, message: parsed.message };
 
-    const selectedProvider = resolveProvider(input.provider);
+    const localCard = store.getHCardByCode(cardInfo);
+    if (localCard && ["pro_x5", "pro_x20"].includes(localCard.plan)) {
+      const secret = parsed.data;
+      const result = store.createProOrder({ code: cardInfo.trim(), identity: { email: secret.userEmail, accountId: secret.account?.id || "" },
+        source: siteSource, ciphertext: encryptProtected(cardInfo.trim(), "recharge-card-info"),
+        session: { userEmail: secret.userEmail, tokenHash: sha256(secret.userGptToken),
+          authDataCiphertext: encryptProtected(JSON.stringify(secret.fullAuthData), "recharge-auth-data"),
+          rawSecretCiphertext: encryptProtected(input.secretJsonText || JSON.stringify(secret.fullAuthData), "recharge-secret-json") } });
+      if (!result.ok) return { ok: false, status: result.status, message: result.message };
+      if (!result.existing && result.order.fulfillmentMode === "auto") proService.drain().catch(() => {});
+      return { ok: true, status: 200, data: proService.expose(result.order) };
+    }
+    const selectedProvider = localCard ? "h" : resolveProvider(input.provider);
     const adapter = getProviderAdapter(selectedProvider);
     const secret = parsed.data;
     const providerData = normalizedProviderData(selectedProvider);
@@ -921,7 +940,7 @@ export const rechargeService = {
       providerSessionId: input.providerSessionId || "",
       authProvider: typeof secret.authProvider === "string" ? secret.authProvider : "",
       productId: Number(productId || config.defaultProductId),
-      plan: config.hifupayPlan,
+      plan: localCard ? "plus" : config.hifupayPlan,
       overwriteRecharge: Boolean(overwriteRecharge)
     };
 
@@ -1007,6 +1026,7 @@ export const rechargeService = {
 
   async getStatus(orderId) {
     const order = store.getOrder(orderId);
+    if (["pro_x5", "pro_x20"].includes(order?.plan)) return { ok: false, status: 404, message: "请使用卡密查询订单。" };
     if (!order) {
       return { ok: false, status: 404, message: "订单不存在。" };
     }
@@ -1018,6 +1038,8 @@ export const rechargeService = {
   },
 
   async queryTaskStatus(input, options = {}) {
+    if (requiredString(input.cardInfo) && store.getHCardByCode(input.cardInfo)?.plan?.startsWith("pro_")) return proService.query(input);
+    if (["pro_x5", "pro_x20"].includes((requiredString(input.orderId) ? store.getOrder(input.orderId) : store.getOrderByUpstreamTaskId(input.taskId))?.plan)) return { ok: false, status: 404, message: "请使用卡密查询订单。" };
     const order = requiredString(input.orderId)
       ? store.getOrder(input.orderId)
       : requiredString(input.taskId)

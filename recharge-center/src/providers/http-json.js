@@ -8,10 +8,11 @@ async function readResponseBody(response) {
   }
 }
 
-export async function requestJson(baseUrl, endpoint, { method = "GET", headers = {}, payload, body } = {}) {
+export async function requestJson(baseUrl, endpoint, { method = "GET", headers = {}, payload, body, signal } = {}) {
   const init = {
     method,
-    headers
+    headers,
+    ...(signal ? { signal } : {})
   };
 
   if (payload !== undefined) {

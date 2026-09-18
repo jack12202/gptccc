@@ -901,7 +901,7 @@ window._hmt = _hmt;
     </div>
 
     <section class="hero">
-      <h1>AI Plus账号充值<span class="provider-cue" aria-hidden="true"></span></h1>
+      <h1 id="planHeading">AI Plus账号充值<span class="provider-cue" aria-hidden="true"></span></h1>
       <div class="hero-flow" aria-label="充值流程">
         <span>验证激活码</span>
         <i aria-hidden="true">→</i>
@@ -988,6 +988,7 @@ window._hmt = _hmt;
               <h3>确认充值信息</h3>
               <div class="kvs">
                 <div class="kv"><span>账号信息</span><span id="confirmEmail">-</span></div>
+                <div class="kv"><span>卡密套餐</span><span id="confirmPlan">Plus</span></div>
                 <div class="kv"><span>充值激活码</span><span id="confirmCard">-</span></div>
                 <div class="kv"><span>充值通道</span><span id="confirmChannel">通道一</span></div>
               </div>
@@ -1024,6 +1025,7 @@ window._hmt = _hmt;
     let currentProviderSessionId = "";
     let currentProviderLabel = "自动通道";
     let currentProductId = 3;
+    let currentPlan = "plus";
     let currentParsedSecret = null;
     let providerLocked = false;
     let currentSiteSource = "gptc";
@@ -1187,6 +1189,7 @@ window._hmt = _hmt;
 
     function mapRechargeMessage(message, status) {
       const code = typeof message === "string" ? message.trim() : "";
+      if (["manual_queued", "manual_processing", "needs_info", "submitting"].includes(status)) return code || "已进入充值队列，请稍后，完成后可在本页查询结果。";
       if (status === "queued") return code || "充值请求已提交，正在排队等待处理。";
       if (status === "syncing") return code || "卡密已使用，账号会员状态可能仍在同步。";
       if (status === "needs_review") return code || "充值结果暂时无法确认，系统会继续查询。";
@@ -1436,7 +1439,7 @@ window._hmt = _hmt;
       button.disabled = true;
       button.textContent = "查询中...";
       try {
-        const isHCardQuery = currentProvider === "h" || /^HPLUS/i.test(cardInfo);
+        const isHCardQuery = currentProvider === "h" || /^H(?:PLUS|PRO5|PRO20)/i.test(cardInfo);
         if (isHCardQuery) {
           const data = await postJson("/api/recharge/h-card-status", {
             cardInfo,
@@ -1446,6 +1449,17 @@ window._hmt = _hmt;
             throw new Error(data.message || "卡密状态查询失败，请稍后重试。");
           }
           const result = data.data || {};
+          if (result.plan?.startsWith("pro_") && !result.canRecharge) {
+            const order = await postJson("/api/recharge/pro-order-status", { cardInfo });
+            if (order.success) {
+              currentPlan = result.plan;
+              setTextIfPresent("confirmPlan", result.plan === "pro_x5" ? "Pro 5x" : "Pro 20x");
+              document.getElementById("planHeading").firstChild.textContent = (result.plan === "pro_x5" ? "AI Pro 5x" : "AI Pro 20x") + "账号充值";
+              const state = order.data || {};
+              setNotice("step1Notice", "订单：" + (state.planLabel || "Pro"), state.message || "已进入充值队列。", state.status === "success" ? "success" : "info");
+              return;
+            }
+          }
           const account = result.boundAccount ? ` 绑定账号：${result.boundAccount}。` : "";
           const nextStep = result.canRecharge ? " 你可以点击“验证激活码”继续充值。" : "";
           const subscriptionStep = result.subscriptionActionRequired
@@ -1562,6 +1576,7 @@ window._hmt = _hmt;
         });
         const upstream = data.data || data.upstream?.data || data.upstream || {};
         if (!data.success) {
+          if (/^HPRO(?:5|20)/i.test(cardInfo)) { await queryCardStatusFromInput(); return; }
           const message = mapCardVerifyMessage({ message: data.data?.message || data.message });
           setNotice("step1Notice", isUsedCardMessage(message) ? "卡密已使用" : "激活码验证失败", isUsedCardMessage(message) ? "" : message, "error");
           return;
@@ -1576,6 +1591,9 @@ window._hmt = _hmt;
         currentProviderLabel = upstream.providerLabel || currentProviderLabel;
         currentProviderSessionId = upstream.providerSessionId || "";
         currentProductId = Number(upstream.productId || 3);
+        currentPlan = upstream.plan || "plus";
+        setTextIfPresent("confirmPlan", currentPlan === "pro_x5" ? "Pro 5x" : currentPlan === "pro_x20" ? "Pro 20x" : "Plus");
+        document.getElementById("planHeading").firstChild.textContent = (currentPlan === "pro_x5" ? "AI Pro 5x" : currentPlan === "pro_x20" ? "AI Pro 20x" : "AI Plus") + "账号充值";
         setNotice("step1Notice", "激活码验证通过", "激活码可继续使用，进入下一步获取充值密钥。", "success");
         setTextIfPresent("confirmCard", cardInfo);
         updateVerifiedCardDisplay(cardInfo);
@@ -1606,7 +1624,7 @@ window._hmt = _hmt;
         updateConfirmButtonState();
         setTextIfPresent("confirmEmail", result.data.userEmail);
         setTextIfPresent("confirmCard", document.getElementById("cardInfo").value.trim());
-        setTextIfPresent("confirmChannel", "自动通道");
+        setTextIfPresent("confirmChannel", currentPlan.startsWith("pro_") ? "订单队列" : "自动通道");
         const submitMessage = currentProvider === "h"
           ? `已识别账号邮箱：${result.data.userEmail}，确认充值后将绑定此账号。`
           : `已识别账号邮箱：${result.data.userEmail}，请确认这是你要充值的账号。`;
@@ -1653,7 +1671,7 @@ window._hmt = _hmt;
         const data = await postJson("/api/recharge/confirm", payload);
         const task = data.data || {};
         currentOrderId = task.orderId || "";
-        if (!data.success || task.success === false || !task.taskId) {
+        if (!data.success || task.success === false || (!task.taskId && !task.plan?.startsWith("pro_"))) {
           const message = mapRechargeMessage(task.message || data.message, "failed");
           setNotice("step3Notice", "充值提交失败", currentOrderId ? message + " 订单已保留，客服可以继续处理。" : message, "error");
           progressBox.style.display = "none";
@@ -1665,6 +1683,7 @@ window._hmt = _hmt;
           return;
         }
         currentTaskId = task.taskId;
+        if (task.plan?.startsWith("pro_")) sessionStorage.setItem("gptcProCard", payload.cardInfo);
         clearTimeout(pollTimer);
         setCurrentProvider(task.provider || currentProvider, { locked: true });
         currentProviderLabel = task.providerLabel || currentProviderLabel;
@@ -1723,6 +1742,7 @@ window._hmt = _hmt;
           task.status === "queued" ||
           task.status === "processing" ||
           task.status === "created" ||
+          ["manual_queued", "manual_processing", "needs_info", "submitting"].includes(task.status) ||
           task.processing === true
         ) {
           renderProgressBox(mapRechargeMessage(task.message, task.status), task);
@@ -1763,7 +1783,11 @@ window._hmt = _hmt;
       if (rawProvider) setCurrentProvider(rawProvider, { locked: true });
 
       const rawCard = params.get("card") || params.get("code");
-      if (!rawCard) return;
+      if (!rawCard) {
+        const savedProCard = sessionStorage.getItem("gptcProCard");
+        if (savedProCard) { document.getElementById("cardInfo").value = savedProCard; queryCardStatusFromInput(); }
+        return;
+      }
       const cardInfo = rawCard.trim();
       if (!cardInfo) return;
 

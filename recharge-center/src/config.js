@@ -28,6 +28,7 @@ export const config = {
   hifupayRegion: process.env.HIFUPAY_REGION || "PH",
   hifupayProxyRegion: process.env.HIFUPAY_PROXY_REGION || "PH3",
   hifupayEngine: process.env.HIFUPAY_ENGINE || "oaics",
+  hifupayProStartTimeoutMs: Number(process.env.HIFUPAY_PRO_START_TIMEOUT_MS || 30000),
   hifupayMaxPlusUsers: Number(process.env.HIFUPAY_MAX_PLUS_USERS || 4),
   hifupayUpgradeWindowDays: Number(process.env.HIFUPAY_UPGRADE_WINDOW_DAYS || 30),
   hifupayEstimatedPlusChargeUsd: Number(process.env.HIFUPAY_ESTIMATED_PLUS_CHARGE_USD || 16),

@@ -7,6 +7,7 @@ import { createAdminAuth } from "./admin-auth.js";
 
 const adminAuth = createAdminAuth({ password: config.adminToken, file: path.join(path.dirname(config.dataFile), "admin-sessions.json"), origin: config.publicBaseUrl });
 import { rechargeService } from "./recharge-service.js";
+import { proService } from "./pro-orders.js";
 import { readJsonBody, sendJson } from "./utils.js";
 
 const frontendCandidates = [
@@ -308,12 +309,13 @@ function serveHCardAdmin(res) {
       <p>按销售来源生成卡密，并复制或下载适合 Excel、卡网和客户交付的格式。</p>
 
       <div class="form">
+        <label>卡密套餐<select id="plan"><option value="plus">Plus</option><option value="pro_x5">Pro 5x</option><option value="pro_x20">Pro 20x</option></select></label>
         <label>生成数量<input id="count" type="number" min="1" max="100" value="10"></label>
         <label>销售来源<select id="source"><option>卡网</option><option>微信</option><option>漫飞公司</option><option value="custom">其他</option></select><input id="customSource" type="text" maxlength="40" placeholder="请备注来源，例如：秋风店铺" hidden></label>
         <button id="generate" type="button">生成卡密</button>
       </div>
       <div class="status" id="statusBox">选择数量和来源后生成。</div>
-      <div class="page-actions"><a class="action-link" href="/admin/cards/library">卡密库</a><a class="action-link" href="/admin/cards/batch">批量查询</a><a class="action-link" href="/admin/hifupay/cards">嗨付卡池</a><a class="action-link" href="/admin/recoveries">充值记录</a></div>
+      <div class="page-actions"><a class="action-link" href="/admin/cards/library">卡密库</a><a class="action-link" href="/admin/cards/batch">批量查询</a><a class="action-link" href="/admin/hifupay/cards">嗨付卡池</a><a class="action-link" href="/admin/pro-orders">Pro 订单与设置</a><a class="action-link" href="/admin/recoveries">充值记录</a></div>
       <div class="output-actions" id="outputActions"><button class="secondary" id="copyCodes">复制全部卡密</button><button class="secondary" id="copyLinks">复制全部链接</button><button class="secondary" id="downloadLinkZip">下载链接 ZIP</button></div>
       <div class="generated" id="generated"></div>
     </section>
@@ -423,9 +425,10 @@ function serveHCardAdmin(res) {
       try {
         const source = currentSource();
         if (!source) throw new Error("请输入销售来源。");
-        const data = await api("/api/admin/h-cards", { method: "POST", body: JSON.stringify({ count: Number(document.getElementById("count").value), source, productId: 3 }) });
+        const plan = document.getElementById("plan").value;
+        const data = await api("/api/admin/h-cards", { method: "POST", body: JSON.stringify({ count: Number(document.getElementById("count").value), source, plan, productId: 3 }) });
         generatedCards = data.cards;
-        generated.innerHTML = data.cards.map((card, index) => '<div class="card"><div class="card-head"><span>第 ' + (card.sequence || index + 1) + ' 张 · ' + escapeHtml(card.source || source) + '</span><span class="state">未使用</span></div><code>' + escapeHtml(card.code) + '</code><a href="' + escapeHtml(card.link) + '" target="_blank" rel="noreferrer">' + escapeHtml(card.link) + '</a></div>').join("");
+        generated.innerHTML = data.cards.map((card, index) => '<div class="card"><div class="card-head"><span>第 ' + (card.sequence || index + 1) + ' 张 · ' + escapeHtml(card.source || source) + ' · ' + escapeHtml(plan) + '</span><span class="state">未使用</span></div><code>' + escapeHtml(card.code) + '</code><a href="' + escapeHtml(card.link) + '" target="_blank" rel="noreferrer">' + escapeHtml(card.link) + '</a></div>').join("");
         document.getElementById("outputActions").style.display = "flex";
         setStatus("已生成 " + data.cards.length + " 张卡密。请立即复制或下载保存。");
       } catch (error) { setStatus(error.message, true); }
@@ -490,17 +493,17 @@ function serveHCardLibraryAdmin(res) {
     <section>
       <div class="topbar">
         <div><h1>h 通道卡密库</h1><p class="hint">按来源、状态和生成日期筛选，支持批量管理。提交过资料的卡密只能归档，不能删除。</p></div>
-        <div class="top-actions"><a class="back-link" href="/admin/cards">返回生成页</a><a class="back-link" href="/admin/cards/batch">批量查询</a><a class="back-link" href="/admin/hifupay/cards">嗨付卡池</a><a class="back-link" href="/admin/recoveries">充值记录</a><button class="secondary" id="refresh" type="button">刷新列表</button></div>
+        <div class="top-actions"><a class="back-link" href="/admin/cards">返回生成页</a><a class="back-link" href="/admin/cards/batch">批量查询</a><a class="back-link" href="/admin/hifupay/cards">嗨付卡池</a><a class="back-link" href="/admin/pro-orders">Pro 订单</a><a class="back-link" href="/admin/recoveries">充值记录</a><button class="secondary" id="refresh" type="button">刷新列表</button></div>
       </div>
 
       <div class="status" id="statusBox">正在加载卡密…</div>
     </section>
     <section>
-      <div class="toolbar"><label>搜索<input id="cardSearch" type="search" placeholder="账号、卡密、后四位"></label><label>来源<select id="sourceFilter"><option value="">全部来源</option></select></label><label>状态<select id="cardStatusFilter"><option value="">全部状态</option><option value="unused">未使用</option><option value="locked">已锁定</option><option value="used">已使用</option><option value="disabled">已禁用</option><option value="archived">已归档</option></select></label><label>生成日期<input id="dateFilter" type="date"></label><label style="display:flex;grid-auto-flow:column;align-items:center;justify-content:start"><input id="showArchived" type="checkbox" class="check">显示归档</label><span class="count" id="libraryCount">-</span></div>
+      <div class="toolbar"><label>搜索<input id="cardSearch" type="search" placeholder="账号、卡密、后四位"></label><label>套餐<select id="planFilter"><option value="">全部套餐</option><option value="plus">Plus</option><option value="pro_x5">Pro 5x</option><option value="pro_x20">Pro 20x</option></select></label><label>来源<select id="sourceFilter"><option value="">全部来源</option></select></label><label>状态<select id="cardStatusFilter"><option value="">全部状态</option><option value="unused">未使用</option><option value="locked">已锁定</option><option value="used">已使用</option><option value="disabled">已禁用</option><option value="archived">已归档</option></select></label><label>生成日期<input id="dateFilter" type="date"></label><label style="display:flex;grid-auto-flow:column;align-items:center;justify-content:start"><input id="showArchived" type="checkbox" class="check">显示归档</label><span class="count" id="libraryCount">-</span></div>
       <div class="bulk-actions"><button class="secondary" id="selectAll">全选当前结果</button><button class="secondary" id="invertSelection">反选</button><button class="secondary" id="copySelectedCodes">复制选中卡密</button><button class="secondary" id="copySelectedLinks">复制选中链接</button><button class="secondary" id="downloadSelectedZip">下载选中 ZIP</button><button class="secondary" id="downloadSelectedLinkZip">下载链接 ZIP</button><button data-bulk-action="disable">批量禁用</button><button class="secondary" data-bulk-action="enable">批量启用</button><button class="secondary" data-bulk-action="archive">批量归档</button><button class="danger" data-bulk-action="delete">批量删除</button><strong id="selectedCount">已选 0 张</strong></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th><input id="selectPage" type="checkbox" class="check" title="全选当前结果"></th><th>序号</th><th>卡密</th><th>来源</th><th>状态</th><th>绑定账号</th><th>生成时间</th><th>操作</th></tr></thead>
+          <thead><tr><th><input id="selectPage" type="checkbox" class="check" title="全选当前结果"></th><th>序号</th><th>卡密</th><th>套餐</th><th>来源</th><th>状态</th><th>绑定账号</th><th>生成时间</th><th>操作</th></tr></thead>
           <tbody id="libraryCards"></tbody>
         </table>
       </div>
@@ -557,19 +560,20 @@ function serveHCardLibraryAdmin(res) {
         ].filter(Boolean).join("");
         const account = [card.boundEmail, card.boundAccountId].filter(Boolean).join(" / ") || "-";
         const code = card.code || card.cardMask || "-";
-        return '<tr><td><input class="check row-check" type="checkbox" data-card-id="' + escapeHtml(card.id) + '"' + (selectedCards.has(card.id) ? ' checked' : '') + '></td><td>' + (index + 1) + '</td><td><span class="card-code">' + escapeHtml(code) + '</span>' + (card.code ? '<button class="secondary copy-card" type="button" data-card-code="' + escapeHtml(card.code) + '" onclick="copyCardCode(this)">复制</button>' : '') + '</td><td>' + escapeHtml(card.source || "未分类") + '</td><td>' + escapeHtml(statusLabels[effectiveStatus] || effectiveStatus) + '</td><td>' + escapeHtml(account) + '</td><td>' + escapeHtml(formatDate(card.createdAt)) + '</td><td><div class="row-actions">' + actionHtml + '</div></td></tr>';
-      }).join("") || '<tr><td colspan="8">暂无匹配卡密</td></tr>';
+        return '<tr><td><input class="check row-check" type="checkbox" data-card-id="' + escapeHtml(card.id) + '"' + (selectedCards.has(card.id) ? ' checked' : '') + '></td><td>' + (index + 1) + '</td><td><span class="card-code">' + escapeHtml(code) + '</span>' + (card.code ? '<button class="secondary copy-card" type="button" data-card-code="' + escapeHtml(card.code) + '" onclick="copyCardCode(this)">复制</button>' : '') + '</td><td>' + escapeHtml(card.plan === "pro_x5" ? "Pro 5x" : card.plan === "pro_x20" ? "Pro 20x" : "Plus") + '</td><td>' + escapeHtml(card.source || "未分类") + '</td><td>' + escapeHtml(statusLabels[effectiveStatus] || effectiveStatus) + '</td><td>' + escapeHtml(account) + '</td><td>' + escapeHtml(formatDate(card.createdAt)) + '</td><td><div class="row-actions">' + actionHtml + '</div></td></tr>';
+      }).join("") || '<tr><td colspan="9">暂无匹配卡密</td></tr>';
     }
 
     function applyFilter() {
       const keyword = document.getElementById("cardSearch").value.trim().toLowerCase();
       const source = document.getElementById("sourceFilter").value;
       const status = document.getElementById("cardStatusFilter").value;
+      const plan = document.getElementById("planFilter").value;
       const date = document.getElementById("dateFilter").value;
       filteredCards = allCards.filter(card => {
         const effectiveStatus = card.archivedAt ? "archived" : card.status;
         const matchesKeyword = !keyword || [card.code, card.cardMask, card.boundEmail, card.boundAccountId].some(value => String(value || "").toLowerCase().includes(keyword));
-        return matchesKeyword && (!source || card.source === source) && (!status || effectiveStatus === status) && (!date || String(card.createdAt || "").slice(0, 10) === date);
+        return matchesKeyword && (!plan || (card.plan || "plus") === plan) && (!source || card.source === source) && (!status || effectiveStatus === status) && (!date || String(card.createdAt || "").slice(0, 10) === date);
       });
       document.getElementById("libraryCards").innerHTML = renderRows(filteredCards);
       document.getElementById("libraryCount").textContent = filteredCards.length + " / " + allCards.length + " 张";
@@ -602,6 +606,7 @@ function serveHCardLibraryAdmin(res) {
     document.getElementById("cardSearch").addEventListener("input", clearSelectionAndFilter);
     document.getElementById("sourceFilter").addEventListener("change", clearSelectionAndFilter);
     document.getElementById("cardStatusFilter").addEventListener("change", clearSelectionAndFilter);
+    document.getElementById("planFilter").addEventListener("change", clearSelectionAndFilter);
     document.getElementById("dateFilter").addEventListener("change", clearSelectionAndFilter);
     document.getElementById("showArchived").addEventListener("change", loadLibrary);
     document.getElementById("libraryCards").addEventListener("change", event => {
@@ -1108,6 +1113,36 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && ["/admin/pro-orders", "/admin/pro-orders/"].includes(url.pathname)) {
+      serveAdminAsset(res, "pro-orders.html"); return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/admin/pro/settings") {
+      sendJson(res, 200, { success: true, data: proService.settings() }); return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/admin/pro/settings") {
+      const body = await readJsonBody(req);
+      const result = proService.updateSettings(body);
+      sendJson(res, result.ok ? 200 : 400, result.ok ? { success: true, data: proService.settings() } : { success: false, message: result.message }); return;
+    }
+    if (req.method === "GET" && url.pathname === "/api/admin/pro/orders") {
+      sendJson(res, 200, { success: true, data: { orders: proService.list() } }); return;
+    }
+    const proOrderRoute = url.pathname.match(/^\/api\/admin\/pro\/orders\/([^/]+)(?:\/(note|manual-processing|needs-info|confirm-no-charge|mark-success))?$/);
+    if (proOrderRoute && req.method === "GET" && !proOrderRoute[2]) {
+      const detail = proService.detail(decodeURIComponent(proOrderRoute[1]));
+      sendJson(res, detail ? 200 : 404, detail ? { success: true, data: detail } : { success: false, message: "订单不存在。" }); return;
+    }
+    if (proOrderRoute && req.method === "POST" && proOrderRoute[2]) {
+      const body = await readJsonBody(req);
+      const result = proOrderRoute[2] === "confirm-no-charge"
+        ? await proService.confirmNoCharge(decodeURIComponent(proOrderRoute[1]), body)
+        : proService.action(decodeURIComponent(proOrderRoute[1]), proOrderRoute[2], body);
+      sendJson(res, result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message });
+      if (result.ok) proService.drain().catch(() => {});
+      return;
+    }
+
     if (req.method === "GET" && (url.pathname === "/admin/cards/batch" || url.pathname === "/admin/cards/batch/")) {
       serveHCardBatchAdmin(res);
       return;
@@ -1364,6 +1399,14 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/recharge/pro-order-status") {
+      const rate = hCardQueryRateLimiter.check(req);
+      if (!rate.ok) { sendJson(res, 429, { success: false, message: "查询过于频繁，请稍后再试。" }); return; }
+      const body = await readJsonBody(req);
+      const result = await proService.query(body);
+      sendJson(res, result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message }); return;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/recharge/query-card-status") {
       const body = await readJsonBody(req);
       const result = await rechargeService.queryCardStatus(body.cardInfo, body.provider);
@@ -1422,6 +1465,7 @@ export const server = http.createServer(async (req, res) => {
 
 const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMainModule) {
+  proService.recoverOnStart();
   server.listen(config.port, config.host, () => {
     console.log(`Recharge center MVP listening on http://${config.host}:${config.port}`);
   });
@@ -1434,6 +1478,9 @@ if (isMainModule) {
     });
   }, 5000);
   initialSyncTimer.unref?.();
+  const proTimer = setInterval(() => { proService.reconcile().catch(() => {}); }, 10000);
+  proTimer.unref?.();
+  proService.reconcile().catch(() => {});
   const dailyReconcileTimer = setInterval(() => {
     reconcileStaleHifupayReservations().catch(() => {
       // 每日兜底失败不会释放任何预留。
