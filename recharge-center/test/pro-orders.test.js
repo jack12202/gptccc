@@ -32,6 +32,9 @@ function fixture(t, options = {}) {
 
 test("Pro 20x and default Pro 5x stay manual, encrypted and idempotent", async t => {
   const x = fixture(t);
+  assert.equal(x.service.settings().enabled, false);
+  assert.equal(x.service.settings().estimatedChargeUsd, 93);
+  assert.equal(x.service.settings().safetyBufferUsd, 7);
   for (const plan of ["pro_x5", "pro_x20"]) {
     const card = x.code(plan);
     const a = x.submit(card), b = x.submit(card);
@@ -49,6 +52,17 @@ test("Pro 20x and default Pro 5x stay manual, encrypted and idempotent", async t
   await x.service.drain();
   assert.equal(x.calls.length, 0);
   assert.equal(x.store.listProOrders().length, 2);
+});
+
+test("operator 93 plus 7 rule requires at least 100 USD before automatic order", t => {
+  const x = fixture(t);
+  x.service.updateSettings({ enabled: true, cardId: "fixed", region: "EG", estimatedChargeUsd: 93, safetyBufferUsd: 7 });
+  x.store.syncHifupayCards([{ id: "fixed", balance: 99.99, status: "active" }]);
+  assert.equal(x.submit(x.code("pro_x5")).order.fulfillmentMode, "manual");
+  x.store.syncHifupayCards([{ id: "fixed", balance: 100, status: "active" }]);
+  const order = x.submit(x.code("pro_x5")).order;
+  assert.equal(order.fulfillmentMode, "auto");
+  assert.equal(order.estimatedChargeUsd + order.safetyBufferUsd, 100);
 });
 
 test("strict fixed card, plus isolation, concurrent queue and snapshot across setting changes", async t => {

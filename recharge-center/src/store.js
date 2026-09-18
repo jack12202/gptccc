@@ -149,8 +149,8 @@ function createInitialState() {
       pro5xAutoEnabled: false,
       pro5xCardId: "",
       pro5xRegion: "EG",
-      pro5xEstimatedChargeUsd: 0,
-      pro5xSafetyBufferUsd: 0
+      pro5xEstimatedChargeUsd: 93,
+      pro5xSafetyBufferUsd: 7
     }
   };
 }
@@ -917,6 +917,9 @@ export class JsonStore {
     const state = this.read();
     const order = state.orders.find(item => item.id === String(orderId || ""));
     if (!order) return { ok: false, status: "not_found", confirmations: 0, eligible: false };
+    if (order.hifupayReservationReleasedAt) {
+      return { ok: true, status: order.hifupaySafetyStatus || "released_unpaid", confirmations: Number(order.hifupayUnpaidConfirmationCount) || 2, eligible: true };
+    }
     const timestamp = nowIso();
     const now = Date.parse(timestamp);
     const lastConfirmedAt = Date.parse(order.hifupayUnpaidLastConfirmedAt || "");
