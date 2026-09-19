@@ -2,6 +2,7 @@ import { config } from "./config.js";
 import { getProviderAdapter, listProviders } from "./providers/index.js";
 import { JsonStore } from "./store.js";
 import { proService } from "./pro-orders.js";
+import { zzshuService } from "./zzshu-service.js";
 import {
   decodeJson,
   decryptSecretText,
@@ -805,6 +806,10 @@ export const rechargeService = {
 
     const localCard = store.getHCardByCode(cardInfo);
     const selectedProvider = localCard ? "h" : resolveProvider(provider);
+    if (selectedProvider === "zzshu") {
+      const result = zzshuService.verify(cardInfo);
+      return { ok: result.ok, status: result.ok ? 200 : 400, data: { ...result, success: result.ok, provider: "zzshu", providerLabel: "吱吱鼠", selectedProvider, defaultProvider: defaultProvider() } };
+    }
     const adapter = getProviderAdapter(selectedProvider);
     const upstream = await adapter.verifyCard({ cardInfo: cardInfo.trim() });
     const status = upstream.status && upstream.status < 500 ? 200 : 502;
@@ -874,6 +879,7 @@ export const rechargeService = {
   },
 
   async confirmRecharge(input) {
+    if (resolveProvider(input.provider) === "zzshu") return zzshuService.confirm(input);
     const { cardInfo, productId, overwriteRecharge, siteSource } = input;
 
     if (!requiredString(cardInfo)) {
@@ -1025,6 +1031,7 @@ export const rechargeService = {
   },
 
   async getStatus(orderId) {
+    if (zzshuService.store.order(orderId)) return zzshuService.refresh(orderId);
     const order = store.getOrder(orderId);
     if (["pro_x5", "pro_x20"].includes(order?.plan)) return { ok: false, status: 404, message: "请使用卡密查询订单。" };
     if (!order) {
@@ -1038,6 +1045,7 @@ export const rechargeService = {
   },
 
   async queryTaskStatus(input, options = {}) {
+    if (input.orderId && zzshuService.store.order(input.orderId)) return zzshuService.refresh(input.orderId);
     if (requiredString(input.cardInfo) && store.getHCardByCode(input.cardInfo)?.plan?.startsWith("pro_")) return proService.query(input);
     if (["pro_x5", "pro_x20"].includes((requiredString(input.orderId) ? store.getOrder(input.orderId) : store.getOrderByUpstreamTaskId(input.taskId))?.plan)) return { ok: false, status: 404, message: "请使用卡密查询订单。" };
     const order = requiredString(input.orderId)

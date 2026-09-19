@@ -8,6 +8,7 @@ import { createAdminAuth } from "./admin-auth.js";
 const adminAuth = createAdminAuth({ password: config.adminToken, file: path.join(path.dirname(config.dataFile), "admin-sessions.json"), origin: config.publicBaseUrl });
 import { rechargeService } from "./recharge-service.js";
 import { proService } from "./pro-orders.js";
+import { zzshuService } from "./zzshu-service.js";
 import { readJsonBody, sendJson } from "./utils.js";
 
 const frontendCandidates = [
@@ -315,7 +316,7 @@ function serveHCardAdmin(res) {
         <button id="generate" type="button">生成卡密</button>
       </div>
       <div class="status" id="statusBox">选择数量和来源后生成。</div>
-      <div class="page-actions"><a class="action-link" href="/admin/cards/library">卡密库</a><a class="action-link" href="/admin/cards/batch">批量查询</a><a class="action-link" href="/admin/hifupay/cards">嗨付卡池</a><a class="action-link" href="/admin/pro-orders">Pro 订单与设置</a><a class="action-link" href="/admin/recoveries">充值记录</a></div>
+      <div class="page-actions"><a class="action-link" href="/admin/cards/library">卡密库</a><a class="action-link" href="/admin/cards/batch">批量查询</a><a class="action-link" href="/admin/hifupay/cards">嗨付卡池</a><a class="action-link" href="/admin/zzshu">吱吱鼠 Plus</a><a class="action-link" href="/admin/pro-orders">Pro 订单与设置</a><a class="action-link" href="/admin/recoveries">充值记录</a></div>
       <div class="output-actions" id="outputActions"><button class="secondary" id="copyCodes">复制全部卡密</button><button class="secondary" id="copyLinks">复制全部链接</button><button class="secondary" id="downloadLinkZip">下载链接 ZIP</button></div>
       <div class="generated" id="generated"></div>
     </section>
@@ -751,9 +752,9 @@ function serveHifupayCardAdmin(res) {
 <style>
 *{box-sizing:border-box}body{margin:0;padding:20px;background:#f4f7fb;color:#132033;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:1200px;margin:auto}section{padding:22px;margin-bottom:16px;background:#fff;border:1px solid #dbe4ee;border-radius:14px;box-shadow:0 18px 48px rgba(15,23,42,.08)}h1,h2{margin:0 0 8px}p{color:#64748b;line-height:1.6}.top,.actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.actions{justify-content:flex-start}label{display:grid;gap:8px;margin-top:16px;font-weight:800;max-width:620px}input{min-height:44px;padding:0 12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}button,a{min-height:42px;padding:0 14px;border-radius:10px;font:inherit;font-weight:900;cursor:pointer}button{border:0;background:#0f766e;color:#fff}button.secondary,a{background:#ecfdf5;color:#0f766e;border:1px solid #99f6e4;text-decoration:none;display:inline-flex;align-items:center}button.danger{background:#fff1f2;color:#9f1239;border:1px solid #fda4af}.status{margin-top:16px;padding:12px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;white-space:pre-wrap}.error{background:#fff1f2;border-color:#fda4af;color:#9f1239}.table{overflow:auto;margin-top:14px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 8px;text-align:left;vertical-align:middle;border-bottom:1px solid #e2e8f0;white-space:nowrap}th{color:#475569}td small{color:#64748b}.purpose{max-width:240px;overflow:hidden;text-overflow:ellipsis}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:900}.warn{background:#fff7ed;color:#c2410c}.bad{background:#fff1f2;color:#be123c}.hint{margin:8px 0 0;font-size:13px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.tabs button{background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:14px}.tabs button.active{background:#0f766e;border-color:#0f766e;color:#fff}.detail-row td{background:#f8fafc;white-space:normal;line-height:1.6;padding:16px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 28px}.detail-grid p{margin:4px 0}.detail-grid .actions{grid-column:1/-1}.detail-grid label{margin:0;display:flex;align-items:center;gap:8px}.detail-grid input{width:80px}.pagination{margin-top:14px;display:flex;align-items:center;justify-content:flex-end;gap:12px}.pagination button:disabled{opacity:.45;cursor:default}@media(max-width:640px){body{padding:12px}section{padding:16px}.top>.actions a{min-height:38px}.detail-grid{grid-template-columns:1fr}.tabs button{flex:1}.table{margin-left:-8px;margin-right:-8px}.actions a,.detail-grid .actions button{width:100%;justify-content:center}}
 </style></head><body><main>
-<section><div class="top"><div><h1>嗨付卡池</h1><p>这里管理真正提交充值的嗨付卡片，不是用户拿到的激活卡密。系统只读取余额和状态，不会自动开卡、提余额或注销卡片。</p></div><div class="actions"><a href="/admin/cards">卡密生成</a><a href="/admin/cards/library">卡密库</a><a href="/admin/recoveries">充值记录</a></div></div>
+<section><div class="top"><div><h1>嗨付卡池</h1><p>这里管理真正提交充值的嗨付卡片，不是用户拿到的激活卡密。系统只读取余额和状态，不会自动开卡、提余额或注销卡片。</p></div><div class="actions"><a href="/admin/cards">卡密生成</a><a href="/admin/cards/library">卡密库</a><a href="/admin/zzshu">吱吱鼠 Plus 后台</a><a href="/admin/recoveries">充值记录</a></div></div>
 <div class="actions" style="margin-top:14px"><button id="refresh">刷新嗨付卡片</button><button class="secondary" id="local">查看本地记录</button></div><div class="status" id="status">正在加载嗨付卡池…</div></section>
-<section><div class="top"><div><h2>卡片状态</h2><p class="hint">Plus 自动充值只会使用余额足够且不超过 $66 的卡。Pro 保护卡不会被用于 Plus；账号、顺序和操作可展开查看。</p></div><strong id="count">0 张</strong></div><nav class="tabs" id="cardTabs" aria-label="卡片分类"></nav><label>搜索卡池<input id="cardSearch" type="search" placeholder="输入卡片 ID、尾号、账号或升级类型；搜索全部分类"></label><div class="table"><table><thead><tr><th>卡片</th><th>余额</th><th>本站成功记录</th><th>用途/保护</th><th>状态</th><th>详情</th></tr></thead><tbody id="cards"><tr><td colspan="6">暂无记录</td></tr></tbody></table></div><div class="pagination" id="pagination"><button class="secondary" id="prevPage" type="button">上一页</button><span id="pageInfo">第 1 / 1 页</span><button class="secondary" id="nextPage" type="button">下一页</button></div></section>
+<section><div class="top"><div><h2>卡片状态</h2><p class="hint">新卡默认归嗨付。展开卡片后可分配给吱吱鼠 Plus，或将无未决订单的吱吱鼠卡切回嗨付；不会改变网站默认通道。嗨付 Plus 自动充值只会使用余额足够且不超过 $66 的卡。</p></div><strong id="count">0 张</strong></div><nav class="tabs" id="cardTabs" aria-label="卡片分类"></nav><label>搜索卡池<input id="cardSearch" type="search" placeholder="输入卡片 ID、尾号、账号或升级类型；搜索全部分类"></label><div class="table"><table><thead><tr><th>卡片</th><th>余额</th><th>本站成功记录</th><th>用途/保护</th><th>状态</th><th>详情</th></tr></thead><tbody id="cards"><tr><td colspan="6">暂无记录</td></tr></tbody></table></div><div class="pagination" id="pagination"><button class="secondary" id="prevPage" type="button">上一页</button><span id="pageInfo">第 1 / 1 页</span><button class="secondary" id="nextPage" type="button">下一页</button></div></section>
 </main><script>
 const statusBox=document.getElementById("status");
 const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"}[c]));const date=value=>{if(!value)return"-";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleString("zh-CN",{hour12:false})};const day=value=>{const raw=String(value||"");const match=raw.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);return match?match[1]+"/"+Number(match[2])+"/"+Number(match[3]):date(value)};const normalizeRenewal=value=>{const raw=String(value||"").trim();let match=raw.match(/^(\\d{4})[./-](\\d{1,2})[./-](\\d{1,2})$/);let year,month,dayOfMonth;if(match){year=Number(match[1]);month=Number(match[2]);dayOfMonth=Number(match[3])}else{match=raw.match(/^(\\d{1,2})[./-](\\d{1,2})$/);if(!match)return"";const now=new Date();year=now.getFullYear();month=Number(match[1]);dayOfMonth=Number(match[2]);const candidate=new Date(year,month-1,dayOfMonth);if(candidate.getTime()<new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())year+=1}const candidate=new Date(year,month-1,dayOfMonth);if(candidate.getFullYear()!==year||candidate.getMonth()!==month-1||candidate.getDate()!==dayOfMonth)return"";return String(year).padStart(4,"0")+"-"+String(month).padStart(2,"0")+"-"+String(dayOfMonth).padStart(2,"0")};const money=value=>value===null||value===undefined?"未知":"$"+Number(value).toFixed(2);const labels={ready:"可用",low_balance:"余额偏低",reserved:"处理中",pro_protected:"Pro 续费保护",high_balance:"高余额保护",full_hold:"已满·保留中",full_expired:"已满·待处理",disabled:"已禁用",upstream_unavailable:"上游不可用"};
@@ -762,14 +763,15 @@ function render(cards){return cards.map(card=>{
   const id=esc(card.id),pro=card.proReservation,expanded=expandedCards.has(String(card.id));
   const accounts=(card.plusUsers||[]).map(user=>'<p>'+esc(user.email||user.accountId||"未知账号")+(user.upgradeUntil?' <small>可升级至 '+esc(date(user.upgradeUntil))+'</small>':'')+'</p>').join("")||"-";
   const pending=(card.inFlightOrders||[]).map(item=>'<p>待确认 '+esc(item.email||item.accountId||item.orderId)+' · '+esc(money(item.estimatedChargeUsd))+' · '+esc(date(item.reservedAt))+' <button class="secondary" data-action="release" data-id="'+id+'" data-order-id="'+esc(item.orderId)+'">释放</button></p>').join("");
-  const purpose=pro?esc(pro.type||"Pro")+' <small>· '+esc(pro.account||"-")+'</small>':card.highBalanceProtected?'Plus 高余额保护':'Plus 自动充值';
+  const purpose=card.assignedToZzshu?'吱吱鼠 Plus 专用':pro?esc(pro.type||"Pro")+' <small>· '+esc(pro.account||"-")+'</small>':card.highBalanceProtected?'Plus 高余额保护':'Plus 自动充值';
   const displayStatus=!card.enabled?"disabled":card.poolStatus;
   const cls=["disabled","pro_protected"].includes(displayStatus)?"bad":["low_balance","reserved","upstream_unavailable","high_balance","full_expired"].includes(displayStatus)?"warn":"";
   const enabledAction=card.enabled?'<button class="danger" data-action="disable" data-id="'+id+'">禁用</button>':'<button class="secondary" data-action="enable" data-id="'+id+'">启用</button>';
   const protectAction=card.proProtected?'<button class="secondary" data-action="protect-pro" data-id="'+id+'" data-account="'+esc(pro?.account||"")+'" data-type="'+esc(pro?.type||"20X Pro")+'" data-renewal="'+esc(pro?.renewalAt||"")+'">修改 Pro 信息</button><button class="secondary" data-action="release-pro" data-id="'+id+'">解除 Pro 保护</button>':'<button class="secondary" data-action="protect-pro" data-id="'+id+'">Pro 续费保护</button>';
-  const summary='<tr><td>ID '+id+'<br><small>****'+esc(card.lastFour||"----")+'</small></td><td>'+esc(money(card.balance))+'<br><small>可用 '+esc(money(card.availableBalance))+'</small></td><td>'+esc(card.automaticPlusUsed)+' 人</td><td class="purpose" title="'+esc(pro?pro.account||"":"")+'">'+purpose+'</td><td><span class="badge '+cls+'">'+esc(labels[displayStatus]||displayStatus||"未知")+'</span></td><td><button class="secondary" type="button" data-toggle="'+id+'" aria-expanded="'+expanded+'" aria-label="'+(expanded?'收起':'展开')+'卡片 '+id+' 详情">'+(expanded?'收起':'展开')+'</button></td></tr>';
+  const assignAction=card.assignedToZzshu?'<button class="secondary" data-action="assign-h" data-id="'+id+'">改回嗨付</button>':'<button class="secondary" data-action="assign-zzshu" data-id="'+id+'">分配给吱吱鼠 Plus</button>';
+  const summary='<tr><td>ID '+id+'<br><small>****'+esc(card.lastFour||"----")+'</small></td><td>'+esc(money(card.balance))+'<br><small>可用 '+esc(money(card.availableBalance))+'</small></td><td>'+esc(card.automaticPlusUsed)+' 人</td><td class="purpose" title="'+esc(pro?pro.account||"":"")+'">'+purpose+'</td><td><span class="badge '+cls+'">'+esc(displayStatus==="zzshu_assigned"?"吱吱鼠专用":labels[displayStatus]||displayStatus||"未知")+'</span></td><td><button class="secondary" type="button" data-toggle="'+id+'" aria-expanded="'+expanded+'" aria-label="'+(expanded?'收起':'展开')+'卡片 '+id+' 详情">'+(expanded?'收起':'展开')+'</button></td></tr>';
   if(!expanded)return summary;
-  return summary+'<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><strong>绑定账号</strong>'+accounts+'</div><div><strong>卡片信息</strong><p>上游状态：'+esc(card.status||"未知")+'</p><p>Pro 续费：'+(pro?esc(pro.type||"Pro")+' · '+esc(pro.account||"-")+(pro.renewalAt?' · '+esc(day(pro.renewalAt)):''):'未设置')+'</p><p>待确认订单：'+(card.inFlightOrders||[]).length+' 笔</p>'+pending+'</div><div class="actions"><label>顺序 <input type="number" min="0" data-setting="priority" data-id="'+id+'" value="'+esc(card.priority)+'"></label>'+protectAction+enabledAction+'</div></div></td></tr>';
+  return summary+'<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><strong>绑定账号</strong>'+accounts+'</div><div><strong>卡片信息</strong><p>上游状态：'+esc(card.status||"未知")+'</p><p>Pro 续费：'+(pro?esc(pro.type||"Pro")+' · '+esc(pro.account||"-")+(pro.renewalAt?' · '+esc(day(pro.renewalAt)):''):'未设置')+'</p><p>待确认订单：'+(card.inFlightOrders||[]).length+' 笔</p>'+pending+'</div><div class="actions"><label>顺序 <input type="number" min="0" data-setting="priority" data-id="'+id+'" value="'+esc(card.priority)+'"></label>'+assignAction+protectAction+enabledAction+'</div></div></td></tr>';
 }).join("")||'<tr><td colspan="6">暂无匹配卡片；可切换分类或搜索全部卡片。</td></tr>'}
 let allCards=[],activeCategory="ready",page=0;const pageSize=20,expandedCards=new Set();
 const categories=[{id:"ready",name:"Plus 可用"},{id:"pro",name:"Pro 保护"},{id:"attention",name:"需处理"},{id:"disabled",name:"已禁用"},{id:"all",name:"全部"}];
@@ -786,7 +788,24 @@ function applyCardSearch(){const keyword=document.getElementById("cardSearch").v
 async function load(refresh=false){try{const data=await api("/api/admin/hifupay/cards"+(refresh?"?refresh=1":""));allCards=data.cards||[];applyCardSearch();statusBox.textContent=refresh?"已刷新嗨付卡片余额和状态。":(data.updatedAt?"已加载本地卡池记录，最后同步："+date(data.updatedAt):"暂无本地卡池记录，请先刷新。");statusBox.classList.remove("error")}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error")}}
 document.getElementById("cardSearch").oninput=()=>{page=0;applyCardSearch()};document.getElementById("cardTabs").onclick=event=>{const button=event.target.closest("[data-category]");if(!button)return;activeCategory=button.dataset.category;page=0;applyCardSearch()};document.getElementById("prevPage").onclick=()=>{if(page>0){page--;applyCardSearch()}};document.getElementById("nextPage").onclick=()=>{page++;applyCardSearch()};document.getElementById("refresh").onclick=()=>load(true);document.getElementById("local").onclick=()=>load(false);
 document.getElementById("cards").onchange=async event=>{const input=event.target.closest("[data-setting]");if(!input)return;input.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(input.dataset.id)+"/settings",{method:"POST",body:JSON.stringify({field:input.dataset.setting,value:Number(input.value)})});statusBox.textContent="卡片顺序已保存。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");input.disabled=false}};
-document.getElementById("cards").onclick=async event=>{const toggle=event.target.closest("[data-toggle]");if(toggle){const id=toggle.dataset.toggle;if(expandedCards.has(id))expandedCards.delete(id);else expandedCards.add(id);applyCardSearch();return}const button=event.target.closest("[data-action]");if(!button)return;const action=button.dataset.action;if(action==="release"&&!confirm("确认释放这笔待确认占用？请先确认嗨付没有扣款。"))return;if(action==="release-pro"&&!confirm("确认 Pro 已续费完成或不再需要保留？解除后，这张卡仍需余额不超过 $66 才会进入 Plus 卡池。"))return;let body={};if(action==="release")body={orderId:button.dataset.orderId};if(action==="protect-pro"){const account=prompt("请输入需要续费的 Pro 账号：",button.dataset.account||"");if(account===null)return;if(!account.trim()){statusBox.textContent="请填写 Pro 账号。";statusBox.classList.add("error");return}const type=prompt("请输入升级类型，例如 20X Pro 或 5X Pro：",button.dataset.type||"20X Pro");if(type===null)return;if(!type.trim()){statusBox.textContent="请填写升级类型。";statusBox.classList.add("error");return}const renewalInput=prompt("请输入预计续费日期，可输入 2026-09-19 或 9.19：",button.dataset.renewal||"");if(renewalInput===null)return;const renewalAt=normalizeRenewal(renewalInput);if(!renewalAt){statusBox.textContent="预计续费日期格式不正确，请输入 2026-09-19 或 9.19。";statusBox.classList.add("error");return}body={type,account,renewalAt}}button.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(button.dataset.id)+"/"+action,{method:"POST",body:JSON.stringify(body)});statusBox.textContent=action==="protect-pro"?"Pro 保护信息已保存，这张卡不会用于 Plus。":action==="release-pro"?"已解除 Pro 保护；只有余额不超过 $66 时才会重新进入 Plus 卡池。":"操作已完成。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}};load(false);
+document.getElementById("cards").onclick=async event=>{
+  const toggle=event.target.closest("[data-toggle]");
+  if(toggle){const id=toggle.dataset.toggle;if(expandedCards.has(id))expandedCards.delete(id);else expandedCards.add(id);applyCardSearch();return}
+  const button=event.target.closest("[data-action]");if(!button)return;const action=button.dataset.action;
+  if(action==="assign-zzshu"||action==="assign-h"){
+    const role=action==="assign-zzshu"?"zzshu":"h";
+    if(!confirm(role==="zzshu"?"将此卡改为吱吱鼠 Plus 专用？未决或历史已用卡不能切换。":"将此卡改回嗨付专用？请先确认吱吱鼠没有未决支付。"))return;
+    button.disabled=true;
+    try{await api("/api/admin/zzshu/hifupay-cards/"+encodeURIComponent(button.dataset.id)+"/assign",{method:"POST",body:JSON.stringify({role})});await load(false);statusBox.textContent=role==="zzshu"?"已分配给吱吱鼠 Plus。":"已改回嗨付专用。";statusBox.classList.remove("error")}
+    catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}
+    return;
+  }
+  if(action==="release"&&!confirm("确认释放这笔待确认占用？请先确认嗨付没有扣款。"))return;
+  if(action==="release-pro"&&!confirm("确认 Pro 已续费完成或不再需要保留？解除后，这张卡仍需余额不超过 $66 才会进入 Plus 卡池。"))return;
+  let body={};if(action==="release")body={orderId:button.dataset.orderId};
+  if(action==="protect-pro"){const account=prompt("请输入需要续费的 Pro 账号：",button.dataset.account||"");if(account===null)return;if(!account.trim()){statusBox.textContent="请填写 Pro 账号。";statusBox.classList.add("error");return}const type=prompt("请输入升级类型，例如 20X Pro 或 5X Pro：",button.dataset.type||"20X Pro");if(type===null)return;if(!type.trim()){statusBox.textContent="请填写升级类型。";statusBox.classList.add("error");return}const renewalInput=prompt("请输入预计续费日期，可输入 2026-09-19 或 9.19：",button.dataset.renewal||"");if(renewalInput===null)return;const renewalAt=normalizeRenewal(renewalInput);if(!renewalAt){statusBox.textContent="预计续费日期格式不正确，请输入 2026-09-19 或 9.19。";statusBox.classList.add("error");return}body={type,account,renewalAt}}
+  button.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(button.dataset.id)+"/"+action,{method:"POST",body:JSON.stringify(body)});statusBox.textContent=action==="protect-pro"?"Pro 保护信息已保存，这张卡不会用于 Plus。":action==="release-pro"?"已解除 Pro 保护；只有余额不超过 $66 时才会重新进入 Plus 卡池。":"操作已完成。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}
+};load(false);
 </script></body></html>`;
   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
   res.end(html);
@@ -1169,6 +1188,12 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && (url.pathname === "/admin/zzshu" || url.pathname === "/admin/zzshu/")) {
+      const html = fs.readFileSync(path.join(config.rootDir,"admin","zzshu.html"),"utf8");
+      res.writeHead(200,{ "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store", "Referrer-Policy":"no-referrer" });
+      res.end(html); return;
+    }
+
     if (req.method === "GET" && (url.pathname === "/admin/recoveries" || url.pathname === "/admin/recoveries/")) {
       serveRecoveryAdmin(res);
       return;
@@ -1264,6 +1289,32 @@ export const server = http.createServer(async (req, res) => {
       }
       const result = rechargeService.listHifupayCards();
       sendJson(res, result.status, { success: true, data: result.data });
+      return;
+    }
+
+    if (url.pathname.startsWith("/api/admin/zzshu/")) {
+      const body = req.method === "POST" ? await readJsonBody(req) : {};
+      const auth = assertAdmin(req);
+      if (!auth.ok) { sendJson(res,auth.status,{success:false,message:auth.message}); return; }
+      const endpoint = url.pathname.slice("/api/admin/zzshu/".length);
+      try {
+        let data;
+        if (req.method === "GET" && endpoint === "cards") data = zzshuService.store.listCards();
+        else if (req.method === "GET" && endpoint === "hifupay-cards") data = await zzshuService.listHifupayAssignments(["1","true"].includes(url.searchParams.get("refresh")));
+        else if (req.method === "POST" && /^hifupay-cards\/[^/]+\/assign$/.test(endpoint)) {
+          const id=decodeURIComponent(endpoint.split("/")[1]), result=zzshuService.assignHifupayCard(id,body.role);
+          if (!result.ok) {sendJson(res,409,{success:false,message:result.reason});return;} data=result;
+        } else if (req.method === "GET" && endpoint === "vouchers") data = zzshuService.store.listVouchers();
+        else if (req.method === "GET" && endpoint === "orders") data = zzshuService.store.listOrders();
+        else if (req.method === "POST" && endpoint === "preview") data = zzshuService.preview(body.text);
+        else if (req.method === "POST" && endpoint === "import") { const result=await zzshuService.importCards(body); if(!result.ok){sendJson(res,400,{success:false,message:result.message});return;} data=result.rows; }
+        else if (req.method === "POST" && endpoint === "vouchers") data = zzshuService.createVouchers(body);
+        else if (req.method === "POST" && /^cards\/[^/]+$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.updateCard(id,body)){sendJson(res,400,{success:false,message:"卡片不存在或次数上限无效"});return;} data={ok:true}; }
+        else if (req.method === "POST" && /^orders\/[^/]+\/refresh$/.test(endpoint)) { const result=await zzshuService.refresh(decodeURIComponent(endpoint.split("/")[1])); data=result.data; }
+        else if (req.method === "POST" && /^orders\/[^/]+\/resolve$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!["success","unpaid"].includes(body.outcome)||!zzshuService.store.manualResolve(id,body.outcome,String(body.reason||""))){sendJson(res,409,{success:false,message:"仅待确认订单可凭至少 8 字核查依据人工结案"});return;} data={ok:true}; }
+        else { sendJson(res,404,{success:false,message:"Not found"}); return; }
+        sendJson(res,200,{success:true,data});
+      } catch { sendJson(res,503,{success:false,message:"吱吱鼠管理操作未完成，请检查服务配置"}); }
       return;
     }
 
@@ -1486,6 +1537,7 @@ if (isMainModule) {
     console.log(`Recharge center MVP listening on http://${config.host}:${config.port}`);
   });
   const initialSyncTimer = setTimeout(() => {
+    zzshuService.reconcile().catch(() => {});
     rechargeService.reconcileHSubscriptionStatuses({ limit: 100 }).catch(() => {
       // 旧订阅记录纠正失败不影响服务启动。
     });
@@ -1497,6 +1549,8 @@ if (isMainModule) {
   const proTimer = setInterval(() => { proService.reconcile().catch(() => {}); }, 10000);
   proTimer.unref?.();
   proService.reconcile().catch(() => {});
+  const zzshuTimer = setInterval(() => zzshuService.reconcile().catch(() => {}), Math.max(2000,config.zzshuPollMs));
+  zzshuTimer.unref?.();
   const dailyReconcileTimer = setInterval(() => {
     reconcileStaleHifupayReservations().catch(() => {
       // 每日兜底失败不会释放任何预留。

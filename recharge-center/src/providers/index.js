@@ -12,6 +12,7 @@ import {
 import { sangeAdapter } from "./sange-adapter.js";
 import { xiaoyuAdapter } from "./xiaoyu-adapter.js";
 import { hifupayAdapter } from "./hifupay-adapter.js";
+import { zzshuAdapter } from "./zzshu-adapter.js";
 
 export const providerAdapters = {
   sange: sangeAdapter,
@@ -20,6 +21,7 @@ export const providerAdapters = {
   czgpt: czgptAdapter,
   xiaoyu: xiaoyuAdapter,
   h: hifupayAdapter,
+  zzshu: zzshuAdapter,
   sange_external: sangeExternalAdapter,
   ayan_external: ayanExternalAdapter,
   czgpt_external: czgptExternalAdapter,

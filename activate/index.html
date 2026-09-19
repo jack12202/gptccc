@@ -1137,7 +1137,7 @@ window._hmt = _hmt;
 
     function normalizeProvider(value) {
       const provider = typeof value === "string" ? value.trim().toLowerCase() : "";
-      if (provider === "sange" || provider === "ayan" || provider === "j" || provider === "ajian" || provider === "czgpt" || provider === "xiaoyu" || provider === "h") return provider === "ajian" ? "j" : provider;
+      if (provider === "sange" || provider === "ayan" || provider === "j" || provider === "ajian" || provider === "czgpt" || provider === "xiaoyu" || provider === "h" || provider === "zzshu") return provider === "ajian" ? "j" : provider;
       return "";
     }
 
@@ -1290,7 +1290,7 @@ window._hmt = _hmt;
     }
 
     function subscriptionResultHtml(task = {}) {
-      if (currentProvider !== "h") return "";
+      if (currentProvider !== "h" && currentProvider !== "zzshu") return "";
       if (task.subscriptionActionRequired) {
         return `
           <div class="subscription-warning">
@@ -1439,11 +1439,11 @@ window._hmt = _hmt;
       button.disabled = true;
       button.textContent = "查询中...";
       try {
-        const isHCardQuery = currentProvider === "h" || /^H(?:PLUS|PRO5|PRO20)/i.test(cardInfo);
+        const isHCardQuery = currentProvider === "h" || currentProvider === "zzshu" || /^(HPLUS|HPRO5|HPRO20|ZZPLUS)/i.test(cardInfo);
         if (isHCardQuery) {
           const data = await postJson("/api/recharge/h-card-status", {
             cardInfo,
-            provider: "h"
+            provider: currentProvider === "zzshu" || /^ZZPLUS/i.test(cardInfo) ? "zzshu" : "h"
           });
           if (!data.success) {
             throw new Error(data.message || "卡密状态查询失败，请稍后重试。");
@@ -1624,8 +1624,10 @@ window._hmt = _hmt;
         updateConfirmButtonState();
         setTextIfPresent("confirmEmail", result.data.userEmail);
         setTextIfPresent("confirmCard", document.getElementById("cardInfo").value.trim());
-        setTextIfPresent("confirmChannel", currentPlan.startsWith("pro_") ? "订单队列" : "自动通道");
-        const submitMessage = currentProvider === "h"
+        setTextIfPresent("confirmChannel", currentProvider === "zzshu" ? "吱吱鼠 · Plus（免费账号新开通）" : currentPlan.startsWith("pro_") ? "订单队列" : "自动通道");
+        const submitMessage = currentProvider === "zzshu"
+          ? `已识别账号邮箱：${result.data.userEmail}。请确认账号目前为免费套餐，且本次开通 Plus。`
+          : currentProvider === "h"
           ? `已识别账号邮箱：${result.data.userEmail}，确认充值后将绑定此账号。`
           : `已识别账号邮箱：${result.data.userEmail}，请确认这是你要充值的账号。`;
         setNotice("step2Notice", "账号信息识别成功", submitMessage, "success");
@@ -1753,7 +1755,7 @@ window._hmt = _hmt;
         }
         if (task.status === "success") {
           renderResultBox("success", mapRechargeMessage(task.message, task.status), task);
-          if (currentProvider === "h" && task.subscriptionCancellationStatus === "pending") schedulePoll(4000);
+          if ((currentProvider === "h" && task.subscriptionCancellationStatus === "pending") || (currentProvider === "zzshu" && task.subscriptionCancellationStatus === "unconfirmed")) schedulePoll(60000);
         } else if (task.status === "syncing") {
           renderResultBox("syncing", mapRechargeMessage(task.message, task.status));
           schedulePoll(10000);

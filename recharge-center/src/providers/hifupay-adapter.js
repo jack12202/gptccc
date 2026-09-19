@@ -84,6 +84,16 @@ function extractCards(raw) {
   return candidates.filter(item => item && typeof item === "object");
 }
 
+function safeCardSnapshot(card) {
+  return {
+    id: card.id ?? card.cardId ?? card.card_id,
+    lastFour: card.lastFour ?? card.last4 ?? card.last_four ?? "",
+    status: card.status ?? card.state ?? "",
+    balance: card.balance ?? card.availableBalance ?? card.available_balance ?? null,
+    expiryDate: card.expiryDate ?? card.expiry_date ?? card.expiry ?? ""
+  };
+}
+
 function paymentStatusFrom(body, logText) {
   const direct = String(
     body.paymentStatus ?? body.payment_status ?? body.payStatus ?? body.pay_status ?? body.pay ?? ""
@@ -208,7 +218,7 @@ export const hifupayAdapter = {
       signal: AbortSignal.timeout(15000),
       payload: {}
     });
-    const cards = extractCards(raw);
+    const cards = extractCards(raw).map(safeCardSnapshot);
     if (!raw.ok || !cards.length) {
       return {
         ok: false,
@@ -229,6 +239,28 @@ export const hifupayAdapter = {
       payload: { token, plan: "pro_x5", region, proxyRegion: config.hifupayProxyRegion,
         engine: config.hifupayEngine, hfpCardId: cardId }
     });
+  },
+
+  async getPaymentCard({ cardId, expectedLastFour }) {
+    const session = await login();
+    if (!session.ok) throw new Error("嗨付认证不可用");
+    const response = await fetch(new URL("/api/hfp/card-sensitive", config.hifupayBaseUrl), {
+      method: "POST", headers: apiHeaders(session.apiKey), body: JSON.stringify({cardId}),
+      signal: AbortSignal.timeout(config.zzshuTimeoutMs)
+    });
+    if (!response.ok) throw new Error("嗨付卡详情不可用");
+    const body = await response.json();
+    const detail = body?.data || {};
+    const cardNumber = String(detail.fullCardNo || detail.cardNo || "");
+    const cvv = String(detail.cvv || "");
+    const match = String(detail.expiryDate || "").match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
+    if (body?.success !== true || detail.id != null && String(detail.id) !== String(cardId) ||
+        !/^\d{12,19}$/.test(cardNumber) || !/^\d{3,4}$/.test(cvv) || !match ||
+        cardNumber.slice(-4) !== String(expectedLastFour || "")) throw new Error("嗨付卡详情与本地尾号不匹配");
+    const expMonth = Number(match[1]), expYear = 2000 + Number(match[2]);
+    if (expYear < new Date().getUTCFullYear() || expYear === new Date().getUTCFullYear() && expMonth < new Date().getUTCMonth()+1)
+      throw new Error("嗨付卡已过期");
+    return { cardNumber, expMonth, expYear, cvv };
   },
 
   async startRecharge({ cardInfo, fullAuthData, orderId, userEmail, accountId, plan = config.hifupayPlan }) {
@@ -252,7 +284,7 @@ export const hifupayAdapter = {
       headers: apiHeaders(session.apiKey),
       payload: {}
     });
-    const remoteCards = extractCards(cardsRaw);
+    const remoteCards = extractCards(cardsRaw).map(safeCardSnapshot);
     if (!cardsRaw.ok || !remoteCards.length) {
       return {
         ok: false,

@@ -23,6 +23,7 @@ test("Hifupay admin groups cards, searches all groups and expands actions withou
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /搜索全部分类/);
+  assert.match(html, /href="\/admin\/zzshu">吱吱鼠 Plus 后台/);
   const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
 
@@ -37,7 +38,7 @@ test("Hifupay admin groups cards, searches all groups and expands actions withou
     }
   };
   const context = vm.createContext({ document, location: { search: "", hash: "" }, URLSearchParams,
-    window: { adminApi: () => new Promise(() => {}) }, fetch: () => { throw Error("No request expected"); } });
+    adminHandler: () => new Promise(() => {}), window: { adminApi: (...args) => context.adminHandler(...args) }, fetch: () => { throw Error("No request expected"); } });
   vm.runInContext(script, context);
   const cards = [
     { id: "plus", enabled: true, poolStatus: "ready", status: "active", balance: 40, availableBalance: 40, lastFour: "1001", automaticPlusUsed: 1, priority: 0, plusUsers: [{ email: "plus@example.com" }] },
@@ -68,6 +69,19 @@ test("Hifupay admin groups cards, searches all groups and expands actions withou
   assert.match(rows.innerHTML, /data-setting="priority"/);
   assert.match(rows.innerHTML, /data-action="protect-pro"/);
   assert.match(rows.innerHTML, /data-action="disable"/);
+  assert.match(rows.innerHTML, /data-action="assign-zzshu"/);
+  const requests=[];
+  context.confirm=()=>true;
+  context.adminHandler=async (url,options={})=>{
+    requests.push({url,body:options.body ? JSON.parse(options.body) : null});
+    return url.includes("/assign")?{ok:true}:{cards:[{...cards[0],assignedToZzshu:true,poolStatus:"zzshu_assigned"}]};
+  };
+  await document.getElementById("cards").onclick({target:{closest(selector){return selector==="[data-action]"?{dataset:{action:"assign-zzshu",id:"plus"},disabled:false}:null}}});
+  assert.equal(requests[0].url,"/api/admin/zzshu/hifupay-cards/plus/assign");
+  assert.equal(requests[0].body.role,"zzshu");
+  vm.runInContext("activeCategory='all';applyCardSearch()",context);
+  assert.match(rows.innerHTML,/data-action="assign-h"/);
+  vm.runInContext("allCards=cardsForTest;applyCardSearch()",context);
   tabs.onclick({ target: { closest() { return { dataset: { category: "disabled" } }; } } });
   assert.match(rows.innerHTML, /ID off/);
   assert.doesNotMatch(rows.innerHTML, /ID pro/);
