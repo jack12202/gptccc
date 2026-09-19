@@ -37,7 +37,8 @@ test("Hifupay admin groups cards, searches all groups and expands actions withou
       return elements.get(id);
     }
   };
-  const context = vm.createContext({ document, location: { search: "", hash: "" }, URLSearchParams,
+  class BroadcastChannel { postMessage() {} close() {} }
+  const context = vm.createContext({ document, location: { search: "", hash: "" }, URLSearchParams, BroadcastChannel,
     adminHandler: () => new Promise(() => {}), window: { adminApi: (...args) => context.adminHandler(...args) }, fetch: () => { throw Error("No request expected"); } });
   vm.runInContext(script, context);
   const cards = [

@@ -6,6 +6,7 @@ const PANEL_USER = process.env.PANEL_USER;
 const PANEL_PASS = process.env.PANEL_PASS;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const HIFUPAY_API_KEY = process.env.HIFUPAY_API_KEY;
+const RECOVERY_ENCRYPTION_KEY = process.env.RECOVERY_ENCRYPTION_KEY;
 const ADMIN_ALERT_WEBHOOK_URL = process.env.ADMIN_ALERT_WEBHOOK_URL || "";
 const ADMIN_ALERT_WEBHOOK_TYPE = process.env.ADMIN_ALERT_WEBHOOK_TYPE || "generic";
 const PANEL_TARGET_DIR = process.env.PANEL_TARGET_DIR || "";
@@ -17,7 +18,8 @@ for (const [name, value] of Object.entries({
   PANEL_USER,
   PANEL_PASS,
   ADMIN_TOKEN,
-  HIFUPAY_API_KEY
+  HIFUPAY_API_KEY,
+  RECOVERY_ENCRYPTION_KEY
 })) {
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
@@ -216,6 +218,7 @@ function shellQuote(value) {
 function buildDeployScript() {
   const adminToken = envFileValue(ADMIN_TOKEN);
   const hifupayApiKey = envFileValue(HIFUPAY_API_KEY);
+  const recoveryEncryptionKey = envFileValue(RECOVERY_ENCRYPTION_KEY);
   const adminAlertWebhookUrl = envFileValue(ADMIN_ALERT_WEBHOOK_URL);
   const adminAlertWebhookType = envFileValue(ADMIN_ALERT_WEBHOOK_TYPE);
   const staticTargetDir = shellQuote(PANEL_TARGET_DIR);
@@ -264,6 +267,7 @@ PORT=8788
 DEFAULT_PROVIDER=czgpt
 ADMIN_TOKEN=${adminToken}
 HIFUPAY_API_KEY=${hifupayApiKey}
+RECOVERY_ENCRYPTION_KEY=${recoveryEncryptionKey}
 ADMIN_ALERT_WEBHOOK_URL=${adminAlertWebhookUrl}
 ADMIN_ALERT_WEBHOOK_TYPE=${adminAlertWebhookType}
 PUBLIC_BASE_URL=https://www.gptc.cc

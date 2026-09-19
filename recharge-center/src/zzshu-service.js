@@ -53,18 +53,24 @@ export const zzshuService = {
       if (!result.ok) throw new Error("嗨付卡片同步失败");
       hifupayStore.syncHifupayCards(result.data.cards);
     }
-    return hifupayStore.listHifupayCards().map(card => ({
-      id:card.id,lastFour:card.lastFour,balance:card.balance,status:card.status,enabled:card.enabled,
-      role:store.role(card.id).role,occupied:card.inFlightCount>0 || Boolean(store.role(card.id).hOrderId),
-      proProtected:card.proProtected,usedInH:card.plusUsed>0
-    }));
+    const needed=Math.max(0,config.hifupayEstimatedPlusChargeUsd+config.hifupaySafetyBufferUsd);
+    return hifupayStore.listHifupayCards().map(card => {
+      const role=store.role(card.id).role, occupied=card.inFlightCount>0 || Boolean(store.role(card.id).hOrderId);
+      const balance=Number(card.balance), active=String(card.status||"").toLowerCase()==="active";
+      const eligible=role==="zzshu" && card.enabled!==false && active && Number.isFinite(balance) && balance>=needed && !occupied;
+      const eligibilityReason=eligible?"可用于吱吱鼠 Plus":role!=="zzshu"?"尚未分配给吱吱鼠":
+        card.enabled===false?"本地已停用":occupied?"有未决订单占用":!active?`嗨付状态 ${card.status||"未知"}`:
+        !Number.isFinite(balance)?"余额未知":`余额不足，至少需要 $${needed.toFixed(2)}`;
+      return {id:card.id,lastFour:card.lastFour,balance:card.balance,status:card.status,enabled:card.enabled,
+        role,occupied,proProtected:card.proProtected,usedInH:card.plusUsed>0,eligible,eligibilityReason};
+    });
   },
   assignHifupayCard(cardId, role) {
     const card=hifupayStore.listHifupayCards().find(item=>item.id===String(cardId));
     if (!card) return {ok:false,reason:"请先同步嗨付卡池"};
     if (card.inFlightCount || store.role(card.id).hOrderId) return {ok:false,reason:"卡片有未决嗨付订单"};
-    if (role === "zzshu" && (card.proProtected || card.usedInH || card.plusUsed>0 || card.status!=="active"))
-      return {ok:false,reason:"只允许未用于嗨付历史订单、未受 Pro 保护的活动卡分配给吱吱鼠"};
+    if (role === "zzshu" && (card.proProtected || card.usedInH || card.plusUsed>0))
+      return {ok:false,reason:"只允许未用于嗨付历史订单、未受 Pro 保护的卡分配给吱吱鼠"};
     return store.assignHifupay({id:card.id,lastFour:card.lastFour},role);
   },
   preview(text) { return publicPreview(parsePaymentCards(text, store.hashes())); },
