@@ -19,7 +19,9 @@ test("assigned Hifupay card feeds Zzshu direct just-in-time; no sensitive persis
   const {JsonStore}=await import("../src/store.js");
   const {zzshuService}=await import("../src/zzshu-service.js");
   const h=new JsonStore(process.env.DATA_FILE);
-  h.syncHifupayCards([1,2,3,4].map(n=>({id:`card-${n}`,lastFour:n===3?"4242":`900${n}`,status:n===4?"unavailable":"active",balance:n===4?.01:40})));
+  h.syncHifupayCards([1,2,3,4].map(n=>({id:`card-${n}`,lastFour:n===3?"4242":`900${n}`,status:n===4?"unavailable":"active",balance:n===4?.01:40,
+    plusUsers:n===2?[{email:"historical@example.test",accountId:"historical-account"}]:[]})));
+  assert.equal(zzshuService.assignHifupayCard("card-2","zzshu").ok,true);
   assert.equal(zzshuService.assignHifupayCard("card-3","zzshu").ok,true);
   assert.equal(zzshuService.assignHifupayCard("card-4","zzshu").ok,true);
   const assignments=await zzshuService.listHifupayAssignments();

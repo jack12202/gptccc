@@ -795,7 +795,7 @@ document.getElementById("cards").onclick=async event=>{
   const button=event.target.closest("[data-action]");if(!button)return;const action=button.dataset.action;
   if(action==="assign-zzshu"||action==="assign-h"){
     const role=action==="assign-zzshu"?"zzshu":"h";
-    if(!confirm(role==="zzshu"?"将此卡改为吱吱鼠 Plus 专用？未决或历史已用卡不能切换。":"将此卡改回嗨付专用？请先确认吱吱鼠没有未决支付。"))return;
+    if(!confirm(role==="zzshu"?"将此卡改为吱吱鼠 Plus 专用？分配后不再参与嗨付后续选卡，历史记录仍会保留。":"将此卡改回嗨付专用？请先确认吱吱鼠没有未决支付。"))return;
     button.disabled=true;
     try{await api("/api/admin/zzshu/hifupay-cards/"+encodeURIComponent(button.dataset.id)+"/assign",{method:"POST",body:JSON.stringify({role})});await load(false);statusBox.textContent=role==="zzshu"?"已分配给吱吱鼠 Plus。":"已改回嗨付专用。";statusBox.classList.remove("error")}
     catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}

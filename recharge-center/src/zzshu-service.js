@@ -69,8 +69,8 @@ export const zzshuService = {
     const card=hifupayStore.listHifupayCards().find(item=>item.id===String(cardId));
     if (!card) return {ok:false,reason:"请先同步嗨付卡池"};
     if (card.inFlightCount || store.role(card.id).hOrderId) return {ok:false,reason:"卡片有未决嗨付订单"};
-    if (role === "zzshu" && (card.proProtected || card.usedInH || card.plusUsed>0))
-      return {ok:false,reason:"只允许未用于嗨付历史订单、未受 Pro 保护的卡分配给吱吱鼠"};
+    if (role === "zzshu" && card.proProtected)
+      return {ok:false,reason:"这张卡仍受 Pro 保护，请先解除保护后再分配给吱吱鼠"};
     return store.assignHifupay({id:card.id,lastFour:card.lastFour},role);
   },
   preview(text) { return publicPreview(parsePaymentCards(text, store.hashes())); },
