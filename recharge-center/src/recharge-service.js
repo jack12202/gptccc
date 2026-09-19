@@ -489,7 +489,7 @@ export const rechargeService = {
     if (typeof adapter.listCards !== "function") {
       return { ok: false, status: 400, message: "h 通道暂不支持读取嗨付卡片列表。" };
     }
-    const upstream = await adapter.listCards();
+    const upstream = await adapter.listCards({ fresh: true });
     if (!upstream.ok) {
       return { ok: false, status: upstream.status || 502, message: upstream.data?.message || "读取嗨付卡片列表失败。" };
     }

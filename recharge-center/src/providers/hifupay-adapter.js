@@ -84,13 +84,43 @@ function extractCards(raw) {
   return candidates.filter(item => item && typeof item === "object");
 }
 
+function firstPresent(...values) {
+  return values.find(value => value !== undefined && value !== null && value !== "");
+}
+
+function safeBalance(value) {
+  const candidate = value && typeof value === "object"
+    ? firstPresent(value.available, value.availableBalance, value.available_balance, value.amount, value.value)
+    : value;
+  const normalized = typeof candidate === "string" ? candidate.replace(/[$,\s]/g, "") : candidate;
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : null;
+}
+
+function safeCardStatus(value, card) {
+  if (value !== undefined && value !== null && value !== "") {
+    const status = String(value).trim().toLowerCase();
+    if (["active", "normal", "enabled", "available", "正常", "可用"].includes(status)) return "active";
+    if (["inactive", "disabled", "unavailable", "frozen", "closed", "不可用", "冻结", "已注销"].includes(status)) return "unavailable";
+    return status;
+  }
+  const active = firstPresent(card.active, card.isActive, card.is_active, card.enabled, card.isEnabled, card.is_enabled);
+  if (typeof active === "boolean") return active ? "active" : "unavailable";
+  return "active";
+}
+
 function safeCardSnapshot(card) {
+  const nested = [card.data, card.card, card.cardInfo, card.card_info]
+    .find(value => value && typeof value === "object" && !Array.isArray(value)) || {};
+  const value = { ...nested, ...card };
+  const cardNumber = String(firstPresent(value.maskedCardNo, value.masked_card_no, value.cardNo, value.card_no, value.cardNumber, value.card_number) || "");
   return {
-    id: card.id ?? card.cardId ?? card.card_id,
-    lastFour: card.lastFour ?? card.last4 ?? card.last_four ?? "",
-    status: card.status ?? card.state ?? "",
-    balance: card.balance ?? card.availableBalance ?? card.available_balance ?? null,
-    expiryDate: card.expiryDate ?? card.expiry_date ?? card.expiry ?? ""
+    id: firstPresent(value.id, value.cardId, value.card_id, value.cardID),
+    lastFour: String(firstPresent(value.lastFour, value.last4, value.last_four, value.cardLastFour, value.card_last_four) || cardNumber.slice(-4)),
+    status: safeCardStatus(firstPresent(value.status, value.state, value.cardStatus, value.card_status, value.cardState, value.card_state), value),
+    balance: safeBalance(firstPresent(value.balance, value.availableBalance, value.available_balance, value.cardBalance, value.card_balance,
+      value.availableAmount, value.available_amount, value.amount)),
+    expiryDate: firstPresent(value.expiryDate, value.expiry_date, value.expiry, value.expireDate, value.expire_date) || ""
   };
 }
 
@@ -174,10 +204,10 @@ function accountIdentity(fullAuthData, userEmail, accountId) {
   };
 }
 
-async function login() {
+async function login({ fresh = false } = {}) {
   const key = sourceApiKey();
   if (!requiredString(key)) return { ok: false, status: 503, message: "h通道 API Key 未配置。" };
-  if (requiredString(authorizedApiKey)) return { ok: true, status: 200, apiKey: authorizedApiKey };
+  if (!fresh && requiredString(authorizedApiKey)) return { ok: true, status: 200, apiKey: authorizedApiKey };
 
   const raw = await requestJson(config.hifupayBaseUrl, "/api/hfp/login", {
     method: "POST",
@@ -208,13 +238,13 @@ export const hifupayAdapter = {
     return { ok: data.success, status: data.success ? 200 : 400, data };
   },
 
-  async listCards() {
-    const session = await login();
+  async listCards({ fresh = false } = {}) {
+    const session = await login({ fresh });
     if (!session.ok) return { ok: false, status: session.status || 502, data: { message: session.message } };
 
     const raw = await requestJson(config.hifupayBaseUrl, "/api/hfp/cards", {
       method: "POST",
-      headers: apiHeaders(session.apiKey),
+      headers: { ...apiHeaders(session.apiKey), "Cache-Control": "no-cache", Pragma: "no-cache" },
       signal: AbortSignal.timeout(15000),
       payload: {}
     });

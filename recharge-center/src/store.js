@@ -68,6 +68,7 @@ function hifupayRemoteStatus(value) {
 }
 
 function hifupayBalance(value) {
+  if (value === null || value === undefined || value === "") return null;
   const balance = Number(value);
   return Number.isFinite(balance) ? balance : null;
 }
@@ -603,12 +604,18 @@ export class JsonStore {
         inFlightOrders: [],
         createdAt: timestamp
       };
+      const remoteBalanceField = ["balance", "availableBalance", "available_balance"]
+        .find(field => Object.prototype.hasOwnProperty.call(remote, field));
+      const remoteBalance = remoteBalanceField ? remote[remoteBalanceField] : undefined;
+      const lastFour = String(remote.lastFour ?? remote.last4 ?? remote.last_four ?? "").trim();
       Object.assign(card, {
         id,
-        lastFour: String(remote.lastFour ?? remote.last4 ?? remote.last_four ?? card.lastFour ?? ""),
+        lastFour: lastFour || card.lastFour || "",
         status: hifupayRemoteStatus(remote.status ?? remote.state ?? card.status),
-        balance: hifupayBalance(remote.balance ?? remote.availableBalance ?? remote.available_balance ?? card.balance),
+        balance: remoteBalanceField ? hifupayBalance(remoteBalance) : card.balance,
         expiryDate: String(remote.expiryDate ?? remote.expiry_date ?? remote.expiry ?? card.expiryDate ?? ""),
+        lastSeenAt: timestamp,
+        missingSince: "",
         updatedAt: timestamp
       });
       if (!Array.isArray(card.plusUsers)) card.plusUsers = [];
@@ -620,7 +627,10 @@ export class JsonStore {
 
     for (const card of state.hifupayCards) {
       if (!seenIds.has(card.id)) {
+        if (card.balance !== null && card.balance !== undefined) card.lastKnownBalance = card.balance;
+        card.balance = null;
         card.status = "unavailable";
+        card.missingSince = card.missingSince || timestamp;
         card.updatedAt = timestamp;
       }
     }
@@ -653,7 +663,8 @@ export class JsonStore {
       const pro5xSelected = pro5xCardHeld(state, card.id);
       const highBalanceProtected = card.balance !== null && card.balance > plusMaxBalance;
       let poolStatus = "ready";
-      if (assignedToZzshu) poolStatus = "zzshu_assigned";
+      if (card.missingSince) poolStatus = "upstream_missing";
+      else if (assignedToZzshu) poolStatus = "zzshu_assigned";
       else if (proProtected || pro5xSelected) poolStatus = "pro_protected";
       else if (!card.enabled) poolStatus = "disabled";
       else if (hifupayRemoteStatus(card.status) !== "active") poolStatus = "upstream_unavailable";
@@ -672,6 +683,9 @@ export class JsonStore {
         proProtected,
         pro5xSelected,
         assignedToZzshu,
+        missingFromUpstream: Boolean(card.missingSince),
+        missingSince: card.missingSince || "",
+        lastSeenAt: card.lastSeenAt || "",
         highBalanceProtected,
         plusMaxBalance,
         proReservation: proReservation ? {

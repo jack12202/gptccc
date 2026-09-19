@@ -49,7 +49,7 @@ export const zzshuService = {
   store,
   async listHifupayAssignments(refresh = false) {
     if (refresh) {
-      const result = await hifupayAdapter.listCards();
+      const result = await hifupayAdapter.listCards({ fresh: true });
       if (!result.ok) throw new Error("嗨付卡片同步失败");
       hifupayStore.syncHifupayCards(result.data.cards);
     }
@@ -59,10 +59,11 @@ export const zzshuService = {
       const balance=Number(card.balance), active=String(card.status||"").toLowerCase()==="active";
       const eligible=role==="zzshu" && card.enabled!==false && active && Number.isFinite(balance) && balance>=needed && !occupied;
       const eligibilityReason=eligible?"可用于吱吱鼠 Plus":role!=="zzshu"?"尚未分配给吱吱鼠":
-        card.enabled===false?"本地已停用":occupied?"有未决订单占用":!active?`嗨付状态 ${card.status||"未知"}`:
+        card.enabled===false?"本地已停用":occupied?"有未决订单占用":card.missingFromUpstream?"嗨付本次同步未返回此卡":!active?`嗨付状态 ${card.status||"未知"}`:
         !Number.isFinite(balance)?"余额未知":`余额不足，至少需要 $${needed.toFixed(2)}`;
       return {id:card.id,lastFour:card.lastFour,balance:card.balance,status:card.status,enabled:card.enabled,
-        role,occupied,proProtected:card.proProtected,usedInH:card.plusUsed>0,eligible,eligibilityReason};
+        role,occupied,proProtected:card.proProtected,usedInH:card.plusUsed>0,eligible,eligibilityReason,
+        missingFromUpstream:card.missingFromUpstream,lastSeenAt:card.lastSeenAt};
     });
   },
   assignHifupayCard(cardId, role) {

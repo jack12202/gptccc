@@ -21,9 +21,14 @@ function sendJson(res, status, payload) {
 
 test("hifupay adapter submits Plus PH tasks and normalizes polling status", async t => {
   let pollCount = 0;
+  let loginCount = 0;
+  let cardsCacheControl = "";
   let cardsAvailable = true;
+  const standardCards = { cards: [{ id: "7172", lastFour: "4113", status: "active", balance: 66, expiryDate: "09/28" }, { id: "7667", lastFour: "6737", status: "active", balance: 20, expiryDate: "09/28" }] };
+  let cardsPayload = standardCards;
   const upstream = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/hfp/login") {
+      loginCount += 1;
       const body = JSON.parse(await readBody(req));
       assert.equal(body.apiKey, "hifupay-test-key");
       assert.equal(body.platform, "haifupaytop");
@@ -32,9 +37,8 @@ test("hifupay adapter submits Plus PH tasks and normalizes polling status", asyn
     }
 
     if (req.method === "POST" && req.url === "/api/hfp/cards") {
-      sendJson(res, 200, cardsAvailable
-        ? { cards: [{ id: "7172", lastFour: "4113", status: "active", balance: 66, expiryDate: "09/28" }, { id: "7667", lastFour: "6737", status: "active", balance: 20, expiryDate: "09/28" }] }
-        : { cards: [] });
+      cardsCacheControl = String(req.headers["cache-control"] || "");
+      sendJson(res, 200, cardsAvailable ? cardsPayload : { cards: [] });
       return;
     }
 
@@ -115,6 +119,15 @@ test("hifupay adapter submits Plus PH tasks and normalizes polling status", asyn
   const { hifupayAdapter } = await import(`../src/providers/hifupay-adapter.js?test=${Date.now()}`);
   const { JsonStore } = await import("../src/store.js");
   const store = new JsonStore(dataFile);
+  const initialCards = await hifupayAdapter.listCards();
+  assert.equal(initialCards.data.cards[0].balance, 66);
+  assert.equal(loginCount, 1);
+  cardsPayload = { data: { cards: [{ card_id: "7823", card_last_four: "3013", card_status: "正常", card_balance: "$16.01", expire_date: "09/30" }] } };
+  const refreshedCards = await hifupayAdapter.listCards({ fresh: true });
+  assert.deepEqual(refreshedCards.data.cards, [{ id: "7823", lastFour: "3013", status: "active", balance: 16.01, expiryDate: "09/30" }]);
+  assert.equal(loginCount, 2);
+  assert.equal(cardsCacheControl, "no-cache");
+  cardsPayload = standardCards;
   const [card] = store.createHCards({ count: 1, productId: 3 });
 
   const verified = await hifupayAdapter.verifyCard({ cardInfo: card.code });

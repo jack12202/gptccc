@@ -67,6 +67,34 @@ test("hifupay card pool uses live balance and selects the lowest sufficient card
   assert.equal(lowerBalanceFirst.hifupayCardId, "7172");
 });
 
+test("a card omitted by an upstream refresh never keeps a stale selectable balance", async t => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-missing-card-test-"));
+  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
+  const { JsonStore } = await import("../src/store.js");
+  const store = new JsonStore(path.join(tempDir, "orders.json"));
+  store.syncHifupayCards([
+    { id: "7823", lastFour: "3013", status: "active", balance: 0.01 },
+    { id: "other", lastFour: "9999", status: "active", balance: 40 }
+  ]);
+
+  store.syncHifupayCards([{ id: "other", lastFour: "9999", status: "active", balance: 40 }]);
+  const missing = store.listHifupayCards().find(card => card.id === "7823");
+  assert.equal(missing.balance, null);
+  assert.equal(missing.availableBalance, null);
+  assert.equal(missing.missingFromUpstream, true);
+  assert.equal(missing.poolStatus, "upstream_missing");
+  assert.ok(missing.lastSeenAt);
+
+  store.syncHifupayCards([
+    { id: "7823", lastFour: "3013", status: "active", balance: 16.01 },
+    { id: "other", lastFour: "9999", status: "active", balance: 40 }
+  ]);
+  const restored = store.listHifupayCards().find(card => card.id === "7823");
+  assert.equal(restored.balance, 16.01);
+  assert.equal(restored.missingFromUpstream, false);
+  assert.notEqual(restored.poolStatus, "upstream_missing");
+});
+
 test("Plus selection excludes Pro-protected and over-66-dollar cards until manual release", async t => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-protection-test-"));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
