@@ -24,6 +24,7 @@ test("Hifupay admin groups cards, searches all groups and expands actions withou
   const html = await response.text();
   assert.match(html, /搜索全部分类/);
   assert.match(html, /支付卡池 · 嗨付卡片/);
+  assert.match(html, /href="\/admin\/zzshu">进入 ZZS 通道工作台/);
   const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
 
