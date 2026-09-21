@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const base = "https://www.gptc.cc";
 const password = process.env.ADMIN_TOKEN;
 if (!password) throw new Error("ADMIN_TOKEN is required for login verification");
-const pages = ["/admin/cards", "/admin/cards/library", "/admin/cards/batch", "/admin/hifupay/cards", "/admin/recoveries", "/admin/provider"];
+const pages = ["/admin", "/admin/cards", "/admin/cards/library", "/admin/cards/batch", "/admin/hifupay/cards", "/admin/zzshu", "/admin/pro-orders", "/admin/recoveries", "/admin/provider"];
 const call = (url, options = {}) => fetch(base + url, { ...options, signal: AbortSignal.timeout(20000) });
 let cookie, csrf;
 try {

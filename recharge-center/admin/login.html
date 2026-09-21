@@ -8,7 +8,7 @@
   </style>
 </head>
 <body><main>
-  <h1>登录卡密工作台</h1><p>登录后可直接使用卡密库、嗨付卡池和充值记录。</p>
+  <h1>登录 GPTC 后台</h1><p>登录后可进入总览、充值订单、产品与卡密、支付卡池与路由和通道设置。</p>
   <form id="loginForm">
     <label for="password">管理密码</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024" autofocus>
     <label class="remember"><input id="remember" type="checkbox">记住此设备 7 天（仅限自己的设备）</label>
@@ -17,9 +17,9 @@
   </form><p class="help">未勾选时，本次登录最长保持 8 小时。可随时退出当前或所有设备。</p>
 </main><script>
   try { localStorage.removeItem("gptcProviderAdminToken"); } catch {}
-  const allowed = new Set(["/admin/cards", "/admin/cards/", "/admin/cards/library", "/admin/cards/library/", "/admin/cards/batch", "/admin/cards/batch/", "/admin/hifupay/cards", "/admin/hifupay/cards/", "/admin/recoveries", "/admin/recoveries/", "/admin/provider", "/admin/provider/"]);
+  const allowed = new Set(["/admin", "/admin/", "/admin/cards", "/admin/cards/", "/admin/cards/library", "/admin/cards/library/", "/admin/cards/batch", "/admin/cards/batch/", "/admin/hifupay/cards", "/admin/hifupay/cards/", "/admin/zzshu", "/admin/zzshu/", "/admin/pro-orders", "/admin/pro-orders/", "/admin/recoveries", "/admin/recoveries/", "/admin/provider", "/admin/provider/"]);
   const next = new URLSearchParams(location.search).get("next");
-  const destination = allowed.has(next) ? next : "/admin/cards";
+  const destination = allowed.has(next) ? next : "/admin";
   history.replaceState(null, "", "/admin/login?next=" + encodeURIComponent(destination));
   document.getElementById("loginForm").onsubmit = async event => {
     event.preventDefault();

@@ -23,7 +23,7 @@ test("Hifupay admin groups cards, searches all groups and expands actions withou
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /搜索全部分类/);
-  assert.match(html, /href="\/admin\/zzshu">吱吱鼠 Plus 后台/);
+  assert.match(html, /支付卡池 · 嗨付卡片/);
   const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
 

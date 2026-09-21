@@ -83,7 +83,7 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  const pages = ["/admin/cards", "/admin/cards/library", "/admin/cards/batch", "/admin/hifupay/cards", "/admin/recoveries", "/admin/provider"];
+  const pages = ["/admin", "/admin/cards", "/admin/cards/library", "/admin/cards/batch", "/admin/hifupay/cards", "/admin/zzshu", "/admin/pro-orders", "/admin/recoveries", "/admin/provider"];
   for (const page of pages) {
     const res = await fetch(base + page, { redirect: "manual" });
     assert.equal(res.status, 303);
@@ -102,6 +102,12 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
     assert.equal(res.status, 200);
     const html = await res.text();
     assert.match(html, /src="\/admin\/session.js"/);
+    assert.match(html, /GPTC 后台|产品与卡密|ZZS 通道工作台|Pro 履约工作台/);
+    if (page === "/admin/provider") {
+      assert.match(html, /履约通道入口/);
+      assert.match(html, /href="\/admin\/hifupay\/cards"/);
+      assert.match(html, /href="\/admin\/zzshu"/);
+    }
     assert.doesNotMatch(html, /type="password"|X-Admin-Token|localStorage\.setItem|tokenFromQuery/);
     for (const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(script[1]);
   }

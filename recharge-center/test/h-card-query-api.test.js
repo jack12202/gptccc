@@ -61,7 +61,7 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   const adminHeaders = { Cookie: cookie, Origin: "https://www.gptc.cc", "X-CSRF-Token": csrf };
   const batchPage = await fetch(`${baseUrl}/admin/cards/batch`, { headers: adminHeaders });
   assert.equal(batchPage.status, 200);
-  assert.match(await batchPage.text(), /<h1>批量查询<\/h1>/);
+  assert.match(await batchPage.text(), /<h1>产品与卡密 · 批量查询<\/h1>/);
   const generatorPage = await fetch(`${baseUrl}/admin/cards`, { headers: adminHeaders });
   assert.equal(generatorPage.status, 200);
   const generatorHtml = await generatorPage.text();

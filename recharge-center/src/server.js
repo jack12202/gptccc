@@ -41,6 +41,33 @@ function serveHCardBatchAdmin(res) {
   res.end(html);
 }
 
+function serveAdminOverview(res) {
+  const html = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <script src="/admin/session.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>总览｜GPTC 后台</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;padding:20px;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#132033;background:#f4f7fb}main{width:min(1180px,100%);margin:0 auto}section{padding:22px;margin-bottom:16px;background:#fff;border:1px solid #dbe4ee;border-radius:14px;box-shadow:0 18px 48px rgba(15,23,42,.08)}h1,h2{margin:0 0 8px}h1{font-size:28px}p{margin:0;color:#64748b;line-height:1.65}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{display:flex;flex-direction:column;gap:10px;min-height:172px;padding:18px;border:1px solid #dbe4ee;border-radius:12px;background:#f8fafc}.module h2{font-size:18px}.module a,.shortcut{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 14px;border:1px solid #99f6e4;border-radius:10px;background:#ecfdf5;color:#0f766e;font-weight:800;text-decoration:none}.module a{margin-top:auto;align-self:flex-start}.shortcuts{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.note{font-size:14px}@media(max-width:640px){body{padding:12px}section{padding:16px}.module a,.shortcut{width:100%}}
+  </style>
+</head>
+<body><main>
+  <section><h1>总览</h1><p>统一入口只提供模块说明和安全的导航。本轮不聚合真实统计数据、不新建复杂 API，也不执行充值、切换通道、分配支付卡或更改配置。</p><div class="shortcuts"><a class="shortcut" href="/admin/cards">生成卡密</a><a class="shortcut" href="/admin/recoveries">查看充值订单</a><a class="shortcut" href="/admin/hifupay/cards">刷新/查看支付卡池</a></div></section>
+  <section><div class="grid">
+    <article class="module"><h2>充值订单</h2><p>统一查看 Plus、Pro 5x、Pro 20x 的履约记录。</p><a href="/admin/recoveries">查看历史记录</a></article>
+    <article class="module"><h2>产品与卡密</h2><p>生成、查询和管理客户兑换卡密。</p><a href="/admin/cards">进入产品与卡密</a></article>
+    <article class="module"><h2>支付卡池</h2><p>管理用于实际支付的卡片、余额、状态和占用。</p><a href="/admin/hifupay/cards">查看嗨付卡片</a></article>
+    <article class="module"><h2>路由与通道</h2><p>管理产品支持的履约通道及网站入口设置。</p><a href="/admin/provider">查看网站入口设置</a></article>
+    <article class="module"><h2>系统状态</h2><p>本轮不新增健康检查 API。请沿用现有部署健康检查与服务日志确认运行状态。</p><span class="note">不展示或读取业务统计数据。</span></article>
+  </div></section>
+</main></body></html>`;
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
+  res.end(html);
+}
+
 function clientIp(req) {
   const realIp = req.headers["x-real-ip"];
   if (typeof realIp === "string" && realIp.trim()) return realIp.trim().slice(0, 80);
@@ -97,7 +124,7 @@ function serveProviderAdmin(res) {
   <script src="/admin/session.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>源头切换后台｜GPTC.cc</title>
+  <title>路由与通道 · 网站入口设置｜GPTC 后台</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -162,12 +189,19 @@ function serveProviderAdmin(res) {
       color: #64748b;
       line-height: 1.6;
     }
+    .channel-entry { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e2e8f0; }
+    .channel-links { display: grid; gap: 10px; margin-top: 10px; }
+    .channel-link { display: block; padding: 12px; border: 1px solid #dbe4ee; border-radius: 10px; background: #f8fafc; color: #0f172a; text-decoration: none; }
+    .channel-link:hover { border-color: #99f6e4; background: #ecfdf5; }
+    .channel-link strong { display: block; font-size: 14px; }
+    .channel-link span, .channel-static { display: block; margin-top: 4px; color: #64748b; font-size: 13px; line-height: 1.5; }
+    .channel-static { padding: 12px; border: 1px dashed #cbd5e1; border-radius: 10px; background: #fff; }
   </style>
 </head>
 <body>
   <main>
-    <h1>GPTC 源头切换</h1>
-    <p>先选择站内或站外充值，再点击对应源头。站内在 GPTC 完成，站外会直接打开对应充值页。</p>
+    <h1>路由与通道 · 网站入口设置</h1>
+    <p>这里保留现有网站入口设置。产品（Plus、Pro 5x、Pro 20x）与履约通道是不同维度；本轮不修改默认充值通道或任何路由规则。</p>
 
     <div class="provider-group">
       <h2 class="group-title">站内充值</h2>
@@ -193,8 +227,15 @@ function serveProviderAdmin(res) {
       </div>
     </div>
     <div class="status" id="statusBox">正在读取当前通道…</div>
-    <div class="hint"><a href="/admin/cards">打开 h 通道卡密生成后台</a></div>
-
+    <section class="channel-entry" aria-labelledby="channel-entry-title">
+      <h2 class="group-title" id="channel-entry-title">履约通道入口</h2>
+      <p class="group-help">产品与通道分开管理：Plus、Pro 5x、Pro 20x 是产品；嗨付、ZZS、人工是履约通道。</p>
+      <div class="channel-links">
+        <a class="channel-link" href="/admin/hifupay/cards"><strong>嗨付 · 支付卡池</strong><span>管理实际用于扣款的嗨付支付卡、余额、状态和占用。</span></a>
+        <a class="channel-link" href="/admin/zzshu"><strong>ZZS · 临时通道工作台</strong><span>当前保留旧工作台；后续会拆分归入订单、卡密和支付卡池。</span></a>
+        <div class="channel-static"><strong>人工 · 履约通道</strong><span>本轮仅作概念说明，暂不新建独立页面或操作入口。</span></div>
+      </div>
+    </section>
   </main>
   <script>
     const statusBox = document.getElementById("statusBox");
@@ -260,7 +301,7 @@ function serveHCardAdmin(res) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>h 通道卡密｜GPTC.cc</title>
+  <title>产品与卡密 · 生成卡密｜GPTC 后台</title>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; padding: 20px; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #132033; background: #f4f7fb; }
@@ -306,8 +347,8 @@ function serveHCardAdmin(res) {
 <body>
   <main>
     <section>
-      <h1>卡密工作台</h1>
-      <p>按销售来源生成卡密，并复制或下载适合 Excel、卡网和客户交付的格式。</p>
+      <h1>产品与卡密 · 生成卡密</h1>
+      <p>按销售来源生成 Plus、Pro 5x、Pro 20x 的客户兑换卡密，并复制或下载适合交付的格式。</p>
 
       <div class="form">
         <label>卡密套餐<select id="plan"><option value="plus">Plus</option><option value="pro_x5">Pro 5x</option><option value="pro_x20">Pro 20x</option></select></label>
@@ -316,7 +357,7 @@ function serveHCardAdmin(res) {
         <button id="generate" type="button">生成卡密</button>
       </div>
       <div class="status" id="statusBox">选择数量和来源后生成。</div>
-      <div class="page-actions"><a class="action-link" href="/admin/cards/library">卡密库</a><a class="action-link" href="/admin/cards/batch">批量查询</a><a class="action-link" href="/admin/hifupay/cards">嗨付卡池</a><a class="action-link" href="/admin/zzshu">吱吱鼠 Plus</a><a class="action-link" href="/admin/pro-orders">Pro 订单与设置</a><a class="action-link" href="/admin/recoveries">充值记录</a></div>
+      <div class="page-actions"><a class="action-link" href="/admin/cards/library">卡密库</a><a class="action-link" href="/admin/cards/batch">批量查询</a></div>
       <div class="output-actions" id="outputActions"><button class="secondary" id="copyCodes">复制全部卡密</button><button class="secondary" id="copyLinks">复制全部链接</button><button class="secondary" id="downloadLinkZip">下载链接 ZIP</button></div>
       <div class="generated" id="generated"></div>
     </section>
@@ -453,7 +494,7 @@ function serveHCardLibraryAdmin(res) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>h 通道卡密库｜GPTC.cc</title>
+  <title>产品与卡密 · 卡密库｜GPTC 后台</title>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; padding: 20px; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #132033; background: #f4f7fb; }
@@ -493,8 +534,8 @@ function serveHCardLibraryAdmin(res) {
   <main>
     <section>
       <div class="topbar">
-        <div><h1>h 通道卡密库</h1><p class="hint">按来源、状态和生成日期筛选，支持批量管理。提交过资料的卡密只能归档，不能删除。</p></div>
-        <div class="top-actions"><a class="back-link" href="/admin/cards">返回生成页</a><a class="back-link" href="/admin/cards/batch">批量查询</a><a class="back-link" href="/admin/hifupay/cards">嗨付卡池</a><a class="back-link" href="/admin/pro-orders">Pro 订单</a><a class="back-link" href="/admin/recoveries">充值记录</a><button class="secondary" id="refresh" type="button">刷新列表</button></div>
+        <div><h1>产品与卡密 · 卡密库</h1><p class="hint">管理客户兑换卡密；按来源、状态和生成日期筛选，支持批量管理。提交过资料的卡密只能归档，不能删除。</p></div>
+        <div class="top-actions"><a class="back-link" href="/admin/cards">生成卡密</a><a class="back-link" href="/admin/cards/batch">批量查询</a><button class="secondary" id="refresh" type="button">刷新列表</button></div>
       </div>
 
       <div class="status" id="statusBox">正在加载卡密…</div>
@@ -748,13 +789,13 @@ function serveHCardLibraryAdmin(res) {
 function serveHifupayCardAdmin(res) {
   const html = `<!doctype html>
 <html lang="zh-CN"><head>
-  <script src="/admin/session.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>嗨付卡池｜GPTC.cc</title>
+  <script src="/admin/session.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>支付卡池 · 嗨付卡片｜GPTC 后台</title>
 <style>
 *{box-sizing:border-box}body{margin:0;padding:20px;background:#f4f7fb;color:#132033;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:1200px;margin:auto}section{padding:22px;margin-bottom:16px;background:#fff;border:1px solid #dbe4ee;border-radius:14px;box-shadow:0 18px 48px rgba(15,23,42,.08)}h1,h2{margin:0 0 8px}p{color:#64748b;line-height:1.6}.top,.actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.actions{justify-content:flex-start}label{display:grid;gap:8px;margin-top:16px;font-weight:800;max-width:620px}input{min-height:44px;padding:0 12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}button,a{min-height:42px;padding:0 14px;border-radius:10px;font:inherit;font-weight:900;cursor:pointer}button{border:0;background:#0f766e;color:#fff}button.secondary,a{background:#ecfdf5;color:#0f766e;border:1px solid #99f6e4;text-decoration:none;display:inline-flex;align-items:center}button.danger{background:#fff1f2;color:#9f1239;border:1px solid #fda4af}.status{margin-top:16px;padding:12px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;white-space:pre-wrap}.error{background:#fff1f2;border-color:#fda4af;color:#9f1239}.table{overflow:auto;margin-top:14px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 8px;text-align:left;vertical-align:middle;border-bottom:1px solid #e2e8f0;white-space:nowrap}th{color:#475569}td small{color:#64748b}.purpose{max-width:240px;overflow:hidden;text-overflow:ellipsis}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:900}.warn{background:#fff7ed;color:#c2410c}.bad{background:#fff1f2;color:#be123c}.hint{margin:8px 0 0;font-size:13px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.tabs button{background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:14px}.tabs button.active{background:#0f766e;border-color:#0f766e;color:#fff}.detail-row td{background:#f8fafc;white-space:normal;line-height:1.6;padding:16px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 28px}.detail-grid p{margin:4px 0}.detail-grid .actions{grid-column:1/-1}.detail-grid label{margin:0;display:flex;align-items:center;gap:8px}.detail-grid input{width:80px}.pagination{margin-top:14px;display:flex;align-items:center;justify-content:flex-end;gap:12px}.pagination button:disabled{opacity:.45;cursor:default}@media(max-width:640px){body{padding:12px}section{padding:16px}.top>.actions a{min-height:38px}.detail-grid{grid-template-columns:1fr}.tabs button{flex:1}.table{margin-left:-8px;margin-right:-8px}.actions a,.detail-grid .actions button{width:100%;justify-content:center}}
 </style></head><body><main>
-<section><div class="top"><div><h1>嗨付卡池</h1><p>这里管理真正提交充值的嗨付卡片，不是用户拿到的激活卡密。系统只读取余额和状态，不会自动开卡、提余额或注销卡片。</p></div><div class="actions"><a href="/admin/cards">卡密生成</a><a href="/admin/cards/library">卡密库</a><a href="/admin/zzshu">吱吱鼠 Plus 后台</a><a href="/admin/recoveries">充值记录</a></div></div>
+<section><div class="top"><div><h1>支付卡池 · 嗨付卡片</h1><p>这里管理实际用于扣款的嗨付支付卡，不是客户兑换卡密。系统只读取余额和状态，不会自动开卡、提余额或注销支付卡。</p></div></div>
 <div class="actions" style="margin-top:14px"><button id="refresh">刷新嗨付卡片</button><button class="secondary" id="local">查看本地记录</button></div><div class="status" id="status">正在加载嗨付卡池…</div></section>
-<section><div class="top"><div><h2>卡片状态</h2><p class="hint">新卡默认归嗨付。展开卡片后可分配给吱吱鼠 Plus，或将无未决订单的吱吱鼠卡切回嗨付；不会改变网站默认通道。嗨付 Plus 自动充值只会使用余额足够且不超过 $66 的卡。</p></div><strong id="count">0 张</strong></div><nav class="tabs" id="cardTabs" aria-label="卡片分类"></nav><label>搜索卡池<input id="cardSearch" type="search" placeholder="输入卡片 ID、尾号、账号或升级类型；搜索全部分类"></label><div class="table"><table><thead><tr><th>卡片</th><th>余额</th><th>本站成功记录</th><th>用途/保护</th><th>状态</th><th>详情</th></tr></thead><tbody id="cards"><tr><td colspan="6">暂无记录</td></tr></tbody></table></div><div class="pagination" id="pagination"><button class="secondary" id="prevPage" type="button">上一页</button><span id="pageInfo">第 1 / 1 页</span><button class="secondary" id="nextPage" type="button">下一页</button></div></section>
+<section><div class="top"><div><h2>支付卡状态</h2><p class="hint">新卡默认归嗨付。展开支付卡后可分配给 ZZS，或将无未决订单的 ZZS 支付卡切回嗨付；不会改变网站默认通道。嗨付 Plus 自动充值只会使用余额足够且不超过 $66 的支付卡。</p></div><strong id="count">0 张</strong></div><nav class="tabs" id="cardTabs" aria-label="支付卡分类"></nav><label>搜索支付卡池<input id="cardSearch" type="search" placeholder="输入支付卡 ID、尾号、账号或升级类型；搜索全部分类"></label><div class="table"><table><thead><tr><th>支付卡</th><th>余额</th><th>本站成功记录</th><th>用途/保护</th><th>状态</th><th>详情</th></tr></thead><tbody id="cards"><tr><td colspan="6">暂无记录</td></tr></tbody></table></div><div class="pagination" id="pagination"><button class="secondary" id="prevPage" type="button">上一页</button><span id="pageInfo">第 1 / 1 页</span><button class="secondary" id="nextPage" type="button">下一页</button></div></section>
 </main><script>
 const statusBox=document.getElementById("status");
 const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"}[c]));const date=value=>{if(!value)return"-";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleString("zh-CN",{hour12:false})};const day=value=>{const raw=String(value||"");const match=raw.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);return match?match[1]+"/"+Number(match[2])+"/"+Number(match[3]):date(value)};const normalizeRenewal=value=>{const raw=String(value||"").trim();let match=raw.match(/^(\\d{4})[./-](\\d{1,2})[./-](\\d{1,2})$/);let year,month,dayOfMonth;if(match){year=Number(match[1]);month=Number(match[2]);dayOfMonth=Number(match[3])}else{match=raw.match(/^(\\d{1,2})[./-](\\d{1,2})$/);if(!match)return"";const now=new Date();year=now.getFullYear();month=Number(match[1]);dayOfMonth=Number(match[2]);const candidate=new Date(year,month-1,dayOfMonth);if(candidate.getTime()<new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime())year+=1}const candidate=new Date(year,month-1,dayOfMonth);if(candidate.getFullYear()!==year||candidate.getMonth()!==month-1||candidate.getDate()!==dayOfMonth)return"";return String(year).padStart(4,"0")+"-"+String(month).padStart(2,"0")+"-"+String(dayOfMonth).padStart(2,"0")};const money=value=>value===null||value===undefined?"未知":"$"+Number(value).toFixed(2);const labels={ready:"可用",low_balance:"余额偏低",reserved:"处理中",pro_protected:"Pro 续费保护",high_balance:"高余额保护",full_hold:"已满·保留中",full_expired:"已满·待处理",disabled:"已禁用",upstream_unavailable:"上游不可用",upstream_missing:"上游本次未返回"};
@@ -764,12 +805,12 @@ function render(cards){return cards.map(card=>{
   const id=esc(card.id),pro=card.proReservation,expanded=expandedCards.has(String(card.id));
   const accounts=(card.plusUsers||[]).map(user=>'<p>'+esc(user.email||user.accountId||"未知账号")+(user.upgradeUntil?' <small>可升级至 '+esc(date(user.upgradeUntil))+'</small>':'')+'</p>').join("")||"-";
   const pending=(card.inFlightOrders||[]).map(item=>'<p>待确认 '+esc(item.email||item.accountId||item.orderId)+' · '+esc(money(item.estimatedChargeUsd))+' · '+esc(date(item.reservedAt))+' <button class="secondary" data-action="release" data-id="'+id+'" data-order-id="'+esc(item.orderId)+'">释放</button></p>').join("");
-  const purpose=card.assignedToZzshu?'吱吱鼠 Plus 专用':pro?esc(pro.type||"Pro")+' <small>· '+esc(pro.account||"-")+'</small>':card.highBalanceProtected?'Plus 高余额保护':'Plus 自动充值';
+  const purpose=card.assignedToZzshu?'ZZS 专用':pro?esc(pro.type||"Pro")+' <small>· '+esc(pro.account||"-")+'</small>':card.highBalanceProtected?'Plus 高余额保护':'Plus 自动充值';
   const displayStatus=!card.enabled?"disabled":card.poolStatus;
   const cls=["disabled","pro_protected"].includes(displayStatus)?"bad":["low_balance","reserved","upstream_unavailable","upstream_missing","high_balance","full_expired"].includes(displayStatus)?"warn":"";
   const enabledAction=card.enabled?'<button class="danger" data-action="disable" data-id="'+id+'">禁用</button>':'<button class="secondary" data-action="enable" data-id="'+id+'">启用</button>';
   const protectAction=card.proProtected?'<button class="secondary" data-action="protect-pro" data-id="'+id+'" data-account="'+esc(pro?.account||"")+'" data-type="'+esc(pro?.type||"20X Pro")+'" data-renewal="'+esc(pro?.renewalAt||"")+'">修改 Pro 信息</button><button class="secondary" data-action="release-pro" data-id="'+id+'">解除 Pro 保护</button>':'<button class="secondary" data-action="protect-pro" data-id="'+id+'">Pro 续费保护</button>';
-  const assignAction=card.assignedToZzshu?'<button class="secondary" data-action="assign-h" data-id="'+id+'">改回嗨付</button>':'<button class="secondary" data-action="assign-zzshu" data-id="'+id+'">分配给吱吱鼠 Plus</button>';
+  const assignAction=card.assignedToZzshu?'<button class="secondary" data-action="assign-h" data-id="'+id+'">改回嗨付</button>':'<button class="secondary" data-action="assign-zzshu" data-id="'+id+'">分配给 ZZS</button>';
   const summary='<tr><td>ID '+id+'<br><small>****'+esc(card.lastFour||"----")+'</small></td><td>'+esc(money(card.balance))+'<br><small>可用 '+esc(money(card.availableBalance))+'</small></td><td>'+esc(card.automaticPlusUsed)+' 人</td><td class="purpose" title="'+esc(pro?pro.account||"":"")+'">'+purpose+'</td><td><span class="badge '+cls+'">'+esc(displayStatus==="zzshu_assigned"?"吱吱鼠专用":labels[displayStatus]||displayStatus||"未知")+'</span></td><td><button class="secondary" type="button" data-toggle="'+id+'" aria-expanded="'+expanded+'" aria-label="'+(expanded?'收起':'展开')+'卡片 '+id+' 详情">'+(expanded?'收起':'展开')+'</button></td></tr>';
   if(!expanded)return summary;
   return summary+'<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><strong>绑定账号</strong>'+accounts+'</div><div><strong>卡片信息</strong><p>上游状态：'+esc(card.status||"未知")+'</p><p>最近收到此卡：'+esc(date(card.lastSeenAt))+'</p><p>Pro 续费：'+(pro?esc(pro.type||"Pro")+' · '+esc(pro.account||"-")+(pro.renewalAt?' · '+esc(day(pro.renewalAt)):''):'未设置')+'</p><p>待确认订单：'+(card.inFlightOrders||[]).length+' 笔</p>'+pending+'</div><div class="actions"><label>顺序 <input type="number" min="0" data-setting="priority" data-id="'+id+'" value="'+esc(card.priority)+'"></label>'+assignAction+protectAction+enabledAction+'</div></div></td></tr>';
@@ -795,9 +836,9 @@ document.getElementById("cards").onclick=async event=>{
   const button=event.target.closest("[data-action]");if(!button)return;const action=button.dataset.action;
   if(action==="assign-zzshu"||action==="assign-h"){
     const role=action==="assign-zzshu"?"zzshu":"h";
-    if(!confirm(role==="zzshu"?"将此卡改为吱吱鼠 Plus 专用？分配后不再参与嗨付后续选卡，历史记录仍会保留。":"将此卡改回嗨付专用？请先确认吱吱鼠没有未决支付。"))return;
+    if(!confirm(role==="zzshu"?"将此支付卡改为 ZZS 专用？分配后不再参与嗨付后续选卡，历史记录仍会保留。":"将此支付卡改回嗨付专用？请先确认 ZZS 没有未决支付。"))return;
     button.disabled=true;
-    try{await api("/api/admin/zzshu/hifupay-cards/"+encodeURIComponent(button.dataset.id)+"/assign",{method:"POST",body:JSON.stringify({role})});await load(false);statusBox.textContent=role==="zzshu"?"已分配给吱吱鼠 Plus。":"已改回嗨付专用。";statusBox.classList.remove("error")}
+    try{await api("/api/admin/zzshu/hifupay-cards/"+encodeURIComponent(button.dataset.id)+"/assign",{method:"POST",body:JSON.stringify({role})});await load(false);statusBox.textContent=role==="zzshu"?"已分配给 ZZS。":"已改回嗨付专用。";statusBox.classList.remove("error")}
     catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}
     return;
   }
@@ -820,7 +861,7 @@ function serveRecoveryAdmin(res) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>充值记录｜GPTC.cc</title>
+  <title>充值订单 · 历史记录｜GPTC 后台</title>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; padding: 20px; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #132033; background: #f4f7fb; }
@@ -858,8 +899,7 @@ function serveRecoveryAdmin(res) {
   <main>
     <section>
       <div class="topbar">
-        <div><h1>充值记录</h1><p class="hint">查看全部通道的提交记录。JSON 加密保存，成功订单完成45天后自动清除敏感内容。</p></div>
-        <div class="top-actions"><a class="back-link" href="/admin/cards">卡密生成</a><a class="back-link" href="/admin/cards/library">卡密库</a><a class="back-link" href="/admin/pro-orders">Pro 订单工作台</a></div>
+        <div><h1>充值订单 · 历史记录</h1><p class="hint">查看全部产品与通道的履约记录。JSON 加密保存，成功订单完成45天后自动清除敏感内容。</p></div>
       </div>
 
       <div class="top-actions" style="margin-top:14px"><button id="enableAlerts" type="button">开启桌面提醒</button><button class="secondary" id="refresh" type="button">立即刷新</button></div>
@@ -1045,7 +1085,8 @@ function serveAdminAsset(res, name, contentType = "text/html; charset=utf-8") {
 }
 
 async function handleAdminAuth(req, res, url) {
-  if (!url.pathname.startsWith("/admin/") && !url.pathname.startsWith("/api/admin/")) return false;
+  const isAdminPage = url.pathname === "/admin" || url.pathname === "/admin/" || url.pathname.startsWith("/admin/");
+  if (!isAdminPage && !url.pathname.startsWith("/api/admin/")) return false;
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -1067,7 +1108,7 @@ async function handleAdminAuth(req, res, url) {
     sendJson(res, result.ok ? 200 : result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message });
     return true;
   }
-  if (url.pathname.startsWith("/admin/")) {
+  if (isAdminPage) {
     // Legacy credential-bearing links are never authentication, even with a session.
     if (url.searchParams.has("token") || url.searchParams.has("adminToken") || !adminAuth.session(req)) {
       res.writeHead(303, { Location: "/admin/login?next=" + encodeURIComponent(url.pathname) }); res.end(); return true;
@@ -1141,6 +1182,11 @@ export const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && (url.pathname === "/admin/provider" || url.pathname === "/admin/provider/")) {
       serveProviderAdmin(res);
+      return;
+    }
+
+    if (req.method === "GET" && ["/admin", "/admin/"].includes(url.pathname)) {
+      serveAdminOverview(res);
       return;
     }
 
