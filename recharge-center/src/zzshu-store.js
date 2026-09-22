@@ -142,15 +142,35 @@ export class ZzshuStore {
     });
     return output;
   }
+  registerUnifiedVouchers(cards, encrypt) {
+    this.transaction(() => {
+      for (const card of cards) {
+        const code = String(card.code || "").toUpperCase();
+        if (!/^HPLUS[0-9A-F]{32}$/.test(code)) throw new Error("通用 Plus 卡密格式无效");
+        this.db.prepare("INSERT INTO vouchers(id,code_hash,code_cipher,batch_id,source,product_id,created_at) VALUES(?,?,?,?,?,?,?)")
+          .run(card.id, crypto.createHash("sha256").update(code).digest("hex"), encrypt(code),
+            card.batchId, card.source, Number(card.productId) || config.hifupayProductId, card.createdAt);
+      }
+    });
+  }
   voucher(code) { return this.db.prepare("SELECT id,status,order_id AS orderId,product_id AS productId,email,account_id AS accountId,batch_id AS batchId,source FROM vouchers WHERE code_hash=?")
     .get(crypto.createHash("sha256").update(code).digest("hex")); }
+  hasVoucherOrders(code) {
+    const voucher = this.voucher(code);
+    return Boolean(voucher && this.db.prepare("SELECT 1 FROM orders WHERE voucher_id=? LIMIT 1").get(voucher.id));
+  }
   voucherStatusByHash(codeHash) {
     return this.db.prepare("SELECT status FROM vouchers WHERE code_hash=?").get(codeHash)?.status || "missing";
   }
   voucherCipherByHash(codeHash) {
     return this.db.prepare("SELECT code_cipher FROM vouchers WHERE code_hash=?").get(codeHash)?.code_cipher || "";
   }
-  listVouchers() { return this.db.prepare("SELECT id,batch_id AS batchId,source,product_id AS productId,status,order_id AS orderId,email,account_id AS accountId,created_at AS createdAt FROM vouchers ORDER BY created_at DESC LIMIT 500").all(); }
+  voucherCipherForOrder(orderId) {
+    return this.db.prepare("SELECT v.code_cipher AS cipher FROM orders o JOIN vouchers v ON v.id=o.voucher_id WHERE o.id=?")
+      .get(orderId)?.cipher || "";
+  }
+  listVouchers() { return this.db.prepare("SELECT id,batch_id AS batchId,source,product_id AS productId,status,order_id AS orderId,email,account_id AS accountId,created_at AS createdAt FROM vouchers WHERE id NOT LIKE 'hcard_%' ORDER BY created_at DESC LIMIT 500").all(); }
+  unifiedOrderIds() { return this.db.prepare("SELECT order_id AS id FROM vouchers WHERE id LIKE 'hcard_%' AND order_id IS NOT NULL").all().map(row => row.id); }
   selectCandidate(allowedHifupayIds, allowManual) {
     const candidates = this.db.prepare(`SELECT * FROM payment_cards WHERE enabled=1 AND paused=0 AND success_count<max_success
       AND (credential_ref NOT LIKE 'hifupay:%' OR EXISTS (SELECT 1 FROM card_roles WHERE hifupay_id=substr(payment_cards.credential_ref,9) AND role='zzshu'))

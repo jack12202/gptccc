@@ -363,6 +363,7 @@ export const rechargeService = {
 
     return {
       defaultProvider: provider,
+      plusProvider: settings.plusProvider === "zzshu" ? "zzshu" : "h",
       defaultProviderLabel: adapter.label,
       defaultProviderMode: adapter.mode || "api",
       redirectUrl: adapter.mode === "redirect" ? adapter.redirectUrl : "",
@@ -394,14 +395,31 @@ export const rechargeService = {
     };
   },
 
+  updatePlusProvider(provider) {
+    if (!["h", "zzshu"].includes(provider)) return { ok: false, status: 400, message: "Plus 通道只能选择嗨付或 ZZS。" };
+    if (provider === "zzshu" && (!config.zzshuEnabled || !zzshuService.diagnostics().apiKeyReady))
+      return { ok: false, status: 409, message: "ZZS 通道或 API Key 尚未就绪。" };
+    store.updateSettings({ plusProvider: provider });
+    return { ok: true, status: 200, data: this.getProviderSettings() };
+  },
+
   createHCards(input = {}) {
     if (input.plan && !["plus", "pro_x5", "pro_x20"].includes(input.plan)) return { ok: false, status: 400, message: "不支持的卡密套餐。" };
+    const unified = (input.plan || "plus") === "plus";
     const cards = store.createHCards({
       count: input.count,
       productId: input.productId || config.hifupayProductId,
       source: input.source,
-      plan: input.plan || "plus"
+      plan: input.plan || "plus",
+      unified
     });
+    if (unified) {
+      try { zzshuService.registerUnifiedVouchers(cards); }
+      catch {
+        for (const card of cards) store.deleteHCard(card.id);
+        return { ok: false, status: 503, message: "通用卡密登记失败，未生成卡密。" };
+      }
+    }
     return { ok: true, status: 200, data: { cards } };
   },
 
@@ -410,12 +428,18 @@ export const rechargeService = {
   },
 
   queryHCardStatus(cardInfo, provider) {
-    if (String(provider || "").trim().toLowerCase() === "zzshu" || isZzshuVoucher(cardInfo)) {
+    const localCard = store.getHCardByCode(cardInfo);
+    if (localCard?.unified && (localCard.disabledAt || localCard.archivedAt)) return {
+      ok: true, status: 200, data: { status: "disabled", plan: "plus", statusLabel: "已禁用", canRecharge: false,
+        boundAccount: "", message: "卡密当前不可使用，请联系客服处理。" }
+    };
+    if (isZzshuVoucher(cardInfo) || localCard?.unified && (localCard.routedProvider || store.getSettings().plusProvider) === "zzshu" ||
+        !localCard && String(provider || "").trim().toLowerCase() === "zzshu") {
       return zzshuService.voucherStatus(cardInfo).then(result => ({
         ok: result.ok, status: result.ok ? 200 : 404, data: result, message: result.message
       }));
     }
-    if (String(provider || "").trim().toLowerCase() !== "h") {
+    if (String(provider || "").trim().toLowerCase() !== "h" && !localCard?.unified) {
       return { ok: false, status: 400, message: "仅支持查询 h 通道卡密。" };
     }
     const code = normalizeHCardCode(cardInfo);
@@ -820,8 +844,12 @@ export const rechargeService = {
     }
 
     const localCard = store.getHCardByCode(cardInfo);
-    const selectedProvider = isZzshuVoucher(cardInfo) ? "zzshu" : localCard ? "h" : resolveProvider(provider);
+    const selectedProvider = isZzshuVoucher(cardInfo) ? "zzshu" : localCard?.unified ?
+      localCard.routedProvider || (store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h") : localCard ? "h" : resolveProvider(provider);
     if (selectedProvider === "zzshu") {
+      if (localCard?.unified && !store.verifyHCard(cardInfo).ok && localCard.status === "unused") {
+        return { ok: false, status: 400, message: "卡密已禁用或过期" };
+      }
       const result = zzshuService.verify(cardInfo);
       return { ok: result.ok, status: result.ok ? 200 : 400, data: { ...result, success: result.ok, provider: "zzshu", providerLabel: "吱吱鼠", selectedProvider, defaultProvider: defaultProvider() } };
     }
@@ -845,7 +873,7 @@ export const rechargeService = {
       return { ok: false, status: 400, message: "请先输入卡密。" };
     }
 
-    if (isZzshuVoucher(cardInfo)) return this.queryHCardStatus(cardInfo,"zzshu");
+    if (isZzshuVoucher(cardInfo) || store.getHCardByCode(cardInfo)?.unified) return this.queryHCardStatus(cardInfo,provider);
     const selectedProvider = resolveProvider(provider);
     const adapter = getProviderAdapter(selectedProvider);
     if (typeof adapter.queryCardStatus !== "function") {
@@ -895,7 +923,16 @@ export const rechargeService = {
   },
 
   async confirmRecharge(input) {
-    if (isZzshuVoucher(input.cardInfo) || resolveProvider(input.provider) === "zzshu") return zzshuService.confirm(input);
+    const unifiedCard = store.getHCardByCode(input.cardInfo);
+    if (unifiedCard?.unified) {
+      const parsedUnified = parseRechargeInput(input);
+      if (!parsedUnified.ok) return { ok: false, status: 400, message: parsedUnified.message };
+      const route = unifiedCard.routedProvider || (store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h");
+      const claim = store.claimUnifiedPlus(input.cardInfo, route);
+      if (!claim.ok) return { ok: false, status: 409, message: claim.message };
+      if (route === "zzshu") return zzshuService.confirm(input);
+    }
+    if (isZzshuVoucher(input.cardInfo) || !unifiedCard && resolveProvider(input.provider) === "zzshu") return zzshuService.confirm(input);
     const { cardInfo, productId, overwriteRecharge, siteSource } = input;
 
     if (!requiredString(cardInfo)) {

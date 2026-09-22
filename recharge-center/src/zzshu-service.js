@@ -9,10 +9,11 @@ import { zzshuCredentialStore } from "./zzshu-credential-store.js";
 
 const store = sharedZzshuStore;
 const hifupayStore = new JsonStore();
-const codePattern = /^ZZPLUS[0-9A-F]{32}$/;
+let unifiedRecovered = false;
+const codePattern = /^(?:ZZPLUS|HPLUS)[0-9A-F]{32}$/;
 const cleanCode = value => {
   const raw = String(value || "").trim();
-  try { const url = new URL(raw); return url.searchParams.get("provider") === "zzshu" ? String(url.searchParams.get("card") || "").toUpperCase() : ""; }
+  try { const url = new URL(raw); return ["zzshu", "h"].includes(url.searchParams.get("provider")) ? String(url.searchParams.get("card") || "").toUpperCase() : ""; }
   catch { return raw.toUpperCase(); }
 };
 function vaultReady() {
@@ -139,6 +140,10 @@ export const zzshuService = {
     return store.createVouchers(n,String(source || "未分类").slice(0,40),config.hifupayProductId,
       code => encryptSecretText(code,config.recoveryEncryptionKey,"zzshu-voucher"));
   },
+  registerUnifiedVouchers(cards) {
+    if (!config.recoveryEncryptionKey) throw new Error("未配置兑换卡密加密密钥");
+    store.registerUnifiedVouchers(cards, code => encryptSecretText(code, config.recoveryEncryptionKey, "zzshu-voucher"));
+  },
   verify(value) {
     const code = cleanCode(value);
     if (!codePattern.test(code)) return { ok: false, message: "卡密格式不正确" };
@@ -160,8 +165,13 @@ export const zzshuService = {
       subscriptionActionRequired: order?.status === "success" && order?.subscriptionCancellationStatus !== "cancelled",
       message: order?.message || (voucher.status === "unused" ? "可继续激活" : "请勿重复提交") };
   },
+  syncUnifiedOrder(id) {
+    const code = decryptSecretText(store.voucherCipherForOrder(id), config.recoveryEncryptionKey, "zzshu-voucher");
+    if (/^HPLUS[0-9A-F]{32}$/.test(code)) hifupayStore.syncUnifiedPlus(code, store.voucher(code));
+  },
   async confirm(input) {
     const code = cleanCode(input.cardInfo);
+    try {
     const token = session(input.secretJsonText || input.fullAuthData);
     if (input.dryRun === true) {
       if (!config.zzshuTestMode || !codePattern.test(code) || !token ||
@@ -247,10 +257,18 @@ export const zzshuService = {
             "账号 Session 未被上游接受，请重新获取完整 Session；卡密和支付卡未消耗" };
     else store.review(id,`创建响应未能确认订单（HTTP ${created.status}, code ${created.code ?? "?"}）；不得自动重试`);
     return { ok: true, status: 200, data: safeOrder(store.order(id)) };
+    } finally {
+      if (/^HPLUS[0-9A-F]{32}$/.test(code)) {
+        const voucher = store.voucher(code);
+        hifupayStore.syncUnifiedPlus(code, voucher);
+        if (voucher?.status === "unused" && !store.hasVoucherOrders(code)) hifupayStore.releaseUnsubmittedUnifiedPlus(code);
+      }
+    }
   },
   async refresh(id) {
     const order = store.order(id);
     if (!order) return { ok: false, status: 404, message: "订单不存在" };
+    this.syncUnifiedOrder(id);
     if (!order.upstream_card_key || order.status === "failed" || order.status === "success" && order.cancellation === "cancelled")
       return { ok: true, status: 200, data: safeOrder(order) };
     try {
@@ -267,10 +285,20 @@ export const zzshuService = {
       } else if (!["pending","processing"].includes(data.status)) store.review(id,"上游返回未知状态");
     } catch { /* Keep the persisted reservation. */ }
     store.markChecked(id);
+    this.syncUnifiedOrder(id);
     return { ok: true, status: 200, data: safeOrder(store.order(id)) };
   },
   async reconcile() {
     store.recoverInterrupted(Math.max(30000,config.zzshuTimeoutMs * 2));
+    if (!unifiedRecovered) {
+      if (config.recoveryEncryptionKey) {
+        const missing = hifupayStore.listHCards(1, true, true, true)
+          .filter(card => card.unified && card.code && !store.voucher(card.code));
+        if (missing.length) this.registerUnifiedVouchers(missing);
+      }
+      for (const id of store.unifiedOrderIds()) this.syncUnifiedOrder(id);
+      unifiedRecovered = true;
+    }
     const ids = store.reconciliationIds(Math.max(1,config.zzshuConcurrency));
     for (const id of ids) await this.refresh(id);
   }

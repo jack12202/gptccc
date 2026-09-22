@@ -144,6 +144,7 @@ function createInitialState() {
     hifupayProReservations: [],
     settings: {
       defaultProvider: config.defaultProvider,
+      plusProvider: "h",
       providerConfigVersion: PROVIDER_CONFIG_VERSION,
       providerUpdatedAt: "",
       providerUpdatedBy: "",
@@ -491,7 +492,7 @@ export class JsonStore {
     return log;
   }
 
-  createHCards({ count = 1, productId = 3, source = "未分类", plan = "plus" } = {}) {
+  createHCards({ count = 1, productId = 3, source = "未分类", plan = "plus", unified = false } = {}) {
     if (!["plus", "pro_x5", "pro_x20"].includes(plan)) throw new Error("不支持的卡密套餐。");
     const safeCount = Math.min(Math.max(Number(count) || 1, 1), 100);
     const createdAt = nowIso();
@@ -505,6 +506,8 @@ export class JsonStore {
       const card = {
         id: makeId("hcard"),
         provider: "h",
+        unified: unified && plan === "plus",
+        routedProvider: "",
         batchId,
         source: normalizedSource,
         productId: Number(productId) || 3,
@@ -547,6 +550,48 @@ export class JsonStore {
     return result;
   }
 
+  claimUnifiedPlus(code, provider) {
+    if (!["h", "zzshu"].includes(provider)) return { ok: false, message: "无效的 Plus 通道" };
+    const state = this.read();
+    const card = state.hCards.find(item => item.codeHash === cardCodeHash(String(code).trim().toUpperCase()));
+    if (!card?.unified) return { ok: false, message: "不是通用 Plus 卡密" };
+    if (card.disabledAt || card.archivedAt || card.status === "used") return { ok: false, message: "卡密当前不可使用" };
+    if (card.routedProvider && card.routedProvider !== provider) return { ok: false, message: "卡密已有原通道订单，请沿原通道查询" };
+    if (!card.routedProvider) {
+      card.routedProvider = provider;
+      card.updatedAt = nowIso();
+      this.write(state);
+    }
+    return { ok: true, provider };
+  }
+
+  releaseUnsubmittedUnifiedPlus(code) {
+    const state = this.read();
+    const card = state.hCards.find(item => item.codeHash === cardCodeHash(String(code).trim().toUpperCase()));
+    if (!card?.unified || card.routedProvider !== "zzshu" || card.status !== "unused" || card.orderId) return false;
+    card.routedProvider = "";
+    card.updatedAt = nowIso();
+    this.write(state);
+    return true;
+  }
+
+  syncUnifiedPlus(code, voucher) {
+    const state = this.read();
+    const card = state.hCards.find(item => item.codeHash === cardCodeHash(String(code).trim().toUpperCase()));
+    if (!card?.unified || card.routedProvider !== "zzshu" || !voucher) return false;
+    const next = voucher.status === "used" ? "used" : voucher.status === "reserved" ? "locked" : "unused";
+    if (card.status === next && card.orderId === (voucher.orderId || "")) return true;
+    card.status = next;
+    card.orderId = voucher.orderId || "";
+    card.hasSubmission ||= Boolean(voucher.orderId);
+    if (voucher.email) card.boundEmail = voucher.email;
+    if (voucher.accountId) card.boundAccountId = voucher.accountId;
+    if (next === "used") card.usedAt ||= nowIso();
+    card.updatedAt = nowIso();
+    this.write(state);
+    return true;
+  }
+
   listHCards(limit = 100, all = false, reveal = false, includeArchived = false) {
     const cards = this.read().hCards.filter(card => includeArchived || !card.archivedAt);
     const selected = all
@@ -557,6 +602,8 @@ export class JsonStore {
       .map(card => ({
         id: card.id,
         provider: card.provider,
+        unified: Boolean(card.unified),
+        routedProvider: card.routedProvider || "",
         batchId: card.batchId || "",
         source: card.source || "未分类",
         productId: card.productId,
@@ -1241,6 +1288,7 @@ export class JsonStore {
     const state = this.read();
     const card = state.hCards.find(item => item.id === cardId);
     if (!card) return { ok: false, status: "not_found", message: "卡密不存在。" };
+    if (card.unified && card.routedProvider === "zzshu") return { ok: false, status: "processing", message: "请在 ZZS 订单中核查处理，不能从嗨付卡密库解锁。" };
     if (card.disabledAt) return { ok: false, status: "disabled", message: "请先启用卡密，再执行解锁。" };
     if (card.status === "used") return { ok: false, status: "used", message: "充值成功的卡密不能解锁。" };
     if (card.status !== "locked" && card.status !== "reserved") {

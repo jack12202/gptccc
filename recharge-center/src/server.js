@@ -202,7 +202,11 @@ function serveProviderAdmin(res) {
 <body>
   <main>
     <h1>路由与通道 · 网站入口设置</h1>
-    <p>这里保留现有网站入口设置。产品（Plus、Pro 5x、Pro 20x）与履约通道是不同维度；本轮不修改默认充值通道或任何路由规则。</p>
+    <p>在这里选择新生成的通用 Plus 卡密走嗨付或 ZZS。已提交的卡密始终沿原通道处理。</p>
+    <div class="provider-group"><h2 class="group-title">通用 Plus 卡密充值通道</h2><p class="group-help">仅影响尚未提交的通用 Plus 卡密；旧卡密、Pro 和历史订单按原规则处理。</p>
+      <div class="choices"><button type="button" data-plus-provider="h">嗨付</button><button type="button" data-plus-provider="zzshu">ZZS</button></div>
+      <div class="status" id="plusStatus">正在读取 Plus 通道…</div>
+    </div>
 
     <div class="provider-group">
       <h2 class="group-title">站内充值</h2>
@@ -241,6 +245,8 @@ function serveProviderAdmin(res) {
   <script>
     const statusBox = document.getElementById("statusBox");
     const buttons = Array.from(document.querySelectorAll("[data-provider]"));
+    const plusButtons = Array.from(document.querySelectorAll("[data-plus-provider]"));
+    function setPlusActive(provider) { plusButtons.forEach(button => button.classList.toggle("active", button.dataset.plusProvider === provider)); }
 
     function setStatus(message, error = false) {
       statusBox.textContent = message;
@@ -261,6 +267,8 @@ function serveProviderAdmin(res) {
       try {
         const data = await api("/api/admin/provider");
         setActive(data.defaultProvider);
+        setPlusActive(data.plusProvider);
+        document.getElementById("plusStatus").textContent = "通用 Plus 当前通道：" + (data.plusProvider === "zzshu" ? "ZZS" : "嗨付");
         setStatus("当前默认方式：" + providerLocationLabel(data) + " · " + data.defaultProviderLabel + (data.providerUpdatedAt ? "\\n最后切换：" + data.providerUpdatedAt : ""));
       } catch (error) {
         setStatus(error.message, true);
@@ -283,6 +291,13 @@ function serveProviderAdmin(res) {
     buttons.forEach((button) => {
       button.addEventListener("click", () => switchProvider(button.dataset.provider));
     });
+    plusButtons.forEach(button => button.addEventListener("click", async () => {
+      try {
+        const data = await api("/api/admin/plus-provider", { method: "POST", body: JSON.stringify({ provider: button.dataset.plusProvider }) });
+        setPlusActive(data.plusProvider);
+        document.getElementById("plusStatus").textContent = "通用 Plus 已切换为：" + (data.plusProvider === "zzshu" ? "ZZS" : "嗨付");
+      } catch (error) { document.getElementById("plusStatus").textContent = error.message; }
+    }));
     loadCurrent();
   </script>
 </body>
@@ -349,7 +364,7 @@ function serveHCardAdmin(res) {
   <main>
     <section>
       <h1>产品与卡密 · 生成卡密</h1>
-      <p>按销售来源生成 Plus、Pro 5x、Pro 20x 的客户兑换卡密，并复制或下载适合交付的格式。</p>
+      <p>Plus 卡密可在嗨付和 ZZS 之间切换；首次提交后固定使用当时的通道。Pro 卡密按原流程处理。<a href="/admin/provider">设置 Plus 通道</a></p>
 
       <div class="form">
         <label>卡密套餐<select id="plan"><option value="plus">Plus</option><option value="pro_x5">Pro 5x</option><option value="pro_x20">Pro 20x</option></select></label>
@@ -1290,6 +1305,15 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/admin/plus-provider") {
+      const body = await readJsonBody(req);
+      const auth = assertAdmin(req, url, body);
+      if (!auth.ok) { sendJson(res, auth.status, { success: false, message: auth.message }); return; }
+      const result = rechargeService.updatePlusProvider(body.provider);
+      sendJson(res, result.status, result.ok ? { success: true, data: adminProviderSettings(result.data) } : { success: false, message: result.message });
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/admin/h-cards") {
       const auth = assertAdmin(req, url);
       if (!auth.ok) {
@@ -1376,7 +1400,7 @@ export const server = http.createServer(async (req, res) => {
         else if (req.method === "POST" && endpoint === "vouchers") data = zzshuService.createVouchers(body);
         else if (req.method === "POST" && /^cards\/[^/]+$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.updateCard(id,body)){sendJson(res,400,{success:false,message:"卡片不存在或次数上限无效"});return;} data={ok:true}; }
         else if (req.method === "POST" && /^orders\/[^/]+\/refresh$/.test(endpoint)) { const result=await zzshuService.refresh(decodeURIComponent(endpoint.split("/")[1])); data=result.data; }
-        else if (req.method === "POST" && /^orders\/[^/]+\/resolve$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!["success","unpaid"].includes(body.outcome)||!zzshuService.store.manualResolve(id,body.outcome,String(body.reason||""))){sendJson(res,409,{success:false,message:"仅待确认订单可凭至少 8 字核查依据人工结案"});return;} data={ok:true}; }
+        else if (req.method === "POST" && /^orders\/[^/]+\/resolve$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!["success","unpaid"].includes(body.outcome)||!zzshuService.store.manualResolve(id,body.outcome,String(body.reason||""))){sendJson(res,409,{success:false,message:"仅待确认订单可凭至少 8 字核查依据人工结案"});return;} zzshuService.syncUnifiedOrder(id); data={ok:true}; }
         else { sendJson(res,404,{success:false,message:"Not found"}); return; }
         sendJson(res,200,{success:true,data});
       } catch { sendJson(res,503,{success:false,message:"吱吱鼠管理操作未完成，请检查服务配置"}); }
