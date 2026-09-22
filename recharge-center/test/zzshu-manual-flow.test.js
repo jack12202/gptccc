@@ -85,12 +85,17 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   };
   t.after(() => { globalThis.fetch = oldFetch; });
   for (let i=0;i<3;i++) {
+    const customerSession = i === 0 ? session : JSON.stringify({
+      ...JSON.parse(session),
+      user: { id: `customer-${i}`, email: `customer-${i}@example.test` },
+      account: { id: `account-${i}`, planType: "free" }
+    });
     const result = i === 0
-      ? await rechargeService.confirmRecharge({provider:"sange",cardInfo:vouchers[i].code,secretJsonText:session})
-      : await service.confirm({cardInfo:vouchers[i].code,secretJsonText:session});
+      ? await rechargeService.confirmRecharge({provider:"sange",cardInfo:vouchers[i].code,secretJsonText:customerSession})
+      : await service.confirm({cardInfo:vouchers[i].code,secretJsonText:customerSession});
     if (i === 0) { config.zzshuTestMode = false; config.zzshuTestVoucherHash = ""; config.zzshuTestAccountHash = ""; }
     assert.equal(result.ok,true);
-    assert.equal((await service.confirm({cardInfo:vouchers[i].code,secretJsonText:session})).data.orderId,result.data.orderId);
+    assert.equal((await service.confirm({cardInfo:vouchers[i].code,secretJsonText:customerSession})).data.orderId,result.data.orderId);
     assert.equal((await service.refresh(result.data.orderId)).data.status,"success");
     await service.refresh(result.data.orderId);
   }
