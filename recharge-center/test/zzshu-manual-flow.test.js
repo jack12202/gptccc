@@ -35,6 +35,19 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   const session = JSON.stringify({user:{id:"u",email:"customer@example.test"},account:{id:"account",planType:"free"},
     accessToken:"fixture-access",sessionToken:"fixture-session",expires:"2040-01-01"});
   const vouchers = service.createVouchers({count:7,source:"fixture"});
+  const {sha256} = await import("../src/utils.js");
+  config.zzshuTestVoucherHash = sha256(vouchers[0].code);
+  config.zzshuTestAccountHash = sha256("account");
+  config.zzshuTestMode = true;
+  const allowedVoucherHash = config.zzshuTestVoucherHash;
+  config.zzshuTestVoucherHash = "";
+  assert.equal((await service.confirm({cardInfo:vouchers[0].code,secretJsonText:session})).status,403);
+  config.zzshuTestVoucherHash = allowedVoucherHash;
+  assert.equal((await service.confirm({cardInfo:vouchers[1].code,secretJsonText:session})).status,403);
+  const otherAccount = JSON.parse(session);
+  otherAccount.account.id = "other-account";
+  assert.equal((await service.confirm({cardInfo:vouchers[0].code,secretJsonText:JSON.stringify(otherAccount)})).status,403);
+  assert.equal(service.store.voucher(vouchers[0].code).status,"unused");
   const verified = await rechargeService.verifyCard(vouchers[0].code,"sange");
   assert.equal(verified.data.selectedProvider,"zzshu");
   const submitted = [];
@@ -62,6 +75,7 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
     const result = i === 0
       ? await rechargeService.confirmRecharge({provider:"sange",cardInfo:vouchers[i].code,secretJsonText:session})
       : await service.confirm({cardInfo:vouchers[i].code,secretJsonText:session});
+    if (i === 0) { config.zzshuTestMode = false; config.zzshuTestVoucherHash = ""; config.zzshuTestAccountHash = ""; }
     assert.equal(result.ok,true);
     assert.equal((await service.confirm({cardInfo:vouchers[i].code,secretJsonText:session})).data.orderId,result.data.orderId);
     assert.equal((await service.refresh(result.data.orderId)).data.status,"success");

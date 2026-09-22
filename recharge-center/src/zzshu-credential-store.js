@@ -59,6 +59,7 @@ export class ZzshuCredentialStore {
       configured: current.state === "ready",
       source: current.source || "",
       channelEnabled: config.zzshuEnabled,
+      testMode: config.zzshuTestMode,
       canConfigure: current.state === "missing" && Boolean(this.encryptionKey()),
       storageReady: current.state !== "invalid" && Boolean(this.encryptionKey())
     };

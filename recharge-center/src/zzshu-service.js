@@ -4,7 +4,7 @@ import { parsePaymentCards, publicPreview } from "./zzshu-cards.js";
 import { zzshuAdapter } from "./providers/zzshu-adapter.js";
 import { hifupayAdapter } from "./providers/hifupay-adapter.js";
 import { JsonStore } from "./store.js";
-import { encryptSecretText, decryptSecretText } from "./utils.js";
+import { encryptSecretText, decryptSecretText, sha256 } from "./utils.js";
 import { zzshuCredentialStore } from "./zzshu-credential-store.js";
 
 const store = sharedZzshuStore;
@@ -131,6 +131,12 @@ export const zzshuService = {
     const code = cleanCode(input.cardInfo);
     const token = session(input.secretJsonText || input.fullAuthData);
     if (!codePattern.test(code) || !token) return { ok: false, status: 400, message: "需要有效的吱吱鼠 Plus 卡密和免费账号完整 Session JSON" };
+    if (config.zzshuTestMode &&
+        (!/^[a-f0-9]{64}$/.test(config.zzshuTestVoucherHash) ||
+         !/^[a-f0-9]{64}$/.test(config.zzshuTestAccountHash) ||
+         sha256(code) !== config.zzshuTestVoucherHash ||
+         sha256(String(token.account.id)) !== config.zzshuTestAccountHash))
+      return { ok: false, status: 403, message: "此卡密或账号暂未开放提交，兑换权益未消耗" };
     if (!config.zzshuEnabled || !zzshuCredentialStore.key()) return { ok: false, status: 503, message: "通道尚未启用，兑换权益未消耗" };
     let allowedHifupayIds=null;
     if (store.hasHifupayAssignments()) {
