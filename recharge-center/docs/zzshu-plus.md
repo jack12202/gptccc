@@ -6,6 +6,12 @@
 
 环境变量示例见 `.env.example`。保持 `DEFAULT_PROVIDER` 原值，显式 `ZZSHU_ENABLED=true` 才可能下单。SQLite 文件 `ZZSHU_DB_FILE` 默认与 `DATA_FILE` 同目录；备份时必须同时备份 SQLite 和 WAL，并保留固定 `ZZSHU_API_KEY`、`RECOVERY_ENCRYPTION_KEY`，否则历史查询/卡密不可恢复。仅单机或共享本地 SQLite 文件系统支持这里的事务语义；多机不共享文件系统时必须迁移到集中事务库。Node.js 22 的 `node:sqlite` 在当前运行时为实验特性，上线前固定并验证部署版本。
 
+## ZZS API 凭据配置
+
+当部署环境没有 `ZZSHU_API_KEY` 时，管理员可在 `/admin/zzshu` 的“连接 ZZS”区粘贴 ZZS 发放的固定 API Key 或卡密。提交时仅调用 `GET /api/v1/third-party/user` 验证；通过后才以 `RECOVERY_ENCRYPTION_KEY` 加密写入运行时的独立私密文件（默认 `DATA_FILE` 同目录下的 `zzshu-api-key.json`，权限 `0600`）。页面和管理 API 只返回“已配置/未配置”及验证后的剩余点数，绝不回显 Key。
+
+保存凭据不会设置 `ZZSHU_ENABLED`、不会创建订单、不会变更默认 provider 或分配支付卡。为保留旧订单的上游查询归属，已配置的 Key 不能在后台直接替换；需要轮换时先设计旧 Key 查询保留方案，不能覆盖运行时私密文件。部署环境中的 `ZZSHU_API_KEY` 仍优先，且由部署环境管理，不可通过后台覆盖。
+
 ## 支付凭据待确认
 
 GPTC **不存储**完整卡号和 CVV。嗨付公开[API 文档](https://cdk.hifupay.com/api-docs.html)列出 `POST /api/hfp/card-sensitive`：本实现仅在某笔吱吱鼠订单提交前按已分配卡的 ID 获取完整资料，并校验尾号和有效期，随后直接构造吱吱鼠 `direct` 请求；不缓存、不进入 SQLite/JSON/日志/客户响应。嗨付卡列表接口返回的额外敏感字段在适配器入口剔除。此技术路径不等于对发卡方及持卡数据处理的合规背书：上线前必须核实嗨付允许将其卡片详情用于第三方执行通道，并确认其提供 CVV 的业务/合规依据。尤其不能为未来交易自行长期保存 CVV。

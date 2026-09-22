@@ -1,12 +1,14 @@
 import { config } from "../config.js";
+import { zzshuCredentialStore } from "../zzshu-credential-store.js";
 
 // Deliberately allowlist responses: the upstream status includes PAN and Session JSON.
 async function request(path, payload) {
-  if (!config.zzshuEnabled || !config.zzshuApiKey) throw new Error("吱吱鼠通道尚未启用");
+  const apiKey = zzshuCredentialStore.key();
+  if (!config.zzshuEnabled || !apiKey) throw new Error("吱吱鼠通道尚未启用");
   const base = new URL(config.zzshuBaseUrl);
   if (base.protocol !== "https:" && base.hostname !== "127.0.0.1" && base.hostname !== "localhost") throw new Error("上游必须使用 HTTPS");
   const response = await fetch(new URL(path, base), {
-    method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": config.zzshuApiKey },
+    method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
     body: JSON.stringify(payload), signal: AbortSignal.timeout(config.zzshuTimeoutMs)
   });
   let body;

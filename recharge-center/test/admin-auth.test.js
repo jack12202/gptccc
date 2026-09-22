@@ -108,10 +108,25 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
       assert.match(html, /href="\/admin\/hifupay\/cards"/);
       assert.match(html, /href="\/admin\/zzshu"/);
     }
-    assert.doesNotMatch(html, /type="password"|X-Admin-Token|localStorage\.setItem|tokenFromQuery/);
+    if (page === "/admin/zzshu") {
+      assert.match(html, /id="zzshuApiKey" type="password"/);
+      assert.match(html, /验证并保存/);
+      assert.match(html, /ZZS 支付卡库/);
+      assert.match(html, /<details class="sync-details">/);
+      assert.ok(html.indexOf('id="manual-card-import"') < html.indexOf('id="hifupay-sync"'));
+      assert.ok(html.indexOf('id="hifupay-sync"') < html.indexOf('id="zzs-card-library"'));
+    }
+    if (page !== "/admin/zzshu") assert.doesNotMatch(html, /type="password"/);
+    assert.doesNotMatch(html, /X-Admin-Token|localStorage\.setItem|tokenFromQuery/);
     for (const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(script[1]);
   }
   const before = fs.readFileSync(process.env.DATA_FILE, "utf8");
+  assert.equal((await fetch(base + "/api/admin/zzshu/credential")).status, 401);
+  const credentialStatus = await fetch(base + "/api/admin/zzshu/credential", { headers: { Cookie: cookie } });
+  assert.equal(credentialStatus.status, 200);
+  assert.equal((await credentialStatus.json()).data.configured, false);
+  const rejectedCredential = await fetch(base + "/api/admin/zzshu/credential/verify-and-save", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "fixture-key" }) });
+  assert.equal(rejectedCredential.status, 403);
   const rejected = await fetch(base + "/api/admin/h-cards", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ count: 1 }) });
   assert.equal(rejected.status, 403);
   const oldSwitch = await fetch(base + "/admin/provider/switch?provider=h", { headers: { Cookie: cookie }, redirect: "manual" });

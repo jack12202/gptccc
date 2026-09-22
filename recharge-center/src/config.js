@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
+const dataFile = process.env.DATA_FILE || path.join(rootDir, "data", "orders.json");
 
 export const config = {
   rootDir,
@@ -42,13 +43,16 @@ export const config = {
   hifupayBalanceToleranceUsd: Number(process.env.HIFUPAY_BALANCE_TOLERANCE_USD || 0.5),
   hifupayProductId: Number(process.env.HIFUPAY_PRODUCT_ID || 3),
   zzshuBaseUrl: process.env.ZZSHU_BASE_URL || "https://card.zzshu.pro",
+  // A deployment secret remains supported. The admin-managed secret is kept in
+  // a separate encrypted runtime file and is resolved by zzshu-credential-store.
   zzshuApiKey: process.env.ZZSHU_API_KEY || "",
+  zzshuSecretFile: process.env.ZZSHU_SECRET_FILE || path.join(path.dirname(dataFile), "zzshu-api-key.json"),
   zzshuEnabled: process.env.ZZSHU_ENABLED === "true",
   zzshuTimeoutMs: Number(process.env.ZZSHU_TIMEOUT_MS || 15000),
   zzshuPollMs: Number(process.env.ZZSHU_POLL_MS || 5000),
   zzshuConcurrency: Number(process.env.ZZSHU_CONCURRENCY || 3),
   zzshuFailureThreshold: Number(process.env.ZZSHU_FAILURE_THRESHOLD || 3),
-  zzshuDbFile: process.env.ZZSHU_DB_FILE || path.join(path.dirname(process.env.DATA_FILE || path.join(rootDir,"data","orders.json")), "zzshu.sqlite"),
+  zzshuDbFile: process.env.ZZSHU_DB_FILE || path.join(path.dirname(dataFile), "zzshu.sqlite"),
   zzshuVaultUrl: process.env.ZZSHU_VAULT_URL || "",
   zzshuVaultToken: process.env.ZZSHU_VAULT_TOKEN || "",
   adminToken: process.env.ADMIN_TOKEN || "",
@@ -60,7 +64,7 @@ export const config = {
   adminAlertWebhookType: process.env.ADMIN_ALERT_WEBHOOK_TYPE || "generic",
   publicBaseUrl: process.env.PUBLIC_BASE_URL || "https://www.gptc.cc",
   recoveryEncryptionKey: process.env.RECOVERY_ENCRYPTION_KEY || "",
-  dataFile: process.env.DATA_FILE || path.join(rootDir, "data", "orders.json"),
+  dataFile,
   logFile: process.env.LOG_FILE || path.join(rootDir, "logs", "server.log"),
   defaultProductId: Number(process.env.DEFAULT_PRODUCT_ID || 3),
   pollingIntervalMs: Number(process.env.POLLING_INTERVAL_MS || 4000),

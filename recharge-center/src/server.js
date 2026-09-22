@@ -9,6 +9,7 @@ const adminAuth = createAdminAuth({ password: config.adminToken, file: path.join
 import { rechargeService } from "./recharge-service.js";
 import { proService } from "./pro-orders.js";
 import { zzshuService } from "./zzshu-service.js";
+import { zzshuCredentialStore } from "./zzshu-credential-store.js";
 import { readJsonBody, sendJson } from "./utils.js";
 
 const frontendCandidates = [
@@ -1340,13 +1341,23 @@ export const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname.startsWith("/api/admin/zzshu/")) {
-      const body = req.method === "POST" ? await readJsonBody(req) : {};
+      const endpoint = url.pathname.slice("/api/admin/zzshu/".length);
+      let body = {};
+      if (req.method === "POST") {
+        try { body = await readJsonBody(req, endpoint.startsWith("credential") ? 4096 : Infinity); }
+        catch { sendJson(res, 400, { success: false, message: "请求格式不正确。" }); return; }
+      }
       const auth = assertAdmin(req);
       if (!auth.ok) { sendJson(res,auth.status,{success:false,message:auth.message}); return; }
-      const endpoint = url.pathname.slice("/api/admin/zzshu/".length);
       try {
         let data;
-        if (req.method === "GET" && endpoint === "cards") data = zzshuService.store.listCards();
+        if (req.method === "GET" && endpoint === "credential") data = zzshuCredentialStore.status();
+        else if (req.method === "POST" && endpoint === "credential/verify-and-save") {
+          const result = await zzshuCredentialStore.verifyAndSave(body.apiKey);
+          if (!result.ok) { sendJson(res, result.status, { success: false, message: result.message }); return; }
+          data = { configured: true, points: result.points ?? null, channelEnabled: config.zzshuEnabled };
+        }
+        else if (req.method === "GET" && endpoint === "cards") data = zzshuService.store.listCards();
         else if (req.method === "GET" && endpoint === "hifupay-cards") data = await zzshuService.listHifupayAssignments(["1","true"].includes(url.searchParams.get("refresh")));
         else if (req.method === "POST" && /^hifupay-cards\/[^/]+\/assign$/.test(endpoint)) {
           const id=decodeURIComponent(endpoint.split("/")[1]), result=zzshuService.assignHifupayCard(id,body.role);
