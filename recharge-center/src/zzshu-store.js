@@ -147,6 +147,9 @@ export class ZzshuStore {
   voucherStatusByHash(codeHash) {
     return this.db.prepare("SELECT status FROM vouchers WHERE code_hash=?").get(codeHash)?.status || "missing";
   }
+  voucherCipherByHash(codeHash) {
+    return this.db.prepare("SELECT code_cipher FROM vouchers WHERE code_hash=?").get(codeHash)?.code_cipher || "";
+  }
   listVouchers() { return this.db.prepare("SELECT id,batch_id AS batchId,source,product_id AS productId,status,order_id AS orderId,email,account_id AS accountId,created_at AS createdAt FROM vouchers ORDER BY created_at DESC LIMIT 500").all(); }
   selectCandidate(allowedHifupayIds, allowManual) {
     const candidates = this.db.prepare(`SELECT * FROM payment_cards WHERE enabled=1 AND paused=0 AND success_count<max_success
@@ -157,21 +160,35 @@ export class ZzshuStore {
       ? allowedHifupayIds?.has(item.credential_ref.slice(8)) : allowManual);
   }
   manualCandidate() { return this.selectCandidate(null, true); }
+  reserveUncommitted(code, email, accountId, allowedHifupayIds, allowManual) {
+    const voucher = this.voucher(code);
+    if (!voucher) return { ok: false, reason: "卡密不存在" };
+    if (voucher.status !== "unused") return { ok: false, reason: voucher.status === "used" ? "卡密已使用" : "卡密处理中", orderId: voucher.email === email && voucher.accountId === accountId ? voucher.orderId : undefined };
+    const active = this.db.prepare("SELECT count(*) AS n FROM orders WHERE status IN ('reserved','submitting','processing','needs_review')").get().n;
+    if (active >= Math.max(1, config.zzshuConcurrency)) return { ok: false, reason: "通道处理量已满，请稍后再试" };
+    const card = this.selectCandidate(allowedHifupayIds, allowManual);
+    if (!card) return { ok: false, reason: "暂无可用支付卡，兑换卡密未消耗" };
+    const id = crypto.randomUUID(), at = new Date().toISOString();
+    this.db.prepare("INSERT INTO orders(id,voucher_id,card_id,email,account_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?)")
+      .run(id,voucher.id,card.id,email,accountId,at,at);
+    this.db.prepare("UPDATE vouchers SET status='reserved',order_id=?,email=?,account_id=? WHERE id=?").run(id,email,accountId,voucher.id);
+    return { ok: true, orderId: id, credentialRef: card.credential_ref, lastFour: card.last_four };
+  }
   reserve(code, email, accountId, allowedHifupayIds = null, allowManual = true) {
-    return this.transaction(() => {
-      const voucher = this.voucher(code);
-      if (!voucher) return { ok: false, reason: "卡密不存在" };
-      if (voucher.status !== "unused") return { ok: false, reason: voucher.status === "used" ? "卡密已使用" : "卡密处理中", orderId: voucher.email === email && voucher.accountId === accountId ? voucher.orderId : undefined };
-      const active = this.db.prepare("SELECT count(*) AS n FROM orders WHERE status IN ('reserved','submitting','processing','needs_review')").get().n;
-      if (active >= Math.max(1, config.zzshuConcurrency)) return { ok: false, reason: "通道处理量已满，请稍后再试" };
-      const card = this.selectCandidate(allowedHifupayIds, allowManual);
-      if (!card) return { ok: false, reason: "暂无可用支付卡，兑换卡密未消耗" };
-      const id = crypto.randomUUID(), at = new Date().toISOString();
-      this.db.prepare("INSERT INTO orders(id,voucher_id,card_id,email,account_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?)")
-        .run(id,voucher.id,card.id,email,accountId,at,at);
-      this.db.prepare("UPDATE vouchers SET status='reserved',order_id=?,email=?,account_id=? WHERE id=?").run(id,email,accountId,voucher.id);
-      return { ok: true, orderId: id, credentialRef: card.credential_ref, lastFour: card.last_four };
-    });
+    return this.transaction(() => this.reserveUncommitted(code,email,accountId,allowedHifupayIds,allowManual));
+  }
+  probeManualReservation(code) {
+    const rollback = new Error("probe-rollback");
+    let result;
+    try {
+      this.transaction(() => {
+        result = this.reserveUncommitted(code,"probe@example.invalid","probe-account",null,true);
+        throw rollback;
+      });
+    } catch (error) {
+      if (error !== rollback) throw error;
+    }
+    return { ok: Boolean(result?.ok), reason: result?.reason || "" };
   }
   order(id) { return this.db.prepare(`SELECT o.*,c.last_four AS lastFour,v.batch_id AS batchId,v.source AS voucherSource,c.source AS paymentSource
     FROM orders o JOIN payment_cards c ON c.id=o.card_id JOIN vouchers v ON v.id=o.voucher_id WHERE o.id=?`).get(id); }

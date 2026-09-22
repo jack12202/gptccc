@@ -84,6 +84,7 @@ export const zzshuService = {
   diagnostics() {
     const candidate = store.manualCandidate();
     let manualPaymentReadable = false;
+    let reservationProbe = "not_applicable";
     if (candidate?.credential_ref.startsWith("local:")) {
       try {
         const payment = JSON.parse(decryptSecretText(candidate.payment_cipher, config.recoveryEncryptionKey, "zzshu-payment-card"));
@@ -92,6 +93,15 @@ export const zzshuService = {
           Number.isInteger(payment.expYear) && payment.expYear >= new Date().getUTCFullYear();
       } catch { /* Return only a readiness boolean; never return payment fields. */ }
     }
+    if (config.zzshuTestMode && config.recoveryEncryptionKey) {
+      try {
+        const code = decryptSecretText(store.voucherCipherByHash(config.zzshuTestVoucherHash), config.recoveryEncryptionKey, "zzshu-voucher");
+        const result = store.probeManualReservation(code);
+        reservationProbe = result.ok ? "ready" : result.reason || "blocked";
+      } catch (error) {
+        reservationProbe = /^SQLITE_[A-Z_]+$/.test(error?.code || "") ? error.code : "error";
+      }
+    }
     return {
       channelEnabled: config.zzshuEnabled,
       testMode: config.zzshuTestMode,
@@ -99,6 +109,7 @@ export const zzshuService = {
       testVoucherStatus: config.zzshuTestMode ? store.voucherStatusByHash(config.zzshuTestVoucherHash) : "not_applicable",
       manualCardSelectable: Boolean(candidate?.credential_ref.startsWith("local:")),
       manualPaymentReadable,
+      reservationProbe,
       recentPreSubmitFailures: store.recentPreSubmitFailures()
     };
   },
