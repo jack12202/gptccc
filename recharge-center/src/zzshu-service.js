@@ -162,6 +162,18 @@ export const zzshuService = {
   async confirm(input) {
     const code = cleanCode(input.cardInfo);
     const token = session(input.secretJsonText || input.fullAuthData);
+    if (input.dryRun === true) {
+      if (!config.zzshuTestMode || !codePattern.test(code) || !token ||
+          sha256(code) !== config.zzshuTestVoucherHash ||
+          sha256(String(token.account.id)) !== config.zzshuTestAccountHash)
+        return { ok: false, status: 403, message: "此测试请求未开放" };
+      const diagnostics = this.diagnostics();
+      const ready = diagnostics.testVoucherStatus === "unused" && diagnostics.apiKeyReady &&
+        diagnostics.manualCardSelectable && diagnostics.manualPaymentReadable && diagnostics.reservationProbe === "ready";
+      return { ok: ready, status: ready ? 200 : 409,
+        ...(ready ? { data: { preflight: true, ready: true, provider: "zzshu" } } :
+          { message: "测试请求的卡密、支付资料或订单预留未就绪" }) };
+    }
     if (!codePattern.test(code) || !token) return { ok: false, status: 400, message: "需要有效的吱吱鼠 Plus 卡密和免费账号完整 Session JSON" };
     const reject = (status, message, reason) => {
       if (config.zzshuTestMode && sha256(code) === config.zzshuTestVoucherHash) {

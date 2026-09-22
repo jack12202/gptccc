@@ -47,6 +47,10 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   assert.equal(readiness.reservationProbe,"ready");
   assert.equal(service.store.voucher(vouchers[0].code).status,"unused");
   assert.equal(service.store.listOrders().length,0);
+  const preflight = await rechargeService.confirmRecharge({provider:"zzshu",cardInfo:vouchers[0].code,secretJsonText:session,dryRun:true});
+  assert.deepEqual(preflight.data,{preflight:true,ready:true,provider:"zzshu"});
+  assert.equal(service.store.voucher(vouchers[0].code).status,"unused");
+  assert.equal(service.store.listOrders().length,0);
   const allowedVoucherHash = config.zzshuTestVoucherHash;
   config.zzshuTestVoucherHash = "";
   assert.equal((await service.confirm({cardInfo:vouchers[0].code,secretJsonText:session})).status,403);
