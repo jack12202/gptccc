@@ -39,6 +39,11 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   config.zzshuTestVoucherHash = sha256(vouchers[0].code);
   config.zzshuTestAccountHash = sha256("account");
   config.zzshuTestMode = true;
+  const readiness = service.diagnostics();
+  assert.equal(readiness.testVoucherStatus,"unused");
+  assert.equal(readiness.apiKeyReady,true);
+  assert.equal(readiness.manualCardSelectable,true);
+  assert.equal(readiness.manualPaymentReadable,true);
   const allowedVoucherHash = config.zzshuTestVoucherHash;
   config.zzshuTestVoucherHash = "";
   assert.equal((await service.confirm({cardInfo:vouchers[0].code,secretJsonText:session})).status,403);
@@ -47,6 +52,7 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   const otherAccount = JSON.parse(session);
   otherAccount.account.id = "other-account";
   assert.equal((await service.confirm({cardInfo:vouchers[0].code,secretJsonText:JSON.stringify(otherAccount)})).status,403);
+  assert.equal(service.diagnostics().recentPreSubmitFailures[0].reason,"测试卡密或账号门禁未通过");
   assert.equal(service.store.voucher(vouchers[0].code).status,"unused");
   const verified = await rechargeService.verifyCard(vouchers[0].code,"sange");
   assert.equal(verified.data.selectedProvider,"zzshu");

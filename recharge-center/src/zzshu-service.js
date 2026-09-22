@@ -82,9 +82,23 @@ export const zzshuService = {
       : { ready: false, message: "运行时加密密钥未配置，暂不能导入支付卡" };
   },
   diagnostics() {
+    const candidate = store.manualCandidate();
+    let manualPaymentReadable = false;
+    if (candidate?.credential_ref.startsWith("local:")) {
+      try {
+        const payment = JSON.parse(decryptSecretText(candidate.payment_cipher, config.recoveryEncryptionKey, "zzshu-payment-card"));
+        manualPaymentReadable = /^\d{12,19}$/.test(payment.cardNumber || "") && /^\d{3,4}$/.test(payment.cvv || "") &&
+          Number.isInteger(payment.expMonth) && payment.expMonth >= 1 && payment.expMonth <= 12 &&
+          Number.isInteger(payment.expYear) && payment.expYear >= new Date().getUTCFullYear();
+      } catch { /* Return only a readiness boolean; never return payment fields. */ }
+    }
     return {
       channelEnabled: config.zzshuEnabled,
       testMode: config.zzshuTestMode,
+      apiKeyReady: Boolean(zzshuCredentialStore.key()),
+      testVoucherStatus: config.zzshuTestMode ? store.voucherStatusByHash(config.zzshuTestVoucherHash) : "not_applicable",
+      manualCardSelectable: Boolean(candidate?.credential_ref.startsWith("local:")),
+      manualPaymentReadable,
       recentPreSubmitFailures: store.recentPreSubmitFailures()
     };
   },
@@ -138,13 +152,19 @@ export const zzshuService = {
     const code = cleanCode(input.cardInfo);
     const token = session(input.secretJsonText || input.fullAuthData);
     if (!codePattern.test(code) || !token) return { ok: false, status: 400, message: "需要有效的吱吱鼠 Plus 卡密和免费账号完整 Session JSON" };
+    const reject = (status, message, reason) => {
+      if (config.zzshuTestMode && sha256(code) === config.zzshuTestVoucherHash) {
+        try { store.audit("test-voucher", "pre_submit_rejected", reason); } catch { /* Preserve the rejection response. */ }
+      }
+      return { ok: false, status, message };
+    };
     if (config.zzshuTestMode &&
         (!/^[a-f0-9]{64}$/.test(config.zzshuTestVoucherHash) ||
          !/^[a-f0-9]{64}$/.test(config.zzshuTestAccountHash) ||
          sha256(code) !== config.zzshuTestVoucherHash ||
          sha256(String(token.account.id)) !== config.zzshuTestAccountHash))
-      return { ok: false, status: 403, message: "此卡密或账号暂未开放提交，兑换权益未消耗" };
-    if (!config.zzshuEnabled || !zzshuCredentialStore.key()) return { ok: false, status: 503, message: "通道尚未启用，兑换权益未消耗" };
+      return reject(403, "此卡密或账号暂未开放提交，兑换权益未消耗", "测试卡密或账号门禁未通过");
+    if (!config.zzshuEnabled || !zzshuCredentialStore.key()) return reject(503, "通道尚未启用，兑换权益未消耗", "通道或 API 凭据未就绪");
     let allowedHifupayIds=null;
     if (store.hasHifupayAssignments()) {
       try {
@@ -159,10 +179,21 @@ export const zzshuService = {
         }).map(card=>String(card.id)));
       } catch { allowedHifupayIds = new Set(); }
     }
-    const reservation = store.reserve(code, token.user.email.toLowerCase(), String(token.account.id),allowedHifupayIds,
-      Boolean(config.recoveryEncryptionKey || config.zzshuVaultUrl && config.zzshuVaultToken));
+    let reservation;
+    try {
+      reservation = store.reserve(code, token.user.email.toLowerCase(), String(token.account.id),allowedHifupayIds,
+        Boolean(config.recoveryEncryptionKey || config.zzshuVaultUrl && config.zzshuVaultToken));
+    } catch (error) {
+      try {
+        const voucher = store.voucher(code);
+        if (voucher?.orderId && voucher.email === token.user.email.toLowerCase() && voucher.accountId === String(token.account.id))
+          return { ok: true, status: 200, data: safeOrder(store.order(voucher.orderId)) };
+      } catch { /* Keep the voucher untouched if the database is unavailable. */ }
+      const sqliteCode = /^SQLITE_[A-Z_]+$/.test(error?.code || "") ? error.code : "unknown";
+      return reject(503, "订单预留暂不可用，兑换权益未消耗", `订单预留异常：${sqliteCode}`);
+    }
     if (!reservation.ok) return reservation.orderId ? { ok: true, status: 200, data: safeOrder(store.order(reservation.orderId)) } :
-      { ok: false, status: 409, message: reservation.reason };
+      reject(409, reservation.reason, `订单预留拒绝：${reservation.reason}`);
     const id = reservation.orderId;
     let payment;
     try {

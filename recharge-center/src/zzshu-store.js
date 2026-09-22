@@ -144,7 +144,19 @@ export class ZzshuStore {
   }
   voucher(code) { return this.db.prepare("SELECT id,status,order_id AS orderId,product_id AS productId,email,account_id AS accountId,batch_id AS batchId,source FROM vouchers WHERE code_hash=?")
     .get(crypto.createHash("sha256").update(code).digest("hex")); }
+  voucherStatusByHash(codeHash) {
+    return this.db.prepare("SELECT status FROM vouchers WHERE code_hash=?").get(codeHash)?.status || "missing";
+  }
   listVouchers() { return this.db.prepare("SELECT id,batch_id AS batchId,source,product_id AS productId,status,order_id AS orderId,email,account_id AS accountId,created_at AS createdAt FROM vouchers ORDER BY created_at DESC LIMIT 500").all(); }
+  selectCandidate(allowedHifupayIds, allowManual) {
+    const candidates = this.db.prepare(`SELECT * FROM payment_cards WHERE enabled=1 AND paused=0 AND success_count<max_success
+      AND (credential_ref NOT LIKE 'hifupay:%' OR EXISTS (SELECT 1 FROM card_roles WHERE hifupay_id=substr(payment_cards.credential_ref,9) AND role='zzshu'))
+      AND NOT EXISTS (SELECT 1 FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing','needs_review'))
+      ORDER BY CASE WHEN success_count>0 THEN 0 ELSE 1 END,success_count DESC,created_at,id`).all();
+    return candidates.find(item => item.credential_ref.startsWith("hifupay:")
+      ? allowedHifupayIds?.has(item.credential_ref.slice(8)) : allowManual);
+  }
+  manualCandidate() { return this.selectCandidate(null, true); }
   reserve(code, email, accountId, allowedHifupayIds = null, allowManual = true) {
     return this.transaction(() => {
       const voucher = this.voucher(code);
@@ -152,12 +164,7 @@ export class ZzshuStore {
       if (voucher.status !== "unused") return { ok: false, reason: voucher.status === "used" ? "卡密已使用" : "卡密处理中", orderId: voucher.email === email && voucher.accountId === accountId ? voucher.orderId : undefined };
       const active = this.db.prepare("SELECT count(*) AS n FROM orders WHERE status IN ('reserved','submitting','processing','needs_review')").get().n;
       if (active >= Math.max(1, config.zzshuConcurrency)) return { ok: false, reason: "通道处理量已满，请稍后再试" };
-      const candidates = this.db.prepare(`SELECT * FROM payment_cards WHERE enabled=1 AND paused=0 AND success_count<max_success
-        AND (credential_ref NOT LIKE 'hifupay:%' OR EXISTS (SELECT 1 FROM card_roles WHERE hifupay_id=substr(payment_cards.credential_ref,9) AND role='zzshu'))
-        AND NOT EXISTS (SELECT 1 FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing','needs_review'))
-        ORDER BY CASE WHEN success_count>0 THEN 0 ELSE 1 END,success_count DESC,created_at,id`).all();
-      const card = candidates.find(item => item.credential_ref.startsWith("hifupay:")
-        ? allowedHifupayIds?.has(item.credential_ref.slice(8)) : allowManual);
+      const card = this.selectCandidate(allowedHifupayIds, allowManual);
       if (!card) return { ok: false, reason: "暂无可用支付卡，兑换卡密未消耗" };
       const id = crypto.randomUUID(), at = new Date().toISOString();
       this.db.prepare("INSERT INTO orders(id,voucher_id,card_id,email,account_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?)")
@@ -172,7 +179,7 @@ export class ZzshuStore {
     o.review_reason AS reviewReason,o.cancellation,c.last_four AS lastFour,o.created_at AS createdAt,o.updated_at AS updatedAt
     FROM orders o JOIN payment_cards c ON c.id=o.card_id ORDER BY o.created_at DESC LIMIT 500`).all(); }
   recentPreSubmitFailures() {
-    return this.db.prepare("SELECT at,action,reason FROM audit WHERE action='pre_submit_aborted' ORDER BY id DESC LIMIT 10").all();
+    return this.db.prepare("SELECT at,action,reason FROM audit WHERE action IN ('pre_submit_aborted','pre_submit_rejected') ORDER BY id DESC LIMIT 10").all();
   }
   recoverInterrupted(olderThanMs) {
     const cutoff = new Date(Date.now() - olderThanMs).toISOString();
