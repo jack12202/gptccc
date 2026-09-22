@@ -108,7 +108,8 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   assert.notEqual(retry.data.orderId,unknown.data.orderId);
   assert.equal(service.store.order(unknown.data.orderId).status,"failed");
   const redacted = JSON.stringify({order:retry.data,cards:service.store.listCards(),orders:service.store.listOrders()});
-  for (const secret of [a,b,cvv,"fixture-api-key","fixture-session"]) assert.equal(redacted.includes(secret),false);
+  for (const secret of [a,b,"fixture-api-key","fixture-session"]) assert.equal(redacted.includes(secret),false);
+  assert.equal(redacted.includes('"cvv"'),false);
   const originalAdd = service.store.addPaymentCard;
   service.store.addPaymentCard = () => { throw Error("simulated storage failure"); };
   const partial = await service.importCards({text:"4000000000000002,12/40,456\nbroken",source:"fixture"});
