@@ -82,6 +82,22 @@ test("restart turns interrupted reservations into review without resubmitting or
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 });
 
+test("concurrent reservations cannot claim the same manual card", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(),"zzshu-concurrent-"));
+  try {
+    const file = path.join(dir,"test.sqlite"), first = new ZzshuStore(file), second = new ZzshuStore(file);
+    first.addPaymentCard(parsePaymentCards(`${fakePan},12/40,123`)[0],
+      {credentialRef:"local:fixture",paymentCipher:"cipher",source:"fixture",note:"",enabled:true,maxSuccess:2});
+    const codes = first.createVouchers(2,"fixture",3,()=>"cipher");
+    const results = await Promise.all([
+      Promise.resolve().then(() => first.reserve(codes[0].code,"a@example.test","a")),
+      Promise.resolve().then(() => second.reserve(codes[1].code,"b@example.test","b"))
+    ]);
+    assert.deepEqual(results.map(result=>result.ok).sort(),[false,true]);
+    assert.equal(first.db.prepare("SELECT COUNT(*) AS n FROM orders WHERE status='reserved'").get().n,1);
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
+
 test("upstream response allowlist omits PAN, Session and API key", async () => {
   const oldFetch=globalThis.fetch,oldEnabled=config.zzshuEnabled,oldKey=config.zzshuApiKey,oldUrl=config.zzshuBaseUrl;
   config.zzshuEnabled=true;config.zzshuApiKey="fake-key";config.zzshuBaseUrl="https://example.test";

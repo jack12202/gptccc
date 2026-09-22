@@ -4,7 +4,7 @@ import { parsePaymentCards, publicPreview } from "./zzshu-cards.js";
 import { zzshuAdapter } from "./providers/zzshu-adapter.js";
 import { hifupayAdapter } from "./providers/hifupay-adapter.js";
 import { JsonStore } from "./store.js";
-import { encryptSecretText } from "./utils.js";
+import { encryptSecretText, decryptSecretText } from "./utils.js";
 import { zzshuCredentialStore } from "./zzshu-credential-store.js";
 
 const store = sharedZzshuStore;
@@ -76,22 +76,26 @@ export const zzshuService = {
     return store.assignHifupay({id:card.id,lastFour:card.lastFour},role);
   },
   preview(text) { return publicPreview(parsePaymentCards(text, store.hashes())); },
-  async importCards({ text, source, note = "", enabled = true, maxSuccess = 5 }) {
-    vaultReady();
+  importStatus() {
+    return config.recoveryEncryptionKey
+      ? { ready: true, message: "可直接导入；支付资料加密保存在本机，按设置次数使用" }
+      : { ready: false, message: "运行时加密密钥未配置，暂不能导入支付卡" };
+  },
+  async importCards({ text, source, note = "", enabled = true, maxSuccess = 1 }) {
+    if (!config.recoveryEncryptionKey) return { ok: false, message: "运行时加密密钥未配置" };
     if (!String(source || "").trim()) return { ok: false, message: "请填写支付卡来源" };
     const limit = Number(maxSuccess);
-    if (!Number.isInteger(limit) || limit < 1 || limit > 100) return { ok: false, message: "成功次数上限应为 1–100" };
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) return { ok: false, message: "总可用次数应为 1–100" };
     const rows = parsePaymentCards(text, store.hashes());
     if (rows.length > 100 || !rows.length) return { ok: false, message: "每批 1–100 行" };
     const result = publicPreview(rows);
     for (const row of rows.filter(item => item.status === "ready")) {
-      // The vault alone owns the lifetime/PCI handling of CVV. No local persistence or logs.
       try {
-        const saved = await vaultRequest("POST", "/credentials", row.payment);
-        if (!saved?.ref || typeof saved.ref !== "string") throw new Error("无凭据引用");
-        store.addPaymentCard(row, { credentialRef: saved.ref, source: String(source).trim().slice(0, 40),
+        const paymentCipher = encryptSecretText(JSON.stringify(row.payment), config.recoveryEncryptionKey, "zzshu-payment-card");
+        const added = store.addPaymentCard(row, { credentialRef: `local:${row.fingerprint}`, paymentCipher, source: String(source).trim().slice(0, 40),
           note: String(note).slice(0, 200), enabled, maxSuccess: limit });
-      } catch { result[row.line - 1] = { line: row.line, status: "error", masked: row.masked, error: "凭据服务导入失败；请核查孤立凭据" }; }
+        result[row.line - 1] = { line: row.line, masked: row.masked, status: added ? "imported" : "duplicate" };
+      } catch { result[row.line - 1] = { line: row.line, status: "error", masked: row.masked, error: "此行保存失败，未导入" }; }
     }
     return { ok: true, rows: result };
   },
@@ -140,10 +144,10 @@ export const zzshuService = {
           return store.role(id).role==="zzshu" && local.get(id)?.enabled!==false &&
             String(card.status||"").toLowerCase()==="active" && Number.isFinite(balance) && balance>=needed;
         }).map(card=>String(card.id)));
-      } catch { return {ok:false,status:503,message:"无法核实嗨付卡片状态，兑换权益未消耗"}; }
-    } else { try { vaultReady(); } catch { return {ok:false,status:503,message:"支付卡来源未就绪，兑换权益未消耗"}; } }
+      } catch { allowedHifupayIds = new Set(); }
+    }
     const reservation = store.reserve(code, token.user.email.toLowerCase(), String(token.account.id),allowedHifupayIds,
-      Boolean(config.zzshuVaultUrl && config.zzshuVaultToken));
+      Boolean(config.recoveryEncryptionKey || config.zzshuVaultUrl && config.zzshuVaultToken));
     if (!reservation.ok) return reservation.orderId ? { ok: true, status: 200, data: safeOrder(store.order(reservation.orderId)) } :
       { ok: false, status: 409, message: reservation.reason };
     const id = reservation.orderId;
@@ -151,6 +155,8 @@ export const zzshuService = {
     try {
       payment = reservation.credentialRef.startsWith("hifupay:")
         ? await hifupayAdapter.getPaymentCard({cardId:reservation.credentialRef.slice(8),expectedLastFour:reservation.lastFour})
+        : reservation.credentialRef.startsWith("local:")
+          ? JSON.parse(decryptSecretText(store.paymentCipher(reservation.credentialRef),config.recoveryEncryptionKey,"zzshu-payment-card"))
         : await vaultRequest("GET", `/credentials/${encodeURIComponent(reservation.credentialRef)}`);
     } catch { store.abortBeforeSubmit(id,"支付卡详情读取失败，未调用吱吱鼠"); return {ok:false,status:503,message:"支付卡详情不可用，兑换权益未消耗"}; }
     if (!payment || !/^\d{12,19}$/.test(payment.cardNumber || "") || !/^\d{3,4}$/.test(payment.cvv || "") ||

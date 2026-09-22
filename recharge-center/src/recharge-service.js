@@ -172,6 +172,16 @@ function resolveProvider(provider) {
   return normalizeProvider(provider, defaultProvider());
 }
 
+function isZzshuVoucher(value) {
+  let code = String(value || "").trim();
+  try {
+    const url = new URL(code);
+    if (url.searchParams.get("provider") !== "zzshu") return false;
+    code = url.searchParams.get("card") || "";
+  } catch { /* Plain voucher code. */ }
+  return /^ZZPLUS[0-9A-F]{32}$/i.test(code);
+}
+
 function parseSecretPayload(secretJsonText) {
   const parsed = safeJsonParse(secretJsonText);
   if (!parsed.ok || typeof parsed.value !== "object" || !parsed.value) {
@@ -400,6 +410,11 @@ export const rechargeService = {
   },
 
   queryHCardStatus(cardInfo, provider) {
+    if (String(provider || "").trim().toLowerCase() === "zzshu" || isZzshuVoucher(cardInfo)) {
+      return zzshuService.voucherStatus(cardInfo).then(result => ({
+        ok: result.ok, status: result.ok ? 200 : 404, data: result, message: result.message
+      }));
+    }
     if (String(provider || "").trim().toLowerCase() !== "h") {
       return { ok: false, status: 400, message: "仅支持查询 h 通道卡密。" };
     }
@@ -805,7 +820,7 @@ export const rechargeService = {
     }
 
     const localCard = store.getHCardByCode(cardInfo);
-    const selectedProvider = localCard ? "h" : resolveProvider(provider);
+    const selectedProvider = isZzshuVoucher(cardInfo) ? "zzshu" : localCard ? "h" : resolveProvider(provider);
     if (selectedProvider === "zzshu") {
       const result = zzshuService.verify(cardInfo);
       return { ok: result.ok, status: result.ok ? 200 : 400, data: { ...result, success: result.ok, provider: "zzshu", providerLabel: "吱吱鼠", selectedProvider, defaultProvider: defaultProvider() } };
@@ -830,6 +845,7 @@ export const rechargeService = {
       return { ok: false, status: 400, message: "请先输入卡密。" };
     }
 
+    if (isZzshuVoucher(cardInfo)) return this.queryHCardStatus(cardInfo,"zzshu");
     const selectedProvider = resolveProvider(provider);
     const adapter = getProviderAdapter(selectedProvider);
     if (typeof adapter.queryCardStatus !== "function") {
@@ -879,7 +895,7 @@ export const rechargeService = {
   },
 
   async confirmRecharge(input) {
-    if (resolveProvider(input.provider) === "zzshu") return zzshuService.confirm(input);
+    if (isZzshuVoucher(input.cardInfo) || resolveProvider(input.provider) === "zzshu") return zzshuService.confirm(input);
     const { cardInfo, productId, overwriteRecharge, siteSource } = input;
 
     if (!requiredString(cardInfo)) {

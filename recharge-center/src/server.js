@@ -1357,6 +1357,7 @@ export const server = http.createServer(async (req, res) => {
           if (!result.ok) { sendJson(res, result.status, { success: false, message: result.message }); return; }
           data = { configured: true, points: result.points ?? null, channelEnabled: config.zzshuEnabled };
         }
+        else if (req.method === "GET" && endpoint === "import-status") data = zzshuService.importStatus();
         else if (req.method === "GET" && endpoint === "cards") data = zzshuService.store.listCards();
         else if (req.method === "GET" && endpoint === "hifupay-cards") data = await zzshuService.listHifupayAssignments(["1","true"].includes(url.searchParams.get("refresh")));
         else if (req.method === "POST" && /^hifupay-cards\/[^/]+\/assign$/.test(endpoint)) {
@@ -1516,7 +1517,7 @@ export const server = http.createServer(async (req, res) => {
       }
       try {
         const body = await readJsonBody(req);
-        const result = rechargeService.queryHCardStatus(body.cardInfo, body.provider);
+        const result = await rechargeService.queryHCardStatus(body.cardInfo, body.provider);
         sendJson(res, result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message });
       } catch {
         sendJson(res, 500, { success: false, message: "卡密状态查询暂不可用，请稍后重试。" });
