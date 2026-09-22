@@ -81,6 +81,13 @@ export const zzshuService = {
       ? { ready: true, message: "可直接导入；支付资料加密保存在本机，按设置次数使用" }
       : { ready: false, message: "运行时加密密钥未配置，暂不能导入支付卡" };
   },
+  diagnostics() {
+    return {
+      channelEnabled: config.zzshuEnabled,
+      testMode: config.zzshuTestMode,
+      recentPreSubmitFailures: store.recentPreSubmitFailures()
+    };
+  },
   async importCards({ text, source, note = "", enabled = true, maxSuccess = 1 }) {
     if (!config.recoveryEncryptionKey) return { ok: false, message: "运行时加密密钥未配置" };
     if (!String(source || "").trim()) return { ok: false, message: "请填写支付卡来源" };

@@ -1202,7 +1202,7 @@ window._hmt = _hmt;
       if (code === "RECHARGE_FAILED") return "充值失败，请稍后重试或联系客服核查。";
       if (code === "processing" || status === "processing") return "充值已提交，系统正在处理中，请稍候。";
       if (code === "success" || status === "success") return "充值成功，系统已返回成功结果。";
-      if (code === "failed" || status === "failed") return "充值失败，请稍后重试或联系客服核查。";
+      if (code === "failed") return "充值失败，请稍后重试或联系客服核查。";
       if (code) return code;
       if (status === "success") return "充值成功，系统已返回成功结果。";
       if (status === "failed") return "充值失败，请稍后重试或联系客服核查。";

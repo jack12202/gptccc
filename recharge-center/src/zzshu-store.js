@@ -171,6 +171,9 @@ export class ZzshuStore {
   listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.upstream_order_no AS upstreamOrderNo,
     o.review_reason AS reviewReason,o.cancellation,c.last_four AS lastFour,o.created_at AS createdAt,o.updated_at AS updatedAt
     FROM orders o JOIN payment_cards c ON c.id=o.card_id ORDER BY o.created_at DESC LIMIT 500`).all(); }
+  recentPreSubmitFailures() {
+    return this.db.prepare("SELECT at,action,reason FROM audit WHERE action='pre_submit_aborted' ORDER BY id DESC LIMIT 10").all();
+  }
   recoverInterrupted(olderThanMs) {
     const cutoff = new Date(Date.now() - olderThanMs).toISOString();
     return this.transaction(() => {

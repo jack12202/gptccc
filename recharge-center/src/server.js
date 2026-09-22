@@ -1358,6 +1358,7 @@ export const server = http.createServer(async (req, res) => {
           data = { configured: true, points: result.points ?? null, channelEnabled: config.zzshuEnabled };
         }
         else if (req.method === "GET" && endpoint === "import-status") data = zzshuService.importStatus();
+        else if (req.method === "GET" && endpoint === "diagnostics") data = zzshuService.diagnostics();
         else if (req.method === "GET" && endpoint === "cards") data = zzshuService.store.listCards();
         else if (req.method === "GET" && endpoint === "hifupay-cards") data = await zzshuService.listHifupayAssignments(["1","true"].includes(url.searchParams.get("refresh")));
         else if (req.method === "POST" && /^hifupay-cards\/[^/]+\/assign$/.test(endpoint)) {
