@@ -35,6 +35,7 @@ function safeOrder(order) {
   if (!order) return null;
   return { orderId: order.id, taskId: order.id, provider: "zzshu", providerLabel: "吱吱鼠", status: order.status,
     message: order.status === "success" ? "Plus 已开通" : order.status === "failed" ? "本次未支付，请联系客服核查" :
+      order.status === "needs_review" && order.review_reason === "上游要求银行卡持有人验证" ? "支付需要银行卡持有人验证，请等待处理，勿重复提交" :
       "正在处理或待确认，请勿重复提交", subscriptionCancellationStatus: order.cancellation };
 }
 function session(input) {
@@ -237,6 +238,13 @@ export const zzshuService = {
     catch { store.review(id,"创建请求连接中断或超时；上游是否已创建未知"); return { ok: true, status: 200, data: safeOrder(store.order(id)) }; }
     const upstreamNo = String(created.data?.order_no ?? ""), upstreamKey = String(created.data?.card_key ?? "");
     if (created.ok && upstreamNo && upstreamKey) store.created(id,upstreamNo,upstreamKey);
+    else if ([42902,40305,40306,40106,40107,40005,40006,40007,40008,40024,40025,40026,40027,40028,40030].includes(Number(created.code)) &&
+             store.rejectUncreated(id,`上游拒绝创建订单（HTTP ${created.status}, code ${created.code}）`))
+      return { ok: false, status: created.status === 429 ? 429 : 400,
+        message: Number(created.code) === 42902 ? "上游当前并发已满，请稍后再试；卡密和支付卡未消耗" :
+          Number(created.code) === 40305 ? "上游暂时关闭充值，请稍后再试；卡密和支付卡未消耗" :
+          [40106,40107,40306].includes(Number(created.code)) ? "上游 API 凭据或额度不可用，请联系客服；卡密和支付卡未消耗" :
+            "账号 Session 未被上游接受，请重新获取完整 Session；卡密和支付卡未消耗" };
     else store.review(id,`创建响应未能确认订单（HTTP ${created.status}, code ${created.code ?? "?"}）；不得自动重试`);
     return { ok: true, status: 200, data: safeOrder(store.order(id)) };
   },
@@ -251,6 +259,7 @@ export const zzshuService = {
         return { ok: true, status: 200, data: safeOrder(order) };
       const data = result.data;
       if (data.status === "success") store.settle(id,"success",data.cancellation);
+      else if (data.verificationRequired) store.review(id,"上游要求银行卡持有人验证");
       else if (data.status === "failed") {
         // An upstream failed state alone does not prove that payment was not captured.
         if (data.unpaid && !data.paid) store.review(id,"上游报告失败/未支付；需间隔补查和人工确认后释放");

@@ -85,6 +85,11 @@ export class ZzshuCredentialStore {
     return { ok: true, points: Number.isFinite(points) ? points : null };
   }
 
+  async verifySaved() {
+    const key = this.key();
+    return key ? this.verify(key) : { ok: false, status: 503, message: "尚未配置 ZZS API Key。" };
+  }
+
   save(apiKey) {
     const key = normalizeKey(apiKey);
     if (!key) return { ok: false, status: 400, message: "API Key 格式不正确。" };

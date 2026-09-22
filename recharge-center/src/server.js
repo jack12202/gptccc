@@ -1352,6 +1352,11 @@ export const server = http.createServer(async (req, res) => {
       try {
         let data;
         if (req.method === "GET" && endpoint === "credential") data = zzshuCredentialStore.status();
+        else if (req.method === "GET" && endpoint === "credential/check") {
+          const result = await zzshuCredentialStore.verifySaved();
+          if (!result.ok) { sendJson(res,result.status,{success:false,message:result.message}); return; }
+          data = { accepted: true, points: result.points };
+        }
         else if (req.method === "POST" && endpoint === "credential/verify-and-save") {
           const result = await zzshuCredentialStore.verifyAndSave(body.apiKey);
           if (!result.ok) { sendJson(res, result.status, { success: false, message: result.message }); return; }

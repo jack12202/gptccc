@@ -35,9 +35,11 @@ test("ZZS credential is verified before one-time encrypted runtime storage", asy
   assert.equal(fs.statSync(path.join(directory, "zzshu-api-key.json")).mode & 0o777, 0o600);
   assert.equal(store.key(), apiKey);
   assert.equal(store.status().source, "runtime-secret");
+  assert.deepEqual(await store.verifySaved(), { ok: true, points: 9 });
+  assert.equal(requests, 2);
   const blocked = await store.verifyAndSave("different-fixture-key");
   assert.equal(blocked.status, 409);
-  assert.equal(requests, 1);
+  assert.equal(requests, 2);
 });
 
 test("invalid ZZS key is never persisted and only the verification endpoint is called", async t => {
@@ -58,4 +60,5 @@ test("invalid ZZS key is never persisted and only the verification endpoint is c
   const result = await store.verifyAndSave("wrong-fixture-key");
   assert.equal(result.ok, false);
   assert.equal(fs.existsSync(file), false);
+  assert.equal((await store.verifySaved()).status, 503);
 });

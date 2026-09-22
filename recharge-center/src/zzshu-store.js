@@ -237,6 +237,19 @@ export class ZzshuStore {
       return true;
     });
   }
+  rejectUncreated(id, reason) {
+    return this.transaction(() => {
+      const order = this.order(id);
+      if (!order || order.status !== "submitting" || order.upstream_order_no || order.upstream_card_key) return false;
+      const at = new Date().toISOString();
+      this.db.prepare("UPDATE orders SET status='failed',review_reason=?,updated_at=? WHERE id=? AND status='submitting'")
+        .run(reason,at,id);
+      this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL,email=NULL,account_id=NULL WHERE id=? AND order_id=?")
+        .run(order.voucher_id,id);
+      this.audit(id,"upstream_rejected_before_create",reason);
+      return true;
+    });
+  }
   settle(id, state, cancellation = "unconfirmed") {
     return this.transaction(() => {
       const order = this.order(id);

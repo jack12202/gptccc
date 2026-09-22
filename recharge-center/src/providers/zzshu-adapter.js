@@ -35,6 +35,7 @@ export const zzshuAdapter = {
       planType: String(data.plan_type ?? ""), status: String(data.status ?? ""),
       paid: data.payment_result?.success === true && data.payment_result?.status === "paid",
       unpaid: data.payment_result?.success === false && data.payment_result?.status === "failed",
+      verificationRequired: Boolean(data.verification),
       cancellation: data.is_subscription_cancelled === 1 ? "cancelled" : "unconfirmed"
     } };
   }
