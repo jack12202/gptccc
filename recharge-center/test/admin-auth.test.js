@@ -121,6 +121,8 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
     for (const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(script[1]);
   }
   const before = fs.readFileSync(process.env.DATA_FILE, "utf8");
+  const productionVerifier = fs.readFileSync(new URL("../../scripts/verify-admin-session.mjs", import.meta.url), "utf8");
+  assert.match(productionVerifier, /hasOnlyZzshuCredentialInput/);
   assert.equal((await fetch(base + "/api/admin/zzshu/credential")).status, 401);
   const credentialStatus = await fetch(base + "/api/admin/zzshu/credential", { headers: { Cookie: cookie } });
   assert.equal(credentialStatus.status, 200);
