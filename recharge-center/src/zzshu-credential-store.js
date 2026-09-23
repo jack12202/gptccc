@@ -60,7 +60,7 @@ export class ZzshuCredentialStore {
       source: current.source || "",
       channelEnabled: config.zzshuEnabled,
       testMode: config.zzshuTestMode,
-      canConfigure: current.state === "missing" && Boolean(this.encryptionKey()),
+      canConfigure: current.source !== "environment" && current.state !== "invalid" && Boolean(this.encryptionKey()),
       storageReady: current.state !== "invalid" && Boolean(this.encryptionKey())
     };
   }
@@ -90,21 +90,21 @@ export class ZzshuCredentialStore {
     return key ? this.verify(key) : { ok: false, status: 503, message: "尚未配置 ZZS API Key。" };
   }
 
-  save(apiKey) {
+  save(apiKey, { replace = false } = {}) {
     const key = normalizeKey(apiKey);
     if (!key) return { ok: false, status: 400, message: "API Key 格式不正确。" };
     if (!this.encryptionKey()) return { ok: false, status: 503, message: "未配置运行时加密密钥，无法保存 API Key。" };
     const current = this.current();
-    if (current.state === "ready") return { ok: false, status: 409, message: "已有 ZZS API Key；为保护历史订单，本页不允许直接替换。" };
+    if (current.source === "environment") return { ok: false, status: 409, message: "当前 ZZS API Key 由部署环境管理，不能在后台替换。" };
+    if (current.state === "ready" && !replace) return { ok: false, status: 409, message: "已有 ZZS API Key；如需更换请使用更换操作。" };
     if (current.state === "invalid") return { ok: false, status: 503, message: "现有 ZZS 私密配置不可读取，请先由运维安全核查。" };
     const directory = path.dirname(this.file);
     const temporary = path.join(directory, `.zzshu-api-key-${crypto.randomUUID()}.tmp`);
     try {
       fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
       fs.writeFileSync(temporary, JSON.stringify({ version: 1, apiKeyCiphertext: encryptSecretText(key, this.encryptionKey(), "zzshu-api-key"), createdAt: new Date().toISOString() }), { mode: 0o600, flag: "wx" });
-      // link(2) is create-only: an existing secret cannot be replaced by a race.
-      fs.linkSync(temporary, this.file);
-      fs.unlinkSync(temporary);
+      if (replace) fs.renameSync(temporary, this.file);
+      else { fs.linkSync(temporary, this.file); fs.unlinkSync(temporary); }
       fs.chmodSync(this.file, 0o600);
       return { ok: true };
     } catch {
@@ -113,12 +113,13 @@ export class ZzshuCredentialStore {
     }
   }
 
-  async verifyAndSave(apiKey) {
+  async verifyAndSave(apiKey, options = {}) {
     const status = this.status();
-    if (!status.storageReady || this.current().state !== "missing") return this.save(apiKey);
+    if (this.current().state === "ready" && options.replace !== true) return this.save(apiKey, options);
+    if (!status.storageReady) return this.save(apiKey, options);
     const verified = await this.verify(apiKey);
     if (!verified.ok) return verified;
-    const saved = this.save(apiKey);
+    const saved = this.save(apiKey, options);
     return saved.ok ? { ...saved, points: verified.points } : saved;
   }
 }

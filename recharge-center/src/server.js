@@ -47,14 +47,14 @@ function serveAdminOverview(res) {
   const html = `<!doctype html>
 <html lang="zh-CN"><head>
 <script src="/admin/session.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
-<title>充值通道设置｜GPTC 后台</title>
+<title>总览｜GPTC 后台</title>
 <style>
 *{box-sizing:border-box}body{margin:0;padding:20px;background:#f4f7fb;color:#132033;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:1180px;margin:auto}.panel{background:#fff;border:1px solid #dbe4ee;border-radius:16px;padding:22px;margin-bottom:16px;box-shadow:0 16px 42px #0f172a0d}h1,h2{margin:0 0 8px}h1{font-size:28px}h2{font-size:18px}p,.muted{color:#64748b;line-height:1.55}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.api-card,.metric{border:1px solid #dbe4ee;border-radius:13px;padding:17px;background:#fbfdff}.status-line{font-weight:800;margin:8px 0 14px}.good{color:#047857}.bad{color:#be123c}.form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}input{width:100%;min-height:44px;border:1px solid #cbd5e1;border-radius:9px;padding:0 11px;font:inherit}button,.link{min-height:44px;border:1px solid #99f6e4;border-radius:9px;padding:0 14px;background:#ecfdf5;color:#0f766e;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.choices button.active{background:#0f766e;color:#fff;border-color:#0f766e}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.metric h2{display:flex;justify-content:space-between;gap:8px}.numbers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:15px}.number{padding:10px;background:#f1f5f9;border-radius:9px;text-align:center}.number b{display:block;font-size:22px}.message{margin-top:12px;min-height:22px;color:#1e3a8a}.message.error{color:#be123c}.nav{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}@media(max-width:760px){body{padding:12px}.grid,.metrics{grid-template-columns:1fr}.form{grid-template-columns:1fr}.numbers{grid-template-columns:repeat(3,1fr)}}
 </style></head><body><main>
-<section class="panel"><h1>充值通道设置</h1><p>在一个页面配置两个 Plus 履约通道、切换新订单路由，并查看两边的卡池和订单状态。已提交订单仍按原通道处理。</p><div class="nav"><a class="link" href="/admin/cards">卡密管理</a><a class="link" href="/admin/recoveries">订单明细</a><a class="link" href="/admin/hifupay/cards">嗨付卡池</a><a class="link" href="/admin/zzshu">ZZS 卡池</a></div></section>
+<section class="panel"><h1>充值系统总览</h1><p>统一管理嗨付和 ZZS。切换只影响尚未首次提交的 Plus 卡密；历史订单、卡密和用户 JSON 始终从本站保存的数据读取。</p><div class="nav"><a class="link" href="/admin/cards">卡密管理</a><a class="link" href="/admin/recoveries">订单明细</a><a class="link" href="/admin/hifupay/cards">支付卡池</a><a class="link" href="/admin/provider">其他网站入口</a></div></section>
 <section class="panel"><div class="grid">
-<article class="api-card" data-channel="hifupay"><h2>嗨付 API</h2><div class="status-line" id="hifupayState">读取中…</div><div class="form"><input id="hifupayKey" type="password" autocomplete="new-password" placeholder="填写嗨付 API Key"><button id="saveHifupay">验证并保存</button></div><div class="actions"><button id="checkHifupay">检测连接</button></div><div class="message" id="hifupayMessage"></div></article>
-<article class="api-card" data-channel="zzshu"><h2>ZZS API</h2><div class="status-line" id="zzshuState">读取中…</div><div class="form"><input id="zzshuKey" type="password" autocomplete="new-password" placeholder="填写 ZZS API Key"><button id="saveZzshu">验证并保存</button></div><div class="actions"><button id="checkZzshu">检测连接</button></div><div class="message" id="zzshuMessage"></div></article>
+<article class="api-card" data-channel="hifupay"><h2>嗨付 API</h2><div class="status-line" id="hifupayState">读取中…</div><div class="form"><input id="hifupayKey" type="password" autocomplete="new-password" placeholder="填写新的嗨付 API Key"><button id="saveHifupay">验证并保存</button></div><div class="actions"><button id="checkHifupay">检测连接</button></div><div class="message" id="hifupayMessage"></div></article>
+<article class="api-card" data-channel="zzshu"><h2>ZZS API</h2><div class="status-line" id="zzshuState">读取中…</div><div class="form"><input id="zzshuKey" type="password" autocomplete="new-password" placeholder="填写新的 ZZS API Key"><button id="saveZzshu">验证并保存</button></div><div class="actions"><button id="checkZzshu">检测连接</button></div><div class="message" id="zzshuMessage"></div></article>
 </div></section>
 <section class="panel"><h2>Plus 通道选择</h2><p>仅影响尚未首次提交的通用 Plus 卡密。</p><div class="choices"><button data-provider="h">嗨付</button><button data-provider="zzshu">ZZS</button></div><div class="message" id="providerMessage"></div></section>
 <section class="panel"><h2>统一状态</h2><div class="metrics">
@@ -67,11 +67,12 @@ function text(id,value){document.getElementById(id).textContent=value}
 function message(id,value,error){const el=document.getElementById(id);el.textContent=value||"";el.classList.toggle("error",Boolean(error))}
 function formatTime(value){return value?new Date(value).toLocaleString("zh-CN",{hour12:false}):"暂无同步"}
 async function loadCredential(channel,path){
-  try{const d=await api(path);const configured=Boolean(d.configured);const state=document.getElementById(channel+"State");state.textContent=configured?"已配置 · "+(d.source==="environment"?"部署配置":"后台保存"):"未配置";state.className="status-line "+(configured?"good":"bad");document.getElementById(channel+"Key").disabled=!d.canConfigure;document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu").disabled=!d.canConfigure}catch(e){message(channel+"Message",e.message,true)}
+  try{const d=await api(path);const configured=Boolean(d.configured),button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu");const state=document.getElementById(channel+"State");state.textContent=configured?"已配置 · "+(d.source==="environment"?"部署配置":"后台保存"):"未配置";state.className="status-line "+(configured?"good":"bad");document.getElementById(channel+"Key").disabled=!d.canConfigure;button.disabled=!d.canConfigure;button.textContent=configured?"验证并更换":"验证并保存";button.dataset.replace=configured?"1":"0"}catch(e){message(channel+"Message",e.message,true)}
 }
 async function save(channel,path){
   const input=document.getElementById(channel+"Key"), key=input.value.trim(); if(!key){message(channel+"Message","请填写 API Key。",true);return}
-  try{await api(path,{method:"POST",body:JSON.stringify({apiKey:key})});input.value="";message(channel+"Message","验证成功，已保存。");await loadAll()}catch(e){message(channel+"Message",e.message,true)}
+  const button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu"),replace=button.dataset.replace==="1";if(replace&&!confirm("新 API 验证成功后将替换当前 API。未完成订单存在时系统会拒绝更换。确认继续？"))return;
+  try{await api(path,{method:"POST",body:JSON.stringify({apiKey:key,replace})});input.value="";message(channel+"Message",replace?"新 API 验证成功，已完成更换。":"验证成功，已保存。");await loadAll()}catch(e){message(channel+"Message",e.message,true)}
 }
 async function check(channel,path){try{const d=await api(path);message(channel+"Message","连接正常"+(d.points==null?"":" · 积分 "+d.points))}catch(e){message(channel+"Message",e.message,true)}}
 function renderDashboard(d){
@@ -224,12 +225,8 @@ function serveProviderAdmin(res) {
 </head>
 <body>
   <main>
-    <h1>路由与通道 · 网站入口设置</h1>
-    <p>在这里选择新生成的通用 Plus 卡密走嗨付或 ZZS。已提交的卡密始终沿原通道处理。</p>
-    <div class="provider-group"><h2 class="group-title">通用 Plus 卡密充值通道</h2><p class="group-help">仅影响尚未提交的通用 Plus 卡密；旧卡密、Pro 和历史订单按原规则处理。</p>
-      <div class="choices"><button type="button" data-plus-provider="h">嗨付</button><button type="button" data-plus-provider="zzshu">ZZS</button></div>
-      <div class="status" id="plusStatus">正在读取 Plus 通道…</div>
-    </div>
+    <h1>其他网站入口</h1>
+    <p>这里保留其他充值入口的既有路由。嗨付、ZZS API 和 Plus 通道统一在<a href="/admin">总览</a>管理。</p>
 
     <div class="provider-group">
       <h2 class="group-title">站内充值</h2>
@@ -255,21 +252,10 @@ function serveProviderAdmin(res) {
       </div>
     </div>
     <div class="status" id="statusBox">正在读取当前通道…</div>
-    <section class="channel-entry" aria-labelledby="channel-entry-title">
-      <h2 class="group-title" id="channel-entry-title">履约通道入口</h2>
-      <p class="group-help">产品与通道分开管理：Plus、Pro 5x、Pro 20x 是产品；嗨付、ZZS、人工是履约通道。</p>
-      <div class="channel-links">
-        <a class="channel-link" href="/admin/hifupay/cards"><strong>嗨付 · 支付卡池</strong><span>管理实际用于扣款的嗨付支付卡、余额、状态和占用。</span></a>
-        <a class="channel-link" href="/admin/zzshu"><strong>ZZS · 临时通道工作台</strong><span>当前保留旧工作台；后续会拆分归入订单、卡密和支付卡池。</span></a>
-        <div class="channel-static"><strong>人工 · 履约通道</strong><span>本轮仅作概念说明，暂不新建独立页面或操作入口。</span></div>
-      </div>
-    </section>
   </main>
   <script>
     const statusBox = document.getElementById("statusBox");
     const buttons = Array.from(document.querySelectorAll("[data-provider]"));
-    const plusButtons = Array.from(document.querySelectorAll("[data-plus-provider]"));
-    function setPlusActive(provider) { plusButtons.forEach(button => button.classList.toggle("active", button.dataset.plusProvider === provider)); }
 
     function setStatus(message, error = false) {
       statusBox.textContent = message;
@@ -290,8 +276,6 @@ function serveProviderAdmin(res) {
       try {
         const data = await api("/api/admin/provider");
         setActive(data.defaultProvider);
-        setPlusActive(data.plusProvider);
-        document.getElementById("plusStatus").textContent = "通用 Plus 当前通道：" + (data.plusProvider === "zzshu" ? "ZZS" : "嗨付");
         setStatus("当前默认方式：" + providerLocationLabel(data) + " · " + data.defaultProviderLabel + (data.providerUpdatedAt ? "\\n最后切换：" + data.providerUpdatedAt : ""));
       } catch (error) {
         setStatus(error.message, true);
@@ -314,13 +298,6 @@ function serveProviderAdmin(res) {
     buttons.forEach((button) => {
       button.addEventListener("click", () => switchProvider(button.dataset.provider));
     });
-    plusButtons.forEach(button => button.addEventListener("click", async () => {
-      try {
-        const data = await api("/api/admin/plus-provider", { method: "POST", body: JSON.stringify({ provider: button.dataset.plusProvider }) });
-        setPlusActive(data.plusProvider);
-        document.getElementById("plusStatus").textContent = "通用 Plus 已切换为：" + (data.plusProvider === "zzshu" ? "ZZS" : "嗨付");
-      } catch (error) { document.getElementById("plusStatus").textContent = error.message; }
-    }));
     loadCurrent();
   </script>
 </body>
@@ -832,8 +809,9 @@ function serveHifupayCardAdmin(res) {
 <style>
 *{box-sizing:border-box}body{margin:0;padding:20px;background:#f4f7fb;color:#132033;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:1200px;margin:auto}section{padding:22px;margin-bottom:16px;background:#fff;border:1px solid #dbe4ee;border-radius:14px;box-shadow:0 18px 48px rgba(15,23,42,.08)}h1,h2{margin:0 0 8px}p{color:#64748b;line-height:1.6}.top,.actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.actions{justify-content:flex-start}label{display:grid;gap:8px;margin-top:16px;font-weight:800;max-width:620px}input{min-height:44px;padding:0 12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}button,a{min-height:42px;padding:0 14px;border-radius:10px;font:inherit;font-weight:900;cursor:pointer}button{border:0;background:#0f766e;color:#fff}button.secondary,a{background:#ecfdf5;color:#0f766e;border:1px solid #99f6e4;text-decoration:none;display:inline-flex;align-items:center}button.danger{background:#fff1f2;color:#9f1239;border:1px solid #fda4af}.status{margin-top:16px;padding:12px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;white-space:pre-wrap}.error{background:#fff1f2;border-color:#fda4af;color:#9f1239}.table{overflow:auto;margin-top:14px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:11px 8px;text-align:left;vertical-align:middle;border-bottom:1px solid #e2e8f0;white-space:nowrap}th{color:#475569}td small{color:#64748b}.purpose{max-width:240px;overflow:hidden;text-overflow:ellipsis}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:900}.warn{background:#fff7ed;color:#c2410c}.bad{background:#fff1f2;color:#be123c}.hint{margin:8px 0 0;font-size:13px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.tabs button{background:#f8fafc;border:1px solid #e2e8f0;color:#475569;font-size:14px}.tabs button.active{background:#0f766e;border-color:#0f766e;color:#fff}.detail-row td{background:#f8fafc;white-space:normal;line-height:1.6;padding:16px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 28px}.detail-grid p{margin:4px 0}.detail-grid .actions{grid-column:1/-1}.detail-grid label{margin:0;display:flex;align-items:center;gap:8px}.detail-grid input{width:80px}.pagination{margin-top:14px;display:flex;align-items:center;justify-content:flex-end;gap:12px}.pagination button:disabled{opacity:.45;cursor:default}@media(max-width:640px){body{padding:12px}section{padding:16px}.top>.actions a{min-height:38px}.detail-grid{grid-template-columns:1fr}.tabs button{flex:1}.table{margin-left:-8px;margin-right:-8px}.actions a,.detail-grid .actions button{width:100%;justify-content:center}}
 </style></head><body><main>
-<section><div class="top"><div><h1>支付卡池 · 嗨付卡片</h1><p>这里管理实际用于扣款的嗨付支付卡，不是客户兑换卡密。若要查看 ZZS 通道及已分配给 ZZS 的支付卡，请进入 ZZS 通道工作台。系统只读取余额和状态，不会自动开卡、提余额或注销支付卡。</p></div></div>
-<div class="actions" style="margin-top:14px"><button id="refresh">刷新嗨付卡片</button><button class="secondary" id="local">查看本地记录</button><a href="/admin/zzshu">进入 ZZS 通道工作台</a></div><div class="status" id="status">正在加载嗨付卡池…</div></section>
+<nav class="tabs" aria-label="支付卡池通道"><a style="background:#0f766e;color:#fff" aria-current="page" href="/admin/hifupay/cards">嗨付支付卡</a><a href="/admin/hifupay/cards?tab=zzshu">ZZS 支付卡</a></nav>
+<section><div class="top"><div><h1>支付卡池 · 嗨付</h1><p>管理嗨付实际扣款卡、余额、占用和 Pro 保护。切换到“ZZS 支付卡”可批量导入和管理 ZZS 手动卡。</p></div></div>
+<div class="actions" style="margin-top:14px"><button id="refresh">同步嗨付卡片</button><button class="secondary" id="local">查看本地记录</button></div><div class="status" id="status">正在加载嗨付卡池…</div></section>
 <section><div class="top"><div><h2>支付卡状态</h2><p class="hint">新卡默认归嗨付。展开支付卡后可分配给 ZZS，或将无未决订单的 ZZS 支付卡切回嗨付；不会改变网站默认通道。嗨付 Plus 自动充值只会使用余额足够且不超过 $66 的支付卡。</p></div><strong id="count">0 张</strong></div><nav class="tabs" id="cardTabs" aria-label="支付卡分类"></nav><label>搜索支付卡池<input id="cardSearch" type="search" placeholder="输入支付卡 ID、尾号、账号或升级类型；搜索全部分类"></label><div class="table"><table><thead><tr><th>支付卡</th><th>余额</th><th>本站成功记录</th><th>用途/保护</th><th>状态</th><th>详情</th></tr></thead><tbody id="cards"><tr><td colspan="6">暂无记录</td></tr></tbody></table></div><div class="pagination" id="pagination"><button class="secondary" id="prevPage" type="button">上一页</button><span id="pageInfo">第 1 / 1 页</span><button class="secondary" id="nextPage" type="button">下一页</button></div></section>
 </main><script>
 const statusBox=document.getElementById("status");
@@ -850,7 +828,7 @@ function render(cards){return cards.map(card=>{
   const enabledAction=card.enabled?'<button class="danger" data-action="disable" data-id="'+id+'">禁用</button>':'<button class="secondary" data-action="enable" data-id="'+id+'">启用</button>';
   const protectAction=card.proProtected?'<button class="secondary" data-action="protect-pro" data-id="'+id+'" data-account="'+esc(pro?.account||"")+'" data-type="'+esc(pro?.type||"20X Pro")+'" data-renewal="'+esc(pro?.renewalAt||"")+'">修改 Pro 信息</button><button class="secondary" data-action="release-pro" data-id="'+id+'">解除 Pro 保护</button>':'<button class="secondary" data-action="protect-pro" data-id="'+id+'">Pro 续费保护</button>';
   const assignAction=card.assignedToZzshu?'<button class="secondary" data-action="assign-h" data-id="'+id+'">改回嗨付</button>':'<button class="secondary" data-action="assign-zzshu" data-id="'+id+'">分配给 ZZS</button>';
-  const summary='<tr><td>ID '+id+'<br><small>****'+esc(card.lastFour||"----")+'</small></td><td>'+esc(money(card.balance))+'<br><small>可用 '+esc(money(card.availableBalance))+'</small></td><td>'+esc(card.automaticPlusUsed)+' 人</td><td class="purpose" title="'+esc(pro?pro.account||"":"")+'">'+purpose+'</td><td><span class="badge '+cls+'">'+esc(displayStatus==="zzshu_assigned"?"吱吱鼠专用":labels[displayStatus]||displayStatus||"未知")+'</span></td><td><button class="secondary" type="button" data-toggle="'+id+'" aria-expanded="'+expanded+'" aria-label="'+(expanded?'收起':'展开')+'卡片 '+id+' 详情">'+(expanded?'收起':'展开')+'</button></td></tr>';
+  const summary='<tr><td>ID '+id+'<br><small>****'+esc(card.lastFour||"----")+'</small></td><td>'+esc(money(card.balance))+'<br><small>可用 '+esc(money(card.availableBalance))+'</small></td><td>'+esc(card.automaticPlusUsed)+' 人</td><td class="purpose" title="'+esc(pro?pro.account||"":"")+'">'+purpose+'</td><td><span class="badge '+cls+'">'+esc(displayStatus==="zzshu_assigned"?"ZZS 专用":labels[displayStatus]||displayStatus||"未知")+'</span></td><td><button class="secondary" type="button" data-toggle="'+id+'" aria-expanded="'+expanded+'" aria-label="'+(expanded?'收起':'展开')+'卡片 '+id+' 详情">'+(expanded?'收起':'展开')+'</button></td></tr>';
   if(!expanded)return summary;
   return summary+'<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><strong>绑定账号</strong>'+accounts+'</div><div><strong>卡片信息</strong><p>上游状态：'+esc(card.status||"未知")+'</p><p>最近收到此卡：'+esc(date(card.lastSeenAt))+'</p><p>Pro 续费：'+(pro?esc(pro.type||"Pro")+' · '+esc(pro.account||"-")+(pro.renewalAt?' · '+esc(day(pro.renewalAt)):''):'未设置')+'</p><p>待确认订单：'+(card.inFlightOrders||[]).length+' 笔</p>'+pending+'</div><div class="actions"><label>顺序 <input type="number" min="0" data-setting="priority" data-id="'+id+'" value="'+esc(card.priority)+'"></label>'+assignAction+protectAction+enabledAction+'</div></div></td></tr>';
 }).join("")||'<tr><td colspan="6">暂无匹配卡片；可切换分类或搜索全部卡片。</td></tr>'}
@@ -866,7 +844,7 @@ function applyCardSearch(){const keyword=document.getElementById("cardSearch").v
   document.getElementById("count").textContent=filtered.length+' / '+allCards.length+' 张'+(keyword?'（全库搜索）':'');
   document.getElementById("pageInfo").textContent='第 '+(page+1)+' / '+pages+' 页';document.getElementById("prevPage").disabled=page===0;document.getElementById("nextPage").disabled=page>=pages-1;
 }
-async function load(refresh=false){try{const data=await api("/api/admin/hifupay/cards"+(refresh?"?refresh=1":""));allCards=data.cards||[];applyCardSearch();if(refresh)cardSyncChannel.postMessage("refreshed");const missing=allCards.filter(card=>card.missingFromUpstream).length;statusBox.textContent=refresh?(missing?"刷新完成，但嗨付本次未返回 "+missing+" 张历史卡；这些卡的余额显示为未知，系统不会拿旧余额继续选卡。":"嗨付与吱吱鼠卡池已同步刷新，共收到 "+allCards.length+" 张卡。"):(data.updatedAt?"已加载本地卡池记录，最后同步："+date(data.updatedAt):"暂无本地卡池记录，请先刷新。");statusBox.classList.toggle("error",missing>0)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error")}}
+async function load(refresh=false){try{const data=await api("/api/admin/hifupay/cards"+(refresh?"?refresh=1":""));allCards=data.cards||[];applyCardSearch();if(refresh)cardSyncChannel.postMessage("refreshed");const missing=allCards.filter(card=>card.missingFromUpstream).length;statusBox.textContent=refresh?(missing?"刷新完成，但嗨付本次未返回 "+missing+" 张历史卡；这些卡的余额显示为未知，系统不会拿旧余额继续选卡。":"嗨付卡池已同步刷新，共收到 "+allCards.length+" 张卡。"):(data.updatedAt?"已加载本地卡池记录，最后同步："+date(data.updatedAt):"暂无本地卡池记录，请先刷新。");statusBox.classList.toggle("error",missing>0)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error")}}
 document.getElementById("cardSearch").oninput=()=>{page=0;applyCardSearch()};document.getElementById("cardTabs").onclick=event=>{const button=event.target.closest("[data-category]");if(!button)return;activeCategory=button.dataset.category;page=0;applyCardSearch()};document.getElementById("prevPage").onclick=()=>{if(page>0){page--;applyCardSearch()}};document.getElementById("nextPage").onclick=()=>{page++;applyCardSearch()};document.getElementById("refresh").onclick=()=>load(true);document.getElementById("local").onclick=()=>load(false);
 document.getElementById("cards").onchange=async event=>{const input=event.target.closest("[data-setting]");if(!input)return;input.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(input.dataset.id)+"/settings",{method:"POST",body:JSON.stringify({field:input.dataset.setting,value:Number(input.value)})});statusBox.textContent="卡片顺序已保存。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");input.disabled=false}};
 document.getElementById("cards").onclick=async event=>{
@@ -1289,14 +1267,13 @@ export const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && (url.pathname === "/admin/hifupay/cards" || url.pathname === "/admin/hifupay/cards/")) {
-      serveHifupayCardAdmin(res);
+      if (url.searchParams.get("tab") === "zzshu") serveAdminAsset(res, "zzshu.html");
+      else serveHifupayCardAdmin(res);
       return;
     }
 
     if (req.method === "GET" && (url.pathname === "/admin/zzshu" || url.pathname === "/admin/zzshu/")) {
-      const html = fs.readFileSync(path.join(config.rootDir,"admin","zzshu.html"),"utf8");
-      res.writeHead(200,{ "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store", "Referrer-Policy":"no-referrer" });
-      res.end(html); return;
+      res.writeHead(303,{ Location:"/admin/hifupay/cards?tab=zzshu", "Cache-Control":"no-store" });res.end();return;
     }
 
     if (req.method === "GET" && (url.pathname === "/admin/recoveries" || url.pathname === "/admin/recoveries/")) {
@@ -1429,7 +1406,11 @@ export const server = http.createServer(async (req, res) => {
         sendJson(res, result.ok ? 200 : result.status, result.ok ? { success: true, data: { accepted: true } } : { success: false, message: result.message }); return;
       }
       if (req.method === "POST" && url.pathname === "/api/admin/hifupay/credential/verify-and-save") {
-        const result = await hifupayCredentialStore.verifyAndSave(body.apiKey);
+        const dashboard = rechargeService.getRechargeDashboard();
+        if (body.replace === true && dashboard.hifupay.processing + dashboard.hifupay.needsReview > 0) {
+          sendJson(res, 409, { success: false, message: "嗨付仍有处理中或待核查订单，完成后才能更换 API Key。" }); return;
+        }
+        const result = await hifupayCredentialStore.verifyAndSave(body.apiKey, { replace: body.replace === true });
         sendJson(res, result.ok ? 200 : result.status, result.ok ? { success: true, data: { configured: true } } : { success: false, message: result.message }); return;
       }
       sendJson(res, 404, { success: false, message: "Not found" }); return;
@@ -1453,7 +1434,11 @@ export const server = http.createServer(async (req, res) => {
           data = { accepted: true, points: result.points };
         }
         else if (req.method === "POST" && endpoint === "credential/verify-and-save") {
-          const result = await zzshuCredentialStore.verifyAndSave(body.apiKey);
+          const summary = zzshuService.store.orderSummary();
+          if (body.replace === true && summary.processing + summary.needsReview > 0) {
+            sendJson(res,409,{success:false,message:"ZZS 仍有处理中或待核查订单，完成后才能更换 API Key。"});return;
+          }
+          const result = await zzshuCredentialStore.verifyAndSave(body.apiKey, { replace: body.replace === true });
           if (!result.ok) { sendJson(res, result.status, { success: false, message: result.message }); return; }
           data = { configured: true, points: result.points ?? null, channelEnabled: config.zzshuEnabled };
         }
@@ -1474,7 +1459,7 @@ export const server = http.createServer(async (req, res) => {
         else if (req.method === "POST" && /^orders\/[^/]+\/resolve$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!["success","unpaid"].includes(body.outcome)||!zzshuService.store.manualResolve(id,body.outcome,String(body.reason||""))){sendJson(res,409,{success:false,message:"仅待确认订单可凭至少 8 字核查依据人工结案"});return;} zzshuService.syncUnifiedOrder(id); data={ok:true}; }
         else { sendJson(res,404,{success:false,message:"Not found"}); return; }
         sendJson(res,200,{success:true,data});
-      } catch { sendJson(res,503,{success:false,message:"吱吱鼠管理操作未完成，请检查服务配置"}); }
+      } catch { sendJson(res,503,{success:false,message:"ZZS 管理操作未完成，请检查服务配置"}); }
       return;
     }
 

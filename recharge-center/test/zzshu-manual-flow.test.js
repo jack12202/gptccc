@@ -64,6 +64,7 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   const verified = await rechargeService.verifyCard(vouchers[0].code,"sange");
   assert.equal(verified.data.selectedProvider,"zzshu");
   const submitted = [];
+  let statusQueries = 0;
   let status = "success";
   let paymentResultMode = "normal";
   const oldFetch = globalThis.fetch;
@@ -77,6 +78,7 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
       return {ok:true,status:201,json:async()=>({code:0,data:{order_no:`up-${submitted.length}`,card_key:`key-${submitted.length}`}})};
     }
     if (endpoint.endsWith("/status")) {
+      statusQueries++;
       const key = JSON.parse(options.body).cardKey;
       return {ok:true,status:200,json:async()=>({code:0,data:{order_no:`up-${key.slice(4)}`,card_key:key,
         plan_type:"plus",status,is_subscription_cancelled:1,payment_result:paymentResultMode === "unknown" ? null : {success:status === "success",status:status === "success"?"paid":"failed"},
@@ -101,7 +103,9 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
     await service.refresh(result.data.orderId);
   }
   assert.deepEqual(submitted,[a,a,b]);
+  const statusQueriesBeforeLocalLookup = statusQueries;
   assert.equal((await rechargeService.queryHCardStatus(vouchers[0].code,"h")).data.status,"success");
+  assert.equal(statusQueries,statusQueriesBeforeLocalLookup);
   const counts = service.store.listCards();
   assert.deepEqual(counts.map(c=>[c.lastFour,c.successCount,c.remainingUses]),[["4242",2,0],["4444",1,0]]);
   const fourth = await service.confirm({cardInfo:vouchers[3].code,secretJsonText:session});

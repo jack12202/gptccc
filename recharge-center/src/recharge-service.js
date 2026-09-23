@@ -933,7 +933,7 @@ export const rechargeService = {
         return { ok: false, status: 400, message: "卡密已禁用或过期" };
       }
       const result = zzshuService.verify(cardInfo);
-      return { ok: result.ok, status: result.ok ? 200 : 400, data: { ...result, success: result.ok, provider: "zzshu", providerLabel: "吱吱鼠", selectedProvider, defaultProvider: defaultProvider() } };
+      return { ok: result.ok, status: result.ok ? 200 : 400, data: { ...result, success: result.ok, provider: "zzshu", providerLabel: "自动充值", selectedProvider, defaultProvider: defaultProvider() } };
     }
     const adapter = getProviderAdapter(selectedProvider);
     const upstream = await adapter.verifyCard({ cardInfo: cardInfo.trim() });

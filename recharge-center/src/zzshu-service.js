@@ -156,7 +156,9 @@ export const zzshuService = {
     if (!codePattern.test(code)) return { ok: false, message: "卡密格式不正确" };
     const voucher = store.voucher(code);
     if (!voucher) return { ok: false, message: "卡密不存在" };
-    const order = voucher.orderId ? (await this.refresh(voucher.orderId)).data : null;
+    // Card lookup is intentionally local-only. Upstream reconciliation runs in
+    // the background and through the explicit admin refresh action.
+    const order = voucher.orderId ? safeOrder(store.order(voucher.orderId)) : null;
     return { ok: true, status: voucher.status === "used" ? "success" : order?.status || voucher.status,
       canRecharge: voucher.status === "unused", statusLabel: voucher.status === "used" ? "充值成功" :
         voucher.status === "unused" ? "未使用" : "正在处理", boundAccount: voucher.email ?

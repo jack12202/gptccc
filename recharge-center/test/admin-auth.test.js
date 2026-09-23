@@ -102,19 +102,15 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
     assert.equal(res.status, 200);
     const html = await res.text();
     assert.match(html, /src="\/admin\/session.js"/);
-    assert.match(html, /GPTC 后台|产品与卡密|ZZS 通道工作台|Pro 履约工作台/);
+    assert.match(html, /GPTC 后台|产品与卡密|支付卡池 · ZZS|Pro 履约工作台/);
     if (page === "/admin/provider") {
-      assert.match(html, /履约通道入口/);
-      assert.match(html, /href="\/admin\/hifupay\/cards"/);
-      assert.match(html, /href="\/admin\/zzshu"/);
+      assert.match(html, /其他网站入口/);
+      assert.doesNotMatch(html, /data-plus-provider/);
     }
     if (page === "/admin/zzshu") {
-      assert.match(html, /id="zzshuApiKey" type="password"/);
-      assert.match(html, /验证并保存/);
-      assert.match(html, /ZZS 支付卡库/);
-      assert.match(html, /<details class="sync-details">/);
-      assert.ok(html.indexOf('id="manual-card-import"') < html.indexOf('id="hifupay-sync"'));
-      assert.ok(html.indexOf('id="hifupay-sync"') < html.indexOf('id="zzs-card-library"'));
+      assert.match(html, /支付卡池 · ZZS/);
+      assert.match(html, /批量导入支付卡/);
+      assert.doesNotMatch(html, /type="password"/);
     }
     if (!["/admin", "/admin/zzshu"].includes(page)) assert.doesNotMatch(html, /type="password"/);
     if (page === "/admin") {

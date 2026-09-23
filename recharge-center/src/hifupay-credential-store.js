@@ -40,7 +40,7 @@ export class HifupayCredentialStore {
   key() { return this.current().key || ""; }
   status() {
     const current = this.current();
-    return { configured: current.state === "ready", source: current.source || "", canConfigure: current.state === "missing" && Boolean(this.encryptionKey()), storageReady: current.state !== "invalid" && Boolean(this.encryptionKey()) };
+    return { configured: current.state === "ready", source: current.source || "", canConfigure: current.source !== "environment" && current.state !== "invalid" && Boolean(this.encryptionKey()), storageReady: current.state !== "invalid" && Boolean(this.encryptionKey()) };
   }
   async verify(apiKey) {
     const key = normalizeKey(apiKey);
@@ -54,23 +54,26 @@ export class HifupayCredentialStore {
     return { ok: true };
   }
   async verifySaved() { const key = this.key(); return key ? this.verify(key) : { ok: false, status: 503, message: "尚未配置嗨付 API Key。" }; }
-  save(apiKey) {
+  save(apiKey, { replace = false } = {}) {
     const key = normalizeKey(apiKey);
     if (!key) return { ok: false, status: 400, message: "API Key 格式不正确。" };
     if (!this.encryptionKey()) return { ok: false, status: 503, message: "未配置运行时加密密钥，无法保存 API Key。" };
     const current = this.current();
-    if (current.state === "ready") return { ok: false, status: 409, message: "已有嗨付 API Key；请先完成在途订单核查后再更换。" };
+    if (current.source === "environment") return { ok: false, status: 409, message: "当前嗨付 API Key 由部署环境管理，不能在后台替换。" };
+    if (current.state === "ready" && !replace) return { ok: false, status: 409, message: "已有嗨付 API Key；如需更换请使用更换操作。" };
     if (current.state === "invalid") return { ok: false, status: 503, message: "现有嗨付私密配置不可读取，请先核查。" };
     const directory = path.dirname(this.file), temporary = path.join(directory, `.hifupay-api-key-${crypto.randomUUID()}.tmp`);
     try {
       fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
       fs.writeFileSync(temporary, JSON.stringify({ version: 1, apiKeyCiphertext: encryptSecretText(key, this.encryptionKey(), "hifupay-api-key"), createdAt: new Date().toISOString() }), { mode: 0o600, flag: "wx" });
-      fs.linkSync(temporary, this.file); fs.unlinkSync(temporary); fs.chmodSync(this.file, 0o600); return { ok: true };
+      if (replace) fs.renameSync(temporary, this.file);
+      else { fs.linkSync(temporary, this.file); fs.unlinkSync(temporary); }
+      fs.chmodSync(this.file, 0o600); return { ok: true };
     } catch { try { fs.unlinkSync(temporary); } catch {} return { ok: false, status: 503, message: "私密配置未能保存，请稍后重试。" }; }
   }
-  async verifyAndSave(apiKey) {
-    if (this.current().state !== "missing") return this.save(apiKey);
-    const verified = await this.verify(apiKey); if (!verified.ok) return verified; return this.save(apiKey);
+  async verifyAndSave(apiKey, options = {}) {
+    if (this.current().state === "ready" && options.replace !== true) return this.save(apiKey, options);
+    const verified = await this.verify(apiKey); if (!verified.ok) return verified; return this.save(apiKey, options);
   }
 }
 

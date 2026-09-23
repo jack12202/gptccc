@@ -32,7 +32,7 @@
     const section = path === "/admin" ? "总览"
       : ["/admin/recoveries", "/admin/pro-orders"].includes(path) ? "充值订单"
       : path.startsWith("/admin/cards") ? "产品与卡密"
-      : path === "/admin/hifupay/cards" ? "支付卡池"
+      : ["/admin/hifupay/cards", "/admin/zzshu"].includes(path) ? "支付卡池"
       : "路由与通道";
     const bar = document.createElement("header");
     bar.setAttribute("aria-label", "GPTC 后台导航");

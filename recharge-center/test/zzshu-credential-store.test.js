@@ -9,6 +9,7 @@ test("ZZS credential is verified before one-time encrypted runtime storage", asy
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-credential-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const apiKey = "fixture-zzshu-api-key";
+  let expectedKey = apiKey;
   let requests = 0;
   const store = new ZzshuCredentialStore({
     file: path.join(directory, "zzshu-api-key.json"),
@@ -20,7 +21,7 @@ test("ZZS credential is verified before one-time encrypted runtime storage", asy
       requests++;
       assert.equal(String(url), "https://zzshu.example.test/api/v1/third-party/user");
       assert.equal(options.method, "GET");
-      assert.equal(options.headers["X-API-Key"], apiKey);
+      assert.equal(options.headers["X-API-Key"], expectedKey);
       return { ok: true, json: async () => ({ code: 0, data: { points: 9, token: "must-not-return" } }) };
     }
   });
@@ -40,6 +41,10 @@ test("ZZS credential is verified before one-time encrypted runtime storage", asy
   const blocked = await store.verifyAndSave("different-fixture-key");
   assert.equal(blocked.status, 409);
   assert.equal(requests, 2);
+  expectedKey = "replacement-fixture-key";
+  assert.deepEqual(await store.verifyAndSave(expectedKey, { replace: true }), { ok: true, points: 9 });
+  assert.equal(store.key(), expectedKey);
+  assert.equal(requests, 3);
 });
 
 test("invalid ZZS key is never persisted and only the verification endpoint is called", async t => {
