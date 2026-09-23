@@ -11,6 +11,7 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   process.env.ZZSHU_DB_FILE = path.join(dir, "zzshu.sqlite");
   process.env.ZZSHU_ENABLED = "true";
   process.env.ZZSHU_API_KEY = "fixture-key";
+  process.env.HIFUPAY_API_KEY = "fixture-hifupay-key";
   process.env.RECOVERY_ENCRYPTION_KEY = "fixture-secret";
   const { rechargeService } = await import("../src/recharge-service.js");
   const { zzshuService } = await import("../src/zzshu-service.js");

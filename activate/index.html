@@ -990,7 +990,6 @@ window._hmt = _hmt;
                 <div class="kv"><span>账号信息</span><span id="confirmEmail">-</span></div>
                 <div class="kv"><span>卡密套餐</span><span id="confirmPlan">Plus</span></div>
                 <div class="kv"><span>充值激活码</span><span id="confirmCard">-</span></div>
-                <div class="kv"><span>充值通道</span><span id="confirmChannel">通道一</span></div>
               </div>
               <label class="checkbox">
                 <input type="checkbox" id="overwriteRecharge" onchange="updateConfirmButtonState()">
@@ -1624,7 +1623,6 @@ window._hmt = _hmt;
         updateConfirmButtonState();
         setTextIfPresent("confirmEmail", result.data.userEmail);
         setTextIfPresent("confirmCard", document.getElementById("cardInfo").value.trim());
-        setTextIfPresent("confirmChannel", currentProvider === "zzshu" ? "吱吱鼠 · Plus（免费账号新开通）" : currentPlan.startsWith("pro_") ? "订单队列" : "自动通道");
         const submitMessage = currentProvider === "zzshu"
           ? `已识别账号邮箱：${result.data.userEmail}。请确认账号目前为免费套餐，且本次开通 Plus。`
           : currentProvider === "h"

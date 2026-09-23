@@ -65,6 +65,7 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   assert.equal(verified.data.selectedProvider,"zzshu");
   const submitted = [];
   let status = "success";
+  let paymentResultMode = "normal";
   const oldFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
     const endpoint = new URL(url).pathname;
@@ -78,7 +79,7 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
     if (endpoint.endsWith("/status")) {
       const key = JSON.parse(options.body).cardKey;
       return {ok:true,status:200,json:async()=>({code:0,data:{order_no:`up-${key.slice(4)}`,card_key:key,
-        plan_type:"plus",status,is_subscription_cancelled:1,payment_result:{success:status === "success",status:status === "success"?"paid":"failed"},
+        plan_type:"plus",status,is_subscription_cancelled:1,payment_result:paymentResultMode === "unknown" ? null : {success:status === "success",status:status === "success"?"paid":"failed"},
         bank_card_no:a,token:JSON.parse(session)}})};
     }
     throw Error("Unexpected endpoint");
@@ -116,10 +117,17 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   assert.equal(reopened.recoverInterrupted(0),0);
   assert.equal(reopened.order(unknown.data.orderId).status,"processing");
   status = "failed";
+  paymentResultMode = "unknown";
   await service.refresh(unknown.data.orderId);
   assert.equal(service.store.order(unknown.data.orderId).status,"needs_review");
   assert.equal(service.store.manualResolve(unknown.data.orderId,"unpaid","fixture payment record checked"),true);
   assert.equal(service.store.voucher(vouchers[4].code).status,"unused");
+  assert.equal(service.store.listCards().find(c=>c.lastFour === "4242").successCount,2);
+  paymentResultMode = "normal";
+  const unpaid = await service.confirm({cardInfo:vouchers[6].code,secretJsonText:session});
+  assert.equal(unpaid.ok,true);
+  assert.equal((await service.refresh(unpaid.data.orderId)).data.status,"failed");
+  assert.equal(service.store.voucher(vouchers[6].code).status,"unused");
   assert.equal(service.store.listCards().find(c=>c.lastFour === "4242").successCount,2);
   const retry = await service.confirm({cardInfo:vouchers[4].code,secretJsonText:session});
   assert.equal(retry.ok,true);

@@ -90,7 +90,7 @@ test("stale hifupay reservations are released only after two explicit unpaid con
   const remoteCards = () => [...balances].map(([id, balance]) => ({ id, lastFour: id, status: "active", balance }));
   store.syncHifupayCards(remoteCards());
 
-  function createReservedOrder(taskId, cardId, { stale = true } = {}) {
+  function createReservedOrder(taskId, cardId, { stale = true, strictCard = true } = {}) {
     const order = store.createOrder({
       provider: "h",
       cardMask: "HPLU****TEST",
@@ -107,11 +107,11 @@ test("stale hifupay reservations are released only after two explicit unpaid con
       preferredCardId: cardId
     });
     assert.equal(reservation.ok, true);
-    assert.equal(reservation.cardId, cardId);
+    if (strictCard) assert.equal(reservation.cardId, cardId);
     store.updateOrder(order.id, {
       upstreamTaskId: taskId,
-      hifupayCardId: cardId,
-      hifupayCardLastFour: cardId
+      hifupayCardId: reservation.cardId,
+      hifupayCardLastFour: reservation.cardId
     });
     if (stale) {
       const state = store.read();
@@ -191,6 +191,15 @@ test("stale hifupay reservations are released only after two explicit unpaid con
 
   const processingOrderId = createReservedOrder("task-processing", "9200");
   const recentOrderId = createReservedOrder("task-processing", "9300", { stale: false });
+  const manualOrderId = createReservedOrder("task-ambiguous", "9400", { strictCard: false });
+  const manualCardId = store.getOrder(manualOrderId).hifupayCardId;
+  await rechargeService.queryTaskStatus({ orderId: manualOrderId });
+  assert.equal(rechargeService.clearHifupayReservation(manualCardId, manualOrderId, "太短").status, 409);
+  assert.equal(store.inspectHifupayReservation(manualCardId, manualOrderId).ok, true);
+  assert.equal(rechargeService.clearHifupayReservation(manualCardId, manualOrderId, "已核对嗨付记录确认没有扣款").ok, true);
+  assert.equal(store.getOrder(manualOrderId).status, "failed");
+  assert.equal(store.getOrder(manualOrderId).hifupaySafetyStatus, "released_unpaid_manual");
+  assert.equal(store.inspectHifupayReservation(manualCardId, manualOrderId).ok, false);
   const staleOrders = store.listStaleHifupayReservationOrders({ staleMinutes: 10, lookbackHours: 168, limit: 20 });
   assert.ok(staleOrders.some(item => item.orderId === processingOrderId));
   assert.ok(!staleOrders.some(item => item.orderId === recentOrderId));

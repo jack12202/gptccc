@@ -41,6 +41,7 @@ export const config = {
   hifupayFailureConfirmSeconds: Number(process.env.HIFUPAY_FAILURE_CONFIRM_SECONDS || 60),
   hifupayProcessingLookbackHours: Number(process.env.HIFUPAY_PROCESSING_LOOKBACK_HOURS || 168),
   hifupayReconcileIntervalHours: Number(process.env.HIFUPAY_RECONCILE_INTERVAL_HOURS || 24),
+  hifupayStatusPollMs: Number(process.env.HIFUPAY_STATUS_POLL_MS || 60000),
   hifupayBalanceToleranceUsd: Number(process.env.HIFUPAY_BALANCE_TOLERANCE_USD || 0.5),
   hifupayProductId: Number(process.env.HIFUPAY_PRODUCT_ID || 3),
   zzshuBaseUrl: process.env.ZZSHU_BASE_URL || "https://card.zzshu.pro",

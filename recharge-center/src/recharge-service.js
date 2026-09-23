@@ -3,6 +3,7 @@ import { getProviderAdapter, listProviders } from "./providers/index.js";
 import { JsonStore } from "./store.js";
 import { proService } from "./pro-orders.js";
 import { zzshuService } from "./zzshu-service.js";
+import { hifupayCredentialStore } from "./hifupay-credential-store.js";
 import {
   decodeJson,
   decryptSecretText,
@@ -400,6 +401,8 @@ export const rechargeService = {
     if (!["h", "zzshu"].includes(provider)) return { ok: false, status: 400, message: "Plus 通道只能选择嗨付或 ZZS。" };
     if (provider === "zzshu" && (!config.zzshuEnabled || !zzshuService.diagnostics().apiKeyReady))
       return { ok: false, status: 409, message: "ZZS 通道或 API Key 尚未就绪。" };
+    if (provider === "h" && !hifupayCredentialStore.key())
+      return { ok: false, status: 409, message: "嗨付 API Key 尚未就绪。" };
     store.updateSettings({ plusProvider: provider });
     return { ok: true, status: 200, data: this.getProviderSettings() };
   },
@@ -563,6 +566,7 @@ export const rechargeService = {
         lastOrderUpdateAt: orders.map(item => item.updatedAt || item.createdAt || "").sort().at(-1) || ""
       };
     };
+    const zzshuSummary = zzshuService.store.orderSummary();
     return {
       plusProvider: store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h",
       hifupay: {
@@ -574,8 +578,10 @@ export const rechargeService = {
       zzshu: {
         availableCards: zzshuCards.filter(card => card.enabled && !card.paused && card.remainingUses > 0 && !card.occupiedOrderId).length,
         totalCards: zzshuCards.length,
-        lastSyncAt: summarizeOrders("zzshu").lastOrderUpdateAt,
-        ...summarizeOrders("zzshu")
+        lastSyncAt: zzshuSummary.lastSyncAt,
+        lastSyncAttemptAt: zzshuSummary.lastSyncAttemptAt,
+        processing: zzshuSummary.processing,
+        needsReview: zzshuSummary.needsReview
       }
     };
   },
@@ -615,9 +621,20 @@ export const rechargeService = {
     };
   },
 
-  clearHifupayReservation(cardId, orderId) {
-    if (["pro_x5", "pro_x20"].includes(store.getOrder(orderId)?.plan)) return { ok: false, status: 409, message: "Pro 占用必须从 Pro 订单工作台核查，不能直接释放。" };
+  clearHifupayReservation(cardId, orderId, reason = "") {
+    const order = store.getOrder(orderId);
+    if (["pro_x5", "pro_x20"].includes(order?.plan)) return { ok: false, status: 409, message: "Pro 占用必须从 Pro 订单工作台核查，不能直接释放。" };
+    if (!order || !["needs_review", "failed"].includes(order.status) || String(reason || "").trim().length < 8)
+      return { ok: false, status: 409, message: "仅待确认订单可凭至少 8 字未支付核查依据释放占用。" };
     const result = store.clearHifupayReservation(cardId, orderId);
+    if (result.ok) {
+      const at = new Date().toISOString();
+      store.updateOrder(orderId, { status: "failed", message: "已人工确认未支付，卡密权益可以继续使用。",
+        hifupaySafetyStatus: "released_unpaid_manual", hifupayReservationReleasedAt: at,
+        hifupayReservationReleaseReason: String(reason).trim().slice(0, 500) });
+      if (order.hCardId) store.unlockHCard(order.hCardId);
+      store.addLog({ orderId, step: "h.reservation.manual-release", requestSummary: "admin_attestation", responseSummary: String(reason).trim().slice(0, 500) });
+    }
     return {
       ok: result.ok,
       status: result.ok ? 200 : 404,

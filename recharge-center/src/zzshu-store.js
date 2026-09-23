@@ -24,6 +24,7 @@ export class ZzshuStore {
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
       CREATE UNIQUE INDEX IF NOT EXISTS zzshu_card_active ON orders(card_id) WHERE status IN ('reserved','submitting','processing','needs_review');
       CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, at TEXT NOT NULL, order_id TEXT NOT NULL, action TEXT NOT NULL, reason TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS runtime_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS card_roles (hifupay_id TEXT PRIMARY KEY, role TEXT NOT NULL CHECK(role IN ('h','zzshu')),
         h_order_id TEXT, updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS h_card_claims (hifupay_id TEXT NOT NULL, order_id TEXT NOT NULL,
@@ -221,6 +222,14 @@ export class ZzshuStore {
   listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.upstream_order_no AS upstreamOrderNo,
     o.review_reason AS reviewReason,o.cancellation,c.last_four AS lastFour,o.created_at AS createdAt,o.updated_at AS updatedAt
     FROM orders o JOIN payment_cards c ON c.id=o.card_id ORDER BY o.created_at DESC LIMIT 500`).all(); }
+  orderSummary() {
+    const counts = this.db.prepare(`SELECT
+      SUM(CASE WHEN status IN ('reserved','submitting','processing') THEN 1 ELSE 0 END) AS processing,
+      SUM(CASE WHEN status='needs_review' THEN 1 ELSE 0 END) AS needsReview FROM orders`).get();
+    return { processing: Number(counts?.processing || 0), needsReview: Number(counts?.needsReview || 0),
+      lastSyncAt: this.db.prepare("SELECT value FROM runtime_state WHERE key='last_successful_sync_at'").get()?.value || "",
+      lastSyncAttemptAt: this.db.prepare("SELECT value FROM runtime_state WHERE key='last_sync_attempt_at'").get()?.value || "" };
+  }
   recentPreSubmitFailures() {
     return this.db.prepare("SELECT at,action,reason FROM audit WHERE action IN ('pre_submit_aborted','pre_submit_rejected') ORDER BY id DESC LIMIT 10").all();
   }
@@ -244,8 +253,12 @@ export class ZzshuStore {
       (status IN ('processing','needs_review') OR (status='success' AND cancellation!='cancelled'))
       ORDER BY updated_at ASC,id LIMIT ?`).all(limit).map(row=>row.id);
   }
-  markChecked(id) { this.db.prepare("UPDATE orders SET updated_at=? WHERE id=? AND status IN ('processing','needs_review','success')")
-    .run(new Date().toISOString(),id); }
+  markChecked(id, successful = false) {
+    const at = new Date().toISOString();
+    this.db.prepare("UPDATE orders SET updated_at=? WHERE id=? AND status IN ('processing','needs_review','success')").run(at,id);
+    this.db.prepare("INSERT INTO runtime_state(key,value) VALUES('last_sync_attempt_at',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(at);
+    if (successful) this.db.prepare("INSERT INTO runtime_state(key,value) VALUES('last_successful_sync_at',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(at);
+  }
   markSubmitting(id) { this.db.prepare("UPDATE orders SET status='submitting',updated_at=? WHERE id=? AND status='reserved'").run(new Date().toISOString(),id); }
   created(id, orderNo, cardKey) {
     this.db.prepare("UPDATE orders SET status='processing',upstream_order_no=?,upstream_card_key=?,updated_at=? WHERE id=? AND status IN ('submitting','needs_review')")

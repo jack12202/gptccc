@@ -34,9 +34,9 @@ async function vaultRequest(method, suffix, payment) {
 }
 function safeOrder(order) {
   if (!order) return null;
-  return { orderId: order.id, taskId: order.id, provider: "zzshu", providerLabel: "吱吱鼠", status: order.status,
-    message: order.status === "success" ? "Plus 已开通" : order.status === "failed" ? "本次未支付，请联系客服核查" :
-      order.status === "needs_review" && order.review_reason === "上游要求银行卡持有人验证" ? "支付需要银行卡持有人验证，请等待处理，勿重复提交" :
+  return { orderId: order.id, taskId: order.id, provider: "zzshu", providerLabel: "自动充值", status: order.status,
+    message: order.status === "success" ? "Plus 已开通" : order.status === "failed" ? "本次未完成，卡密权益已恢复，可以重新提交" :
+      order.status === "needs_review" && /银行卡持有人验证/.test(order.review_reason || "") ? "支付需要银行卡持有人验证，请等待处理，勿重复提交" :
       "正在处理或待确认，请勿重复提交", subscriptionCancellationStatus: order.cancellation };
 }
 function session(input) {
@@ -185,7 +185,7 @@ export const zzshuService = {
         ...(ready ? { data: { preflight: true, ready: true, provider: "zzshu" } } :
           { message: "测试请求的卡密、支付资料或订单预留未就绪" }) };
     }
-    if (!codePattern.test(code) || !token) return { ok: false, status: 400, message: "需要有效的吱吱鼠 Plus 卡密和免费账号完整 Session JSON" };
+    if (!codePattern.test(code) || !token) return { ok: false, status: 400, message: "需要有效的 Plus 卡密和完整账号 Session JSON" };
     const reject = (status, message, reason) => {
       if (config.zzshuTestMode && sha256(code) === config.zzshuTestVoucherHash) {
         try { store.audit("test-voucher", "pre_submit_rejected", reason); } catch { /* Preserve the rejection response. */ }
@@ -282,15 +282,12 @@ export const zzshuService = {
       if (!result.ok || result.data.cardKey !== order.upstream_card_key || result.data.orderNo !== order.upstream_order_no || result.data.planType !== "plus")
         return { ok: true, status: 200, data: safeOrder(order) };
       const data = result.data;
-      if (data.status === "success") store.settle(id,"success",data.cancellation);
-      else if (data.verificationRequired) store.review(id,"上游要求银行卡持有人验证");
-      else if (data.status === "failed") {
-        // An upstream failed state alone does not prove that payment was not captured.
-        if (data.unpaid && !data.paid) store.review(id,"上游报告失败/未支付；需间隔补查和人工确认后释放");
-        else store.review(id,"上游失败但支付状态不明；保留占用");
-      } else if (!["pending","processing"].includes(data.status)) store.review(id,"上游返回未知状态");
-    } catch { /* Keep the persisted reservation. */ }
-    store.markChecked(id);
+      if (data.status === "success" && data.paid) store.settle(id,"success",data.cancellation);
+      else if (data.status === "unpaid" && data.unpaid && !data.paid) store.settle(id,"failed");
+      else if (data.status === "verification_required") store.review(id,"支付需要银行卡持有人验证");
+      else if (["needs_review","unknown"].includes(data.status)) store.review(id,`上游状态需核查：${data.upstreamStatus || "unknown"}`);
+      store.markChecked(id, true);
+    } catch { store.markChecked(id, false); }
     this.syncUnifiedOrder(id);
     return { ok: true, status: 200, data: safeOrder(store.order(id)) };
   },

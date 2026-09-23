@@ -881,9 +881,9 @@ document.getElementById("cards").onclick=async event=>{
     catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}
     return;
   }
-  if(action==="release"&&!confirm("确认释放这笔待确认占用？请先确认嗨付没有扣款。"))return;
+  if(action==="release"&&!confirm("确认已核查嗨付和订单记录，确定没有扣款？"))return;
   if(action==="release-pro"&&!confirm("确认 Pro 已续费完成或不再需要保留？解除后，这张卡仍需余额不超过 $66 才会进入 Plus 卡池。"))return;
-  let body={};if(action==="release")body={orderId:button.dataset.orderId};
+  let body={};if(action==="release"){const reason=prompt("填写至少 8 字未支付核查依据：");if(reason===null)return;if(reason.trim().length<8){statusBox.textContent="核查依据至少需要 8 个字。";statusBox.classList.add("error");return}body={orderId:button.dataset.orderId,reason:reason.trim()}}
   if(action==="protect-pro"){const account=prompt("请输入需要续费的 Pro 账号：",button.dataset.account||"");if(account===null)return;if(!account.trim()){statusBox.textContent="请填写 Pro 账号。";statusBox.classList.add("error");return}const type=prompt("请输入升级类型，例如 20X Pro 或 5X Pro：",button.dataset.type||"20X Pro");if(type===null)return;if(!type.trim()){statusBox.textContent="请填写升级类型。";statusBox.classList.add("error");return}const renewalInput=prompt("请输入预计续费日期，可输入 2026-09-19 或 9.19：",button.dataset.renewal||"");if(renewalInput===null)return;const renewalAt=normalizeRenewal(renewalInput);if(!renewalAt){statusBox.textContent="预计续费日期格式不正确，请输入 2026-09-19 或 9.19。";statusBox.classList.add("error");return}body={type,account,renewalAt}}
   button.disabled=true;try{await api("/api/admin/hifupay/cards/"+encodeURIComponent(button.dataset.id)+"/"+action,{method:"POST",body:JSON.stringify(body)});statusBox.textContent=action==="protect-pro"?"Pro 保护信息已保存，这张卡不会用于 Plus。":action==="release-pro"?"已解除 Pro 保护；只有余额不超过 $66 时才会重新进入 Plus 卡池。":"操作已完成。";statusBox.classList.remove("error");await load(false)}catch(error){statusBox.textContent=error.message;statusBox.classList.add("error");button.disabled=false}
 };cardSyncChannel.onmessage=()=>load(false);load(false);
@@ -999,7 +999,7 @@ function serveRecoveryAdmin(res) {
         + '<td>' + escapeHtml(formatDate(item.createdAt)) + '</td>'
         + '<td><div class="row-actions">'
         + (item.hasOriginalJson ? '<button class="secondary" type="button" data-action="copy-json" data-order-id="' + escapeHtml(item.id) + '">复制JSON</button>' : '')
-        + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : !isPro(item) && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
+        + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : item.provider === "zzshu" && ["processing", "needs_review"].includes(item.status) ? '<button type="button" data-action="refresh-zzshu" data-order-id="' + escapeHtml(item.id) + '">安全补查</button>' : !isPro(item) && item.provider !== "zzshu" && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
         + (item.needsAttention ? '<button type="button" data-action="mark-subscription-handled" data-order-id="' + escapeHtml(item.id) + '">标记已处理</button>' : '')
         + '</div></td></tr>').join("");
     }
@@ -1090,6 +1090,10 @@ function serveRecoveryAdmin(res) {
           const detail = await api("/api/admin/recoveries/" + encodeURIComponent(orderId) + "?reveal=1");
           await navigator.clipboard.writeText(detail.secretJsonText || "");
           setStatus("JSON 已复制到剪贴板，请注意不要转发给无关人员。");
+        } else if (action === "refresh-zzshu") {
+          await api("/api/admin/zzshu/orders/" + encodeURIComponent(orderId) + "/refresh", { method: "POST", body: JSON.stringify({}) });
+          setStatus("已完成安全补查，订单状态已更新。");
+          await loadRecoveries();
         } else {
           const endpoint = action === "mark-pro-success"
             ? "/api/admin/pro/orders/" + encodeURIComponent(orderId) + "/mark-success"
@@ -1170,6 +1174,21 @@ async function handleAdminAuth(req, res, url) {
 
 const hCardQueryRateLimiter = createHCardQueryRateLimiter();
 const hifupayReconcileTimers = new Map();
+let zzshuReconcileInFlight = false;
+let hifupayStatusSyncInFlight = false;
+
+async function runZzshuReconcile() {
+  if (zzshuReconcileInFlight) return;
+  zzshuReconcileInFlight = true;
+  try { await zzshuService.reconcile(); } finally { zzshuReconcileInFlight = false; }
+}
+
+async function runHifupayStatusSync() {
+  if (hifupayStatusSyncInFlight) return;
+  hifupayStatusSyncInFlight = true;
+  try { await rechargeService.reconcileHSubscriptionStatuses({ limit: 100 }); }
+  finally { hifupayStatusSyncInFlight = false; }
+}
 
 function scheduleHifupayOrderReconciliation(orderId, delayMs) {
   const normalizedOrderId = String(orderId || "").trim();
@@ -1474,7 +1493,7 @@ export const server = http.createServer(async (req, res) => {
         : action === "release-pro"
           ? rechargeService.releaseHifupayCardProProtection(cardId)
         : action === "release"
-        ? rechargeService.clearHifupayReservation(cardId, body.orderId)
+        ? rechargeService.clearHifupayReservation(cardId, body.orderId, body.reason)
         : action === "settings"
           ? (body.field === "priority"
             ? rechargeService.setHifupayCardPriority(cardId, body.value)
@@ -1678,8 +1697,8 @@ if (isMainModule) {
     console.log(`Recharge center MVP listening on http://${config.host}:${config.port}`);
   });
   const initialSyncTimer = setTimeout(() => {
-    zzshuService.reconcile().catch(() => {});
-    rechargeService.reconcileHSubscriptionStatuses({ limit: 100 }).catch(() => {
+    runZzshuReconcile().catch(() => {});
+    runHifupayStatusSync().catch(() => {
       // 旧订阅记录纠正失败不影响服务启动。
     });
     reconcileStaleHifupayReservations().catch(() => {
@@ -1690,8 +1709,10 @@ if (isMainModule) {
   const proTimer = setInterval(() => { proService.reconcile().catch(() => {}); }, 10000);
   proTimer.unref?.();
   proService.reconcile().catch(() => {});
-  const zzshuTimer = setInterval(() => zzshuService.reconcile().catch(() => {}), Math.max(2000,config.zzshuPollMs));
+  const zzshuTimer = setInterval(() => runZzshuReconcile().catch(() => {}), Math.max(2000,config.zzshuPollMs));
   zzshuTimer.unref?.();
+  const hifupayStatusTimer = setInterval(() => runHifupayStatusSync().catch(() => {}), Math.max(15000,config.hifupayStatusPollMs));
+  hifupayStatusTimer.unref?.();
   const dailyReconcileTimer = setInterval(() => {
     reconcileStaleHifupayReservations().catch(() => {
       // 每日兜底失败不会释放任何预留。
