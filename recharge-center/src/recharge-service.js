@@ -667,9 +667,12 @@ export const rechargeService = {
       upstreamTaskId: item.upstreamOrderNo || "", providerSessionId: "", hifupayCardId: "", hifupayCardLastFour: "",
       hifupaySafetyStatus: "", hifupayUnpaidConfirmationCount: 0, userEmail: item.email || "",
       message: item.status === "success" ? "Plus 已开通" : item.status === "failed" ? "明确未支付" : item.reviewReason || "正在处理或待确认",
-      subscriptionCancellationStatus: item.cancellation || "", subscriptionActionRequired: false, subscriptionActionMessage: "",
-      subscriptionActionDetectedAt: "", subscriptionActionHandledAt: "", needsAttention: item.status === "needs_review",
-      createdAt: item.createdAt, updatedAt: item.updatedAt, hasSecret: false, hasOriginalJson: false, hCardCodeAvailable: false
+      subscriptionCancellationStatus: item.cancellation || "", subscriptionActionRequired: item.status === "success" && item.cancellation !== "cancelled",
+      subscriptionActionMessage: item.status === "success" && item.cancellation !== "cancelled" ? "充值成功，正在等待 ZZS 确认自动续费已关闭。" : "",
+      subscriptionActionDetectedAt: "", subscriptionActionHandledAt: "",
+      needsAttention: item.status === "needs_review" || item.status === "success" && item.cancellation !== "cancelled",
+      createdAt: item.createdAt, updatedAt: item.updatedAt,
+      hasSecret: Boolean(zzshuService.store.sessionCipher(item.id)), hasOriginalJson: Boolean(zzshuService.store.sessionCipher(item.id)), hCardCodeAvailable: false
     }));
     const records = [...primaryRecords, ...zzshuRecords]
       .sort((left, right) => String(right.updatedAt || right.createdAt).localeCompare(String(left.updatedAt || left.createdAt)));
@@ -786,6 +789,20 @@ export const rechargeService = {
   },
 
   getRecoverySubmission(orderId, reveal = false) {
+    const zzshuOrder = zzshuService.store.order(orderId);
+    if (zzshuOrder) {
+      const cipher = zzshuService.store.sessionCipher(orderId);
+      let secretJsonText = "";
+      if (reveal && cipher) {
+        try { secretJsonText = decryptSecretText(cipher, config.recoveryEncryptionKey, "zzshu-session-json"); } catch { secretJsonText = ""; }
+      }
+      return { ok: true, status: 200, data: {
+        orderId: zzshuOrder.id, provider: "zzshu", cardMask: zzshuOrder.lastFour ? `****${zzshuOrder.lastFour}` : "",
+        status: zzshuOrder.status, userEmail: zzshuOrder.email || "", message: zzshuOrder.review_reason || "",
+        createdAt: zzshuOrder.created_at, updatedAt: zzshuOrder.updated_at, hasSecret: Boolean(cipher),
+        ...(reveal ? { cardInfo: "", secretJsonText, parseMessage: secretJsonText ? "" : "这笔订单没有可复制的原始 JSON。" } : {})
+      } };
+    }
     const record = store.getRecoveryOrder(orderId);
     if (!record) return { ok: false, status: 404, message: "订单不存在。" };
     const { order, session } = record;

@@ -45,6 +45,22 @@ test("atomic reservation, provider-scoped vouchers, serial card, exactly-once su
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 });
 
+test("ZZS order keeps its encrypted Session reference across restart without exposing it in lists", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(),"zzshu-session-"));
+  try {
+    const file = path.join(dir,"test.sqlite"), first = new ZzshuStore(file);
+    first.addPaymentCard(parsePaymentCards(`${fakePan},12/40,123`)[0],
+      {credentialRef:"fixture-ref",source:"fixture",note:"",enabled:true,maxSuccess:1});
+    const [voucher] = first.createVouchers(1,"fixture",3,()=>"voucher-cipher");
+    const reservation = first.reserve(voucher.code,"user@example.test","account-1",null,true,"session-cipher");
+    assert.equal(reservation.ok,true);
+    assert.equal(first.sessionCipher(reservation.orderId),"session-cipher");
+    assert.equal(JSON.stringify(first.listOrders()).includes("session-cipher"),false);
+    const restarted = new ZzshuStore(file);
+    assert.equal(restarted.sessionCipher(reservation.orderId),"session-cipher");
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
+
 test("unknown is held; manual resolution is audited and pauses repeated failed cards", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(),"zzshu-test-"));
   try {

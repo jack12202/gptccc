@@ -53,6 +53,8 @@ export class ZzshuStore {
         });
       } finally { this.db.exec("PRAGMA foreign_keys=ON"); }
     }
+    if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === "session_cipher"))
+      this.db.exec("ALTER TABLE orders ADD COLUMN session_cipher TEXT");
     this.db.exec("INSERT OR IGNORE INTO h_card_claims(hifupay_id,order_id) SELECT hifupay_id,h_order_id FROM card_roles WHERE h_order_id IS NOT NULL");
     this.db.exec("UPDATE card_roles SET h_order_id=NULL WHERE h_order_id IS NOT NULL");
   }
@@ -187,7 +189,7 @@ export class ZzshuStore {
       ? allowedHifupayIds?.has(item.credential_ref.slice(8)) : allowManual);
   }
   manualCandidate() { return this.selectCandidate(null, true); }
-  reserveUncommitted(code, email, accountId, allowedHifupayIds, allowManual) {
+  reserveUncommitted(code, email, accountId, allowedHifupayIds, allowManual, sessionCipher = "") {
     const voucher = this.voucher(code);
     if (!voucher) return { ok: false, reason: "卡密不存在" };
     if (voucher.status !== "unused") return { ok: false, reason: voucher.status === "used" ? "卡密已使用" : "卡密处理中", orderId: voucher.email === email && voucher.accountId === accountId ? voucher.orderId : undefined };
@@ -196,13 +198,13 @@ export class ZzshuStore {
     const card = this.selectCandidate(allowedHifupayIds, allowManual);
     if (!card) return { ok: false, reason: "暂无可用支付卡，兑换卡密未消耗" };
     const id = crypto.randomUUID(), at = new Date().toISOString();
-    this.db.prepare("INSERT INTO orders(id,voucher_id,card_id,email,account_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?)")
-      .run(id,voucher.id,card.id,email,accountId,at,at);
+    this.db.prepare("INSERT INTO orders(id,voucher_id,card_id,email,account_id,created_at,updated_at,session_cipher) VALUES(?,?,?,?,?,?,?,?)")
+      .run(id,voucher.id,card.id,email,accountId,at,at,sessionCipher || null);
     this.db.prepare("UPDATE vouchers SET status='reserved',order_id=?,email=?,account_id=? WHERE id=?").run(id,email,accountId,voucher.id);
     return { ok: true, orderId: id, credentialRef: card.credential_ref, lastFour: card.last_four };
   }
-  reserve(code, email, accountId, allowedHifupayIds = null, allowManual = true) {
-    return this.transaction(() => this.reserveUncommitted(code,email,accountId,allowedHifupayIds,allowManual));
+  reserve(code, email, accountId, allowedHifupayIds = null, allowManual = true, sessionCipher = "") {
+    return this.transaction(() => this.reserveUncommitted(code,email,accountId,allowedHifupayIds,allowManual,sessionCipher));
   }
   probeManualReservation(code) {
     const rollback = new Error("probe-rollback");
@@ -219,6 +221,7 @@ export class ZzshuStore {
   }
   order(id) { return this.db.prepare(`SELECT o.*,c.last_four AS lastFour,v.batch_id AS batchId,v.source AS voucherSource,c.source AS paymentSource
     FROM orders o JOIN payment_cards c ON c.id=o.card_id JOIN vouchers v ON v.id=o.voucher_id WHERE o.id=?`).get(id); }
+  sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
   listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.upstream_order_no AS upstreamOrderNo,
     o.review_reason AS reviewReason,o.cancellation,c.last_four AS lastFour,o.created_at AS createdAt,o.updated_at AS updatedAt
     FROM orders o JOIN payment_cards c ON c.id=o.card_id ORDER BY o.created_at DESC LIMIT 500`).all(); }

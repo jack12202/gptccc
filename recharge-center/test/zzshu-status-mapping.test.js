@@ -29,4 +29,6 @@ test("ZZS 上游状态完整映射为充值系统状态", async t => {
     assert.equal(result.ok, true);
     assert.equal(result.data.status, expected);
   }
+  responseData = { status: "success", payment_result: { success: true, status: "paid" }, is_subscription_cancelled: "1" };
+  assert.equal((await zzshuAdapter.status("key-1")).data.cancellation, "cancelled");
 });

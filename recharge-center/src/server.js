@@ -938,7 +938,7 @@ function serveRecoveryAdmin(res) {
   <main>
     <section>
       <div class="topbar">
-        <div><h1>充值订单 · 历史记录</h1><p class="hint">查看全部产品与通道的履约记录。JSON 加密保存，成功订单完成45天后自动清除敏感内容。</p></div>
+        <div><h1>充值订单 · 历史记录</h1><p class="hint">查看全部产品与通道的履约记录；有原始资料的订单可在此复制 JSON。</p></div>
       </div>
 
       <div class="top-actions" style="margin-top:14px"><button id="enableAlerts" type="button">开启桌面提醒</button><button class="secondary" id="refresh" type="button">立即刷新</button></div>
@@ -994,13 +994,13 @@ function serveRecoveryAdmin(res) {
         + '<td>' + escapeHtml(item.userEmail || "-") + '</td>'
         + '<td>' + escapeHtml(item.cardMask || "-") + '<br><small>' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") + " · " + (item.fulfillmentMode === "manual" ? "人工" : "自动") : "通道 " + item.provider) + '</small></td>'
         + '<td>' + (item.hifupayCardLastFour ? '****' + escapeHtml(item.hifupayCardLastFour) : '-') + '</td>'
-        + '<td>' + escapeHtml(statusLabel(item.status)) + (item.hifupaySafetyStatus === 'confirming_unpaid' ? '<br><small>安全复核中</small>' : item.needsAttention ? '<br><span class="attention-badge">需取消续费</span>' : item.subscriptionCancellationStatus === 'cancelled' ? '<br><small>续费已关闭</small>' : '') + '</td>'
+        + '<td>' + escapeHtml(statusLabel(item.status)) + (item.hifupaySafetyStatus === 'confirming_unpaid' ? '<br><small>安全复核中</small>' : item.subscriptionCancellationStatus === 'cancelled' ? '<br><small>续费已关闭</small>' : item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<br><span class="attention-badge">续费状态待同步</span>' : item.needsAttention ? '<br><span class="attention-badge">需取消续费</span>' : '') + '</td>'
         + '<td class="message">' + escapeHtml(item.needsAttention ? item.subscriptionActionMessage : item.message || "-") + '</td>'
         + '<td>' + escapeHtml(formatDate(item.createdAt)) + '</td>'
         + '<td><div class="row-actions">'
         + (item.hasOriginalJson ? '<button class="secondary" type="button" data-action="copy-json" data-order-id="' + escapeHtml(item.id) + '">复制JSON</button>' : '')
         + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : item.provider === "zzshu" && ["processing", "needs_review"].includes(item.status) ? '<button type="button" data-action="refresh-zzshu" data-order-id="' + escapeHtml(item.id) + '">安全补查</button>' : !isPro(item) && item.provider !== "zzshu" && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
-        + (item.needsAttention ? '<button type="button" data-action="mark-subscription-handled" data-order-id="' + escapeHtml(item.id) + '">标记已处理</button>' : '')
+        + (item.needsAttention && item.provider !== 'zzshu' ? '<button type="button" data-action="mark-subscription-handled" data-order-id="' + escapeHtml(item.id) + '">标记已处理</button>' : '')
         + '</div></td></tr>').join("");
     }
     function applyRecordFilters() {

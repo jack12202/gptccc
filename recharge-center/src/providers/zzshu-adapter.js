@@ -45,7 +45,7 @@ export const zzshuAdapter = {
       orderNo: String(data.order_no ?? ""), cardKey: String(data.card_key ?? ""),
       planType: String(data.plan_type ?? ""), status, upstreamStatus,
       paid, unpaid, verificationRequired,
-      cancellation: data.is_subscription_cancelled === 1 ? "cancelled" : "unconfirmed"
+      cancellation: [1, true, "1", "true"].includes(data.is_subscription_cancelled) ? "cancelled" : "unconfirmed"
     } };
   }
 };

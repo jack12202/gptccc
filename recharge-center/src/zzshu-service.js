@@ -172,7 +172,8 @@ export const zzshuService = {
   async confirm(input) {
     const code = cleanCode(input.cardInfo);
     try {
-    const token = session(input.secretJsonText || input.fullAuthData);
+    const rawSession = typeof input.secretJsonText === "string" ? input.secretJsonText : JSON.stringify(input.fullAuthData || {});
+    const token = session(rawSession);
     if (input.dryRun === true) {
       if (!config.zzshuTestMode || !codePattern.test(code) || !token ||
           sha256(code) !== config.zzshuTestVoucherHash ||
@@ -221,8 +222,9 @@ export const zzshuService = {
     }
     let reservation;
     try {
+      const sessionCipher = encryptSecretText(rawSession, config.recoveryEncryptionKey, "zzshu-session-json");
       reservation = store.reserve(code, token.user.email.toLowerCase(), String(token.account.id),allowedHifupayIds,
-        Boolean(config.recoveryEncryptionKey || config.zzshuVaultUrl && config.zzshuVaultToken));
+        Boolean(config.recoveryEncryptionKey || config.zzshuVaultUrl && config.zzshuVaultToken), sessionCipher);
     } catch (error) {
       try {
         const voucher = store.voucher(code);
