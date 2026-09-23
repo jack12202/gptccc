@@ -1,10 +1,11 @@
 import { config } from "../config.js";
+import { hifupayCredentialStore } from "../hifupay-credential-store.js";
 import { JsonStore } from "../store.js";
 import { extractCardCode, requiredString } from "../utils.js";
 import { requestJson } from "./http-json.js";
 
 function sourceApiKey() {
-  return process.env.HIFUPAY_API_KEY ?? config.hifupayApiKey;
+  return hifupayCredentialStore.key();
 }
 
 let authorizedApiKey = "";

@@ -37,6 +37,9 @@ test("h cards bind once, stay locked on failure, and support admin unlock/disabl
 
   assert.equal(store.unlockHCard(firstReservation.cardId).status, "processing");
   store.updateOrder(firstOrder.id, { status: "failed" });
+  store.updateOrder(firstOrder.id, { hifupayCardId: "fixture-payment-card" });
+  assert.equal(store.unlockHCard(firstReservation.cardId).status, "processing");
+  store.updateOrder(firstOrder.id, { hifupayReservationReleasedAt: new Date().toISOString() });
   assert.equal(store.unlockHCard(firstReservation.cardId).ok, true);
   assert.equal(store.verifyHCard(cards[0].code).ok, true);
   const secondReservation = store.reserveHCard(cards[0].code, "order-2", {

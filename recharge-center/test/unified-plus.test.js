@@ -23,6 +23,10 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   assert.equal(local.getHCardByCode(old.code).unified, false);
   assert.equal(local.getHCardByCode(first.code).unified, true);
   assert.equal(zzshuService.store.voucher(first.code).status, "unused");
+  const removable = rechargeService.createHCards({ count: 1, plan: "plus" }).data.cards[0];
+  assert.ok(zzshuService.store.voucher(removable.code));
+  assert.equal(rechargeService.deleteHCard(removable.id).ok, true);
+  assert.equal(zzshuService.store.voucher(removable.code), undefined);
   assert.equal(rechargeService.getProviderSettings().plusProvider, "h");
   assert.equal(rechargeService.updatePlusProvider("zzshu").ok, true);
   assert.equal((await rechargeService.verifyCard(first.code, "h")).data.selectedProvider, "zzshu");

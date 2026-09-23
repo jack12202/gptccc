@@ -10,6 +10,7 @@ import { rechargeService } from "./recharge-service.js";
 import { proService } from "./pro-orders.js";
 import { zzshuService } from "./zzshu-service.js";
 import { zzshuCredentialStore } from "./zzshu-credential-store.js";
+import { hifupayCredentialStore } from "./hifupay-credential-store.js";
 import { readJsonBody, sendJson } from "./utils.js";
 
 const frontendCandidates = [
@@ -44,31 +45,53 @@ function serveHCardBatchAdmin(res) {
 
 function serveAdminOverview(res) {
   const html = `<!doctype html>
-<html lang="zh-CN">
-<head>
-  <script src="/admin/session.js"></script>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="referrer" content="no-referrer">
-  <title>总览｜GPTC 后台</title>
-  <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;padding:20px;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#132033;background:#f4f7fb}main{width:min(1180px,100%);margin:0 auto}section{padding:22px;margin-bottom:16px;background:#fff;border:1px solid #dbe4ee;border-radius:14px;box-shadow:0 18px 48px rgba(15,23,42,.08)}h1,h2{margin:0 0 8px}h1{font-size:28px}p{margin:0;color:#64748b;line-height:1.65}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{display:flex;flex-direction:column;gap:10px;min-height:172px;padding:18px;border:1px solid #dbe4ee;border-radius:12px;background:#f8fafc}.module h2{font-size:18px}.module a,.shortcut{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 14px;border:1px solid #99f6e4;border-radius:10px;background:#ecfdf5;color:#0f766e;font-weight:800;text-decoration:none}.module a{margin-top:auto;align-self:flex-start}.shortcuts{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.note{font-size:14px}@media(max-width:640px){body{padding:12px}section{padding:16px}.module a,.shortcut{width:100%}}
-  </style>
-</head>
-<body><main>
-  <section><h1>总览</h1><p>统一入口只提供模块说明和安全的导航。本轮不聚合真实统计数据、不新建复杂 API，也不执行充值、切换通道、分配支付卡或更改配置。</p><div class="shortcuts"><a class="shortcut" href="/admin/cards">生成卡密</a><a class="shortcut" href="/admin/recoveries">查看充值订单</a><a class="shortcut" href="/admin/hifupay/cards">刷新/查看支付卡池</a></div></section>
-  <section><div class="grid">
-    <article class="module"><h2>充值订单</h2><p>统一查看 Plus、Pro 5x、Pro 20x 的履约记录。</p><a href="/admin/recoveries">查看历史记录</a></article>
-    <article class="module"><h2>产品与卡密</h2><p>生成、查询和管理客户兑换卡密。</p><a href="/admin/cards">进入产品与卡密</a></article>
-    <article class="module"><h2>支付卡池</h2><p>管理用于实际支付的卡片、余额、状态和占用。</p><a href="/admin/hifupay/cards">查看嗨付卡片</a></article>
-    <article class="module"><h2>路由与通道</h2><p>管理产品支持的履约通道及网站入口设置。</p><a href="/admin/provider">查看网站入口设置</a></article>
-    <article class="module"><h2>系统状态</h2><p>本轮不新增健康检查 API。请沿用现有部署健康检查与服务日志确认运行状态。</p><span class="note">不展示或读取业务统计数据。</span></article>
-  </div></section>
-</main></body></html>`;
+<html lang="zh-CN"><head>
+<script src="/admin/session.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
+<title>充值通道设置｜GPTC 后台</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:20px;background:#f4f7fb;color:#132033;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:1180px;margin:auto}.panel{background:#fff;border:1px solid #dbe4ee;border-radius:16px;padding:22px;margin-bottom:16px;box-shadow:0 16px 42px #0f172a0d}h1,h2{margin:0 0 8px}h1{font-size:28px}h2{font-size:18px}p,.muted{color:#64748b;line-height:1.55}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.api-card,.metric{border:1px solid #dbe4ee;border-radius:13px;padding:17px;background:#fbfdff}.status-line{font-weight:800;margin:8px 0 14px}.good{color:#047857}.bad{color:#be123c}.form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}input{width:100%;min-height:44px;border:1px solid #cbd5e1;border-radius:9px;padding:0 11px;font:inherit}button,.link{min-height:44px;border:1px solid #99f6e4;border-radius:9px;padding:0 14px;background:#ecfdf5;color:#0f766e;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.choices button.active{background:#0f766e;color:#fff;border-color:#0f766e}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.metric h2{display:flex;justify-content:space-between;gap:8px}.numbers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:15px}.number{padding:10px;background:#f1f5f9;border-radius:9px;text-align:center}.number b{display:block;font-size:22px}.message{margin-top:12px;min-height:22px;color:#1e3a8a}.message.error{color:#be123c}.nav{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}@media(max-width:760px){body{padding:12px}.grid,.metrics{grid-template-columns:1fr}.form{grid-template-columns:1fr}.numbers{grid-template-columns:repeat(3,1fr)}}
+</style></head><body><main>
+<section class="panel"><h1>充值通道设置</h1><p>在一个页面配置两个 Plus 履约通道、切换新订单路由，并查看两边的卡池和订单状态。已提交订单仍按原通道处理。</p><div class="nav"><a class="link" href="/admin/cards">卡密管理</a><a class="link" href="/admin/recoveries">订单明细</a><a class="link" href="/admin/hifupay/cards">嗨付卡池</a><a class="link" href="/admin/zzshu">ZZS 卡池</a></div></section>
+<section class="panel"><div class="grid">
+<article class="api-card" data-channel="hifupay"><h2>嗨付 API</h2><div class="status-line" id="hifupayState">读取中…</div><div class="form"><input id="hifupayKey" type="password" autocomplete="new-password" placeholder="填写嗨付 API Key"><button id="saveHifupay">验证并保存</button></div><div class="actions"><button id="checkHifupay">检测连接</button></div><div class="message" id="hifupayMessage"></div></article>
+<article class="api-card" data-channel="zzshu"><h2>ZZS API</h2><div class="status-line" id="zzshuState">读取中…</div><div class="form"><input id="zzshuKey" type="password" autocomplete="new-password" placeholder="填写 ZZS API Key"><button id="saveZzshu">验证并保存</button></div><div class="actions"><button id="checkZzshu">检测连接</button></div><div class="message" id="zzshuMessage"></div></article>
+</div></section>
+<section class="panel"><h2>Plus 通道选择</h2><p>仅影响尚未首次提交的通用 Plus 卡密。</p><div class="choices"><button data-provider="h">嗨付</button><button data-provider="zzshu">ZZS</button></div><div class="message" id="providerMessage"></div></section>
+<section class="panel"><h2>统一状态</h2><div class="metrics">
+<article class="metric"><h2><span>嗨付</span><span id="hifupaySync" class="muted"></span></h2><div class="numbers"><div class="number"><b id="hAvailable">-</b>可用卡</div><div class="number"><b id="hProcessing">-</b>处理中</div><div class="number"><b id="hReview">-</b>待核查</div></div></article>
+<article class="metric"><h2><span>ZZS</span><span id="zzshuSync" class="muted"></span></h2><div class="numbers"><div class="number"><b id="zAvailable">-</b>可用卡</div><div class="number"><b id="zProcessing">-</b>处理中</div><div class="number"><b id="zReview">-</b>待核查</div></div></article>
+</div><div class="actions"><button id="refreshDashboard">刷新状态</button></div><div class="message" id="dashboardMessage"></div></section>
+<script>
+const api=window.adminApi;
+function text(id,value){document.getElementById(id).textContent=value}
+function message(id,value,error){const el=document.getElementById(id);el.textContent=value||"";el.classList.toggle("error",Boolean(error))}
+function formatTime(value){return value?new Date(value).toLocaleString("zh-CN",{hour12:false}):"暂无同步"}
+async function loadCredential(channel,path){
+  try{const d=await api(path);const configured=Boolean(d.configured);const state=document.getElementById(channel+"State");state.textContent=configured?"已配置 · "+(d.source==="environment"?"部署配置":"后台保存"):"未配置";state.className="status-line "+(configured?"good":"bad");document.getElementById(channel+"Key").disabled=!d.canConfigure;document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu").disabled=!d.canConfigure}catch(e){message(channel+"Message",e.message,true)}
+}
+async function save(channel,path){
+  const input=document.getElementById(channel+"Key"), key=input.value.trim(); if(!key){message(channel+"Message","请填写 API Key。",true);return}
+  try{await api(path,{method:"POST",body:JSON.stringify({apiKey:key})});input.value="";message(channel+"Message","验证成功，已保存。");await loadAll()}catch(e){message(channel+"Message",e.message,true)}
+}
+async function check(channel,path){try{const d=await api(path);message(channel+"Message","连接正常"+(d.points==null?"":" · 积分 "+d.points))}catch(e){message(channel+"Message",e.message,true)}}
+function renderDashboard(d){
+  document.querySelectorAll("[data-provider]").forEach(b=>b.classList.toggle("active",b.dataset.provider===d.plusProvider));
+  text("hAvailable",d.hifupay.availableCards);text("hProcessing",d.hifupay.processing);text("hReview",d.hifupay.needsReview);text("hifupaySync",formatTime(d.hifupay.lastSyncAt));
+  text("zAvailable",d.zzshu.availableCards);text("zProcessing",d.zzshu.processing);text("zReview",d.zzshu.needsReview);text("zzshuSync",formatTime(d.zzshu.lastSyncAt));
+}
+async function loadDashboard(){try{renderDashboard(await api("/api/admin/recharge-dashboard"));message("dashboardMessage","")}catch(e){message("dashboardMessage",e.message,true)}}
+async function loadAll(){await Promise.all([loadCredential("hifupay","/api/admin/hifupay/credential"),loadCredential("zzshu","/api/admin/zzshu/credential"),loadDashboard()])}
+document.getElementById("saveHifupay").onclick=()=>save("hifupay","/api/admin/hifupay/credential/verify-and-save");
+document.getElementById("saveZzshu").onclick=()=>save("zzshu","/api/admin/zzshu/credential/verify-and-save");
+document.getElementById("checkHifupay").onclick=()=>check("hifupay","/api/admin/hifupay/credential/check");
+document.getElementById("checkZzshu").onclick=()=>check("zzshu","/api/admin/zzshu/credential/check");
+document.getElementById("refreshDashboard").onclick=loadDashboard;
+document.querySelectorAll("[data-provider]").forEach(b=>b.onclick=async()=>{try{const d=await api("/api/admin/plus-provider",{method:"POST",body:JSON.stringify({provider:b.dataset.provider})});message("providerMessage","新 Plus 卡密已切换到 "+(d.plusProvider==="zzshu"?"ZZS":"嗨付"));await loadDashboard()}catch(e){message("providerMessage",e.message,true)}});
+loadAll();
+</script></main></body></html>`;
   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
   res.end(html);
 }
-
 function clientIp(req) {
   const realIp = req.headers["x-real-ip"];
   if (typeof realIp === "string" && realIp.trim()) return realIp.trim().slice(0, 80);
@@ -1362,6 +1385,35 @@ export const server = http.createServer(async (req, res) => {
       const result = rechargeService.listHifupayCards();
       sendJson(res, result.status, { success: true, data: result.data });
       return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/admin/recharge-dashboard") {
+      const auth = assertAdmin(req, url);
+      if (!auth.ok) { sendJson(res, auth.status, { success: false, message: auth.message }); return; }
+      sendJson(res, 200, { success: true, data: rechargeService.getRechargeDashboard() });
+      return;
+    }
+
+    if (url.pathname.startsWith("/api/admin/hifupay/credential")) {
+      let body = {};
+      if (req.method === "POST") {
+        try { body = await readJsonBody(req, 4096); }
+        catch { sendJson(res, 400, { success: false, message: "请求格式不正确。" }); return; }
+      }
+      const auth = assertAdmin(req, url, body);
+      if (!auth.ok) { sendJson(res, auth.status, { success: false, message: auth.message }); return; }
+      if (req.method === "GET" && url.pathname === "/api/admin/hifupay/credential") {
+        sendJson(res, 200, { success: true, data: hifupayCredentialStore.status() }); return;
+      }
+      if (req.method === "GET" && url.pathname === "/api/admin/hifupay/credential/check") {
+        const result = await hifupayCredentialStore.verifySaved();
+        sendJson(res, result.ok ? 200 : result.status, result.ok ? { success: true, data: { accepted: true } } : { success: false, message: result.message }); return;
+      }
+      if (req.method === "POST" && url.pathname === "/api/admin/hifupay/credential/verify-and-save") {
+        const result = await hifupayCredentialStore.verifyAndSave(body.apiKey);
+        sendJson(res, result.ok ? 200 : result.status, result.ok ? { success: true, data: { configured: true } } : { success: false, message: result.message }); return;
+      }
+      sendJson(res, 404, { success: false, message: "Not found" }); return;
     }
 
     if (url.pathname.startsWith("/api/admin/zzshu/")) {

@@ -116,7 +116,13 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
       assert.ok(html.indexOf('id="manual-card-import"') < html.indexOf('id="hifupay-sync"'));
       assert.ok(html.indexOf('id="hifupay-sync"') < html.indexOf('id="zzs-card-library"'));
     }
-    if (page !== "/admin/zzshu") assert.doesNotMatch(html, /type="password"/);
+    if (!["/admin", "/admin/zzshu"].includes(page)) assert.doesNotMatch(html, /type="password"/);
+    if (page === "/admin") {
+      assert.match(html, /嗨付 API/);
+      assert.match(html, /ZZS API/);
+      assert.match(html, /Plus 通道选择/);
+      assert.doesNotMatch(html, /value="[^\"]+"/);
+    }
     assert.doesNotMatch(html, /X-Admin-Token|localStorage\.setItem|tokenFromQuery/);
     for (const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(script[1]);
   }
@@ -124,11 +130,15 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
   const productionVerifier = fs.readFileSync(new URL("../../scripts/verify-admin-session.mjs", import.meta.url), "utf8");
   assert.match(productionVerifier, /hasOnlyZzshuCredentialInput/);
   assert.equal((await fetch(base + "/api/admin/zzshu/credential")).status, 401);
+  assert.equal((await fetch(base + "/api/admin/hifupay/credential")).status, 401);
+  assert.equal((await fetch(base + "/api/admin/recharge-dashboard")).status, 401);
   const credentialStatus = await fetch(base + "/api/admin/zzshu/credential", { headers: { Cookie: cookie } });
   assert.equal(credentialStatus.status, 200);
   assert.equal((await credentialStatus.json()).data.configured, false);
   const rejectedCredential = await fetch(base + "/api/admin/zzshu/credential/verify-and-save", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "fixture-key" }) });
   assert.equal(rejectedCredential.status, 403);
+  const rejectedHifupayCredential = await fetch(base + "/api/admin/hifupay/credential/verify-and-save", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "fixture-key" }) });
+  assert.equal(rejectedHifupayCredential.status, 403);
   const rejected = await fetch(base + "/api/admin/h-cards", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ count: 1 }) });
   assert.equal(rejected.status, 403);
   const oldSwitch = await fetch(base + "/admin/provider/switch?provider=h", { headers: { Cookie: cookie }, redirect: "manual" });

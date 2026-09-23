@@ -145,7 +145,7 @@ test("h card query APIs are read-only, authenticated where required, and rate li
     ]
   }, { token: "query-test-admin-token" });
   assert.equal(mixed.response.status, 200);
-  assert.deepEqual(mixed.payload.data.results.map(item => item.status), ["unused", "failed", "not_found", "invalid"]);
+  assert.deepEqual(mixed.payload.data.results.map(item => item.status), ["unused", "failed", "not_found", "processing"]);
   assert.equal(mixed.payload.data.results[1].failureReason, "支付未成功");
   assert.equal(mixed.payload.data.results[1].code, cards[4].code);
   assert.equal(JSON.stringify(mixed.payload).includes(failedOrder.id), false);

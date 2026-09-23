@@ -24,6 +24,7 @@ export const config = {
   xiaoyuApiKey: process.env.XIAOYU_API_KEY || "",
   hifupayBaseUrl: process.env.HIFUPAY_BASE_URL || "https://sdk.hifupay.com",
   hifupayApiKey: process.env.HIFUPAY_API_KEY || "",
+  hifupaySecretFile: process.env.HIFUPAY_SECRET_FILE || path.join(path.dirname(dataFile), "hifupay-api-key.json"),
   hifupayCardId: process.env.HIFUPAY_CARD_ID || "7172",
   hifupayPlan: process.env.HIFUPAY_PLAN || "plus",
   hifupayRegion: process.env.HIFUPAY_REGION || "PH",

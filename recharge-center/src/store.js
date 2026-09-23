@@ -1295,6 +1295,9 @@ export class JsonStore {
       return { ok: false, status: card.status, message: "当前卡密不需要解锁。" };
     }
     const order = card.orderId ? this.getOrder(card.orderId) : null;
+    if (order?.hifupayCardId && !order.hifupayReservationReleasedAt) {
+      return { ok: false, status: "processing", message: "嗨付支付卡仍被订单占用，必须先确认未扣款并释放支付卡。" };
+    }
     if (order && order.status !== "failed") {
       return { ok: false, status: "processing", message: "关联订单尚未确认失败，暂不能解锁。" };
     }
@@ -1355,6 +1358,9 @@ export class JsonStore {
     }
     if (!["unused", "expired"].includes(card.status) && !card.disabledAt) {
       return { ok: false, status: card.status, message: "只有未使用、已过期或已禁用且没有提交记录的卡密可以删除。" };
+    }
+    if (card.unified && code && !sharedZzshuStore.removeUnusedUnifiedVoucher(code)) {
+      return { ok: false, status: "linked", message: "通用卡密已有关联记录，不能删除，只能归档。" };
     }
     state.hCards.splice(index, 1);
     this.write(state);

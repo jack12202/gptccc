@@ -153,6 +153,12 @@ export class ZzshuStore {
       }
     });
   }
+  removeUnusedUnifiedVoucher(code) {
+    const voucher = this.voucher(code);
+    if (!voucher) return true;
+    if (!String(voucher.id).startsWith("hcard_") || voucher.status !== "unused" || this.hasVoucherOrders(code)) return false;
+    return this.transaction(() => this.db.prepare("DELETE FROM vouchers WHERE id=? AND status='unused'").run(voucher.id).changes === 1);
+  }
   voucher(code) { return this.db.prepare("SELECT id,status,order_id AS orderId,product_id AS productId,email,account_id AS accountId,batch_id AS batchId,source FROM vouchers WHERE code_hash=?")
     .get(crypto.createHash("sha256").update(code).digest("hex")); }
   hasVoucherOrders(code) {

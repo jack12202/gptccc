@@ -192,6 +192,12 @@ export const zzshuService = {
       }
       return { ok: false, status, message };
     };
+    if (/^HPLUS[0-9A-F]{32}$/.test(code)) {
+      const unified = hifupayStore.getHCardByCode(code);
+      if (!unified?.unified || unified.disabledAt || unified.archivedAt || unified.routedProvider && unified.routedProvider !== "zzshu" || !["unused", "locked"].includes(unified.status)) {
+        return reject(409, "卡密当前不可用于 ZZS 充值", "统一卡密不存在、已停用或通道不匹配");
+      }
+    }
     if (config.zzshuTestMode &&
         (!/^[a-f0-9]{64}$/.test(config.zzshuTestVoucherHash) ||
          !/^[a-f0-9]{64}$/.test(config.zzshuTestAccountHash) ||

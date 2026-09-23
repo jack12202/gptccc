@@ -7,6 +7,7 @@ import {
   decodeJson,
   decryptSecretText,
   encryptSecretText,
+  extractCardCode,
   maskCard,
   normalizeProvider,
   requiredString,
@@ -28,8 +29,13 @@ const H_CARD_STATUS_LABELS = {
 };
 
 function normalizeHCardCode(value) {
-  const code = String(value || "").trim().toUpperCase();
+  const code = extractCardCode(value);
   return H_CARD_CODE_PATTERN.test(code) ? code : "";
+}
+
+function canonicalLocalCardCode(value) {
+  const extracted = extractCardCode(value);
+  return /^(?:HPLUS|HPRO5|HPRO20|ZZPLUS)[0-9A-F]{32}$/.test(extracted) ? extracted : String(value || "").trim();
 }
 
 function maskEmail(value) {
@@ -173,12 +179,7 @@ function resolveProvider(provider) {
 }
 
 function isZzshuVoucher(value) {
-  let code = String(value || "").trim();
-  try {
-    const url = new URL(code);
-    if (url.searchParams.get("provider") !== "zzshu") return false;
-    code = url.searchParams.get("card") || "";
-  } catch { /* Plain voucher code. */ }
+  const code = extractCardCode(value);
   return /^ZZPLUS[0-9A-F]{32}$/i.test(code);
 }
 
@@ -428,21 +429,22 @@ export const rechargeService = {
   },
 
   queryHCardStatus(cardInfo, provider) {
-    const localCard = store.getHCardByCode(cardInfo);
+    const canonicalCardInfo = canonicalLocalCardCode(cardInfo);
+    const localCard = store.getHCardByCode(canonicalCardInfo);
     if (localCard?.unified && (localCard.disabledAt || localCard.archivedAt)) return {
       ok: true, status: 200, data: { status: "disabled", plan: "plus", statusLabel: "已禁用", canRecharge: false,
         boundAccount: "", message: "卡密当前不可使用，请联系客服处理。" }
     };
     if (isZzshuVoucher(cardInfo) || localCard?.unified && (localCard.routedProvider || store.getSettings().plusProvider) === "zzshu" ||
         !localCard && String(provider || "").trim().toLowerCase() === "zzshu") {
-      return zzshuService.voucherStatus(cardInfo).then(result => ({
+      return zzshuService.voucherStatus(canonicalCardInfo).then(result => ({
         ok: result.ok, status: result.ok ? 200 : 404, data: result, message: result.message
       }));
     }
     if (String(provider || "").trim().toLowerCase() !== "h" && !localCard?.unified) {
       return { ok: false, status: 400, message: "仅支持查询 h 通道卡密。" };
     }
-    const code = normalizeHCardCode(cardInfo);
+    const code = normalizeHCardCode(canonicalCardInfo);
     if (!code) return { ok: false, status: 400, message: "请输入完整的卡密。" };
     const record = store.queryHCardsByCodes([code])[0];
     if (!record?.found) return { ok: false, status: 404, message: "未查询到这张卡密，请核对后重新输入。" };
@@ -546,6 +548,38 @@ export const rechargeService = {
     };
   },
 
+  getRechargeDashboard() {
+    const hifupay = this.listHifupayCards().data;
+    const zzshuCards = zzshuService.store.listCards();
+    const records = this.listRechargeSubmissions().data.records;
+    const processingStatuses = new Set(["processing", "queued", "created", "reserved", "submitting", "locked", "pending"]);
+    const reviewStatuses = new Set(["needs_review", "manual_queued", "manual_processing", "needs_info"]);
+    const channelOrders = provider => records.filter(item => item.provider === provider);
+    const summarizeOrders = provider => {
+      const orders = channelOrders(provider);
+      return {
+        processing: orders.filter(item => processingStatuses.has(item.status)).length,
+        needsReview: orders.filter(item => reviewStatuses.has(item.status) || item.needsAttention).length,
+        lastOrderUpdateAt: orders.map(item => item.updatedAt || item.createdAt || "").sort().at(-1) || ""
+      };
+    };
+    return {
+      plusProvider: store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h",
+      hifupay: {
+        availableCards: hifupay.cards.filter(card => card.poolStatus === "ready").length,
+        totalCards: hifupay.cards.length,
+        lastSyncAt: hifupay.updatedAt || "",
+        ...summarizeOrders("h")
+      },
+      zzshu: {
+        availableCards: zzshuCards.filter(card => card.enabled && !card.paused && card.remainingUses > 0 && !card.occupiedOrderId).length,
+        totalCards: zzshuCards.length,
+        lastSyncAt: summarizeOrders("zzshu").lastOrderUpdateAt,
+        ...summarizeOrders("zzshu")
+      }
+    };
+  },
+
   setHifupayCardEnabled(cardId, enabled) {
     const result = store.setHifupayCardEnabled(cardId, enabled);
     return {
@@ -608,7 +642,20 @@ export const rechargeService = {
   listRechargeSubmissions() {
     const cutoff = Date.parse("2026-09-04T16:00:00.000Z");
     store.purgeRechargeSecretsBefore("2026-09-04T16:00:00.000Z");
-    const records = store.listRechargeOrders().filter(item => Date.parse(item.createdAt) >= cutoff);
+    const primaryRecords = store.listRechargeOrders().filter(item => Date.parse(item.createdAt) >= cutoff);
+    const zzshuRecords = zzshuService.store.listOrders().filter(item => Date.parse(item.createdAt) >= cutoff).map(item => ({
+      id: item.id, provider: "zzshu", cardMask: item.lastFour ? `****${item.lastFour}` : "", productId: config.hifupayProductId,
+      plan: "plus", fulfillmentMode: "auto", processingNote: item.reviewReason || "", paymentConfirmed: item.status === "success",
+      waitingMinutes: Math.max(0, Math.floor((Date.now() - Date.parse(item.createdAt)) / 60000)), status: item.status,
+      upstreamTaskId: item.upstreamOrderNo || "", providerSessionId: "", hifupayCardId: "", hifupayCardLastFour: "",
+      hifupaySafetyStatus: "", hifupayUnpaidConfirmationCount: 0, userEmail: item.email || "",
+      message: item.status === "success" ? "Plus 已开通" : item.status === "failed" ? "明确未支付" : item.reviewReason || "正在处理或待确认",
+      subscriptionCancellationStatus: item.cancellation || "", subscriptionActionRequired: false, subscriptionActionMessage: "",
+      subscriptionActionDetectedAt: "", subscriptionActionHandledAt: "", needsAttention: item.status === "needs_review",
+      createdAt: item.createdAt, updatedAt: item.updatedAt, hasSecret: false, hasOriginalJson: false, hCardCodeAvailable: false
+    }));
+    const records = [...primaryRecords, ...zzshuRecords]
+      .sort((left, right) => String(right.updatedAt || right.createdAt).localeCompare(String(left.updatedAt || left.createdAt)));
     return {
       ok: true,
       status: 200,
@@ -843,7 +890,8 @@ export const rechargeService = {
       return { ok: false, status: 400, message: "请先输入卡密。" };
     }
 
-    const localCard = store.getHCardByCode(cardInfo);
+    const canonicalCardInfo = canonicalLocalCardCode(cardInfo);
+    const localCard = store.getHCardByCode(canonicalCardInfo);
     const selectedProvider = isZzshuVoucher(cardInfo) ? "zzshu" : localCard?.unified ?
       localCard.routedProvider || (store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h") : localCard ? "h" : resolveProvider(provider);
     if (selectedProvider === "zzshu") {
@@ -873,7 +921,8 @@ export const rechargeService = {
       return { ok: false, status: 400, message: "请先输入卡密。" };
     }
 
-    if (isZzshuVoucher(cardInfo) || store.getHCardByCode(cardInfo)?.unified) return this.queryHCardStatus(cardInfo,provider);
+    const canonicalCardInfo = extractCardCode(cardInfo);
+    if (isZzshuVoucher(canonicalCardInfo) || store.getHCardByCode(canonicalCardInfo)?.unified) return this.queryHCardStatus(canonicalCardInfo,provider);
     const selectedProvider = resolveProvider(provider);
     const adapter = getProviderAdapter(selectedProvider);
     if (typeof adapter.queryCardStatus !== "function") {
@@ -923,23 +972,25 @@ export const rechargeService = {
   },
 
   async confirmRecharge(input) {
-    const unifiedCard = store.getHCardByCode(input.cardInfo);
+    const canonicalCardInfo = canonicalLocalCardCode(input.cardInfo);
+    const normalizedInput = { ...input, cardInfo: canonicalCardInfo };
+    const unifiedCard = store.getHCardByCode(canonicalCardInfo);
     if (unifiedCard?.unified) {
-      const parsedUnified = parseRechargeInput(input);
+      const parsedUnified = parseRechargeInput(normalizedInput);
       if (!parsedUnified.ok) return { ok: false, status: 400, message: parsedUnified.message };
       const route = unifiedCard.routedProvider || (store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h");
-      const claim = store.claimUnifiedPlus(input.cardInfo, route);
+      const claim = store.claimUnifiedPlus(canonicalCardInfo, route);
       if (!claim.ok) return { ok: false, status: 409, message: claim.message };
-      if (route === "zzshu") return zzshuService.confirm(input);
+      if (route === "zzshu") return zzshuService.confirm(normalizedInput);
     }
-    if (isZzshuVoucher(input.cardInfo) || !unifiedCard && resolveProvider(input.provider) === "zzshu") return zzshuService.confirm(input);
-    const { cardInfo, productId, overwriteRecharge, siteSource } = input;
+    if (isZzshuVoucher(canonicalCardInfo) || !unifiedCard && resolveProvider(input.provider) === "zzshu") return zzshuService.confirm(normalizedInput);
+    const { cardInfo, productId, overwriteRecharge, siteSource } = normalizedInput;
 
     if (!requiredString(cardInfo)) {
       return { ok: false, status: 400, message: "缺少卡密。" };
     }
 
-    const parsed = parseRechargeInput(input);
+    const parsed = parseRechargeInput(normalizedInput);
     if (!parsed.ok) return { ok: false, status: 400, message: parsed.message };
 
     const localCard = store.getHCardByCode(cardInfo);
@@ -1043,7 +1094,11 @@ export const rechargeService = {
     }
     const upstreamTaskId = upstream.data?.taskId || "";
     const message = upstream.data?.message || "充值已提交，正在处理。";
-    const status = upstream.ok ? upstream.data?.status || "processing" : "failed";
+    const status = upstream.ok
+      ? upstream.data?.status || "processing"
+      : selectedProvider === "h" && upstream.data?.hifupayCardId
+        ? "needs_review"
+        : "failed";
 
     store.updateOrder(order.id, {
       upstreamTaskId,
