@@ -34,8 +34,9 @@ try {
     const response = await call(page, { headers: { Cookie: cookie }, redirect: "manual" });
     assert.equal(response.status, 200, `${page} must accept the shared session`);
     const html = await response.text();
+    const hasChannelCredentialInputs = page === "/admin" && html.includes('id="hifupayKey" type="password"') && html.includes('id="zzshuKey" type="password"') && html.includes("window.adminApi");
     const hasOnlyZzshuCredentialInput = page === "/admin/zzshu" && html.includes('id="zzshuApiKey" type="password"') && html.includes("window.adminApi");
-    assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasOnlyZzshuCredentialInput), `${page} still contains legacy authentication`);
+    assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasChannelCredentialInputs || hasOnlyZzshuCredentialInput), `${page} still contains legacy authentication`);
   }
   console.log("Admin login, shared session, protected pages and secure cookie verified.");
 } finally {

@@ -128,6 +128,7 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
   }
   const before = fs.readFileSync(process.env.DATA_FILE, "utf8");
   const productionVerifier = fs.readFileSync(new URL("../../scripts/verify-admin-session.mjs", import.meta.url), "utf8");
+  assert.match(productionVerifier, /hasChannelCredentialInputs/);
   assert.match(productionVerifier, /hasOnlyZzshuCredentialInput/);
   assert.equal((await fetch(base + "/api/admin/zzshu/credential")).status, 401);
   assert.equal((await fetch(base + "/api/admin/hifupay/credential")).status, 401);
