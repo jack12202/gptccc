@@ -33,8 +33,8 @@ try {
   for (const page of pages) {
     let response = await call(page, { headers: { Cookie: cookie }, redirect: "manual" });
     if (page === "/admin/zzshu") {
-      assert.equal(response.status, 303, "/admin/zzshu must redirect to the unified ZZS card tab");
-      assert.equal(response.headers.get("location"), "/admin/hifupay/cards?tab=zzshu");
+      assert.equal(response.status, 303, "/admin/zzshu must redirect to the unified payment-card page");
+      assert.equal(response.headers.get("location"), "/admin/hifupay/cards#importPanel");
       response = await call(response.headers.get("location"), { headers: { Cookie: cookie }, redirect: "manual" });
     }
     assert.equal(response.status, 200, `${page} must accept the shared session`);

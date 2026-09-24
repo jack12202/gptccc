@@ -5,87 +5,68 @@ import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
 
-test("Hifupay admin groups cards, searches all groups and expands actions without changing card data", async t => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-admin-ui-"));
-  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
-  process.env.ADMIN_TOKEN = "ui-test-password";
-  process.env.DATA_FILE = path.join(tempDir, "orders.json");
-  const { server } = await import(`../src/server.js?admin-ui=${Date.now()}`);
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
+test("one payment-card page lists H and manual cards with shared counts and source-specific actions", async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-unified-card-ui-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  process.env.ADMIN_TOKEN = "unified-ui-test-password";
+  process.env.DATA_FILE = path.join(dir, "orders.json");
+  process.env.ZZSHU_DB_FILE = path.join(dir, "usage.sqlite");
+  const { server } = await import(`../src/server.js?unified-ui=${Date.now()}`);
+  await new Promise((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}`;
-  const loginResponse = await fetch(`${base}/api/admin/login`, { method: "POST", headers: { Origin: "https://www.gptc.cc", "X-Admin-Request": "1", "Content-Type": "application/json" }, body: JSON.stringify({ password: "ui-test-password" }) });
-  const cookie = loginResponse.headers.get("set-cookie").split(";")[0];
-  const response = await fetch(`${base}/admin/hifupay/cards`, { headers: { Cookie: cookie } });
+  const login = await fetch(base + "/api/admin/login", { method: "POST", headers: { Origin: "https://www.gptc.cc", "X-Admin-Request": "1", "Content-Type": "application/json" }, body: JSON.stringify({ password: "unified-ui-test-password" }) });
+  const cookie = login.headers.get("set-cookie").split(";")[0];
+  const response = await fetch(base + "/admin/hifupay/cards", { headers: { Cookie: cookie } });
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /搜索全部分类/);
-  assert.match(html, /支付卡池 · 嗨付/);
-  assert.match(html, /href="\/admin\/hifupay\/cards\?tab=zzshu">ZZS 支付卡/);
+  assert.match(html, /<h1>支付卡池<\/h1>/);
+  assert.match(html, /全部支付卡/);
+  assert.match(html, /导入手动支付卡/);
+  assert.doesNotMatch(html, /嗨付支付卡<\/a>|ZZS 支付卡<\/a>/);
+  assert.equal((await fetch(base + "/admin/hifupay/cards?tab=zzshu", { headers: { Cookie: cookie } })).status, 200);
   const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
 
   const elements = new Map();
-  const document = {
-    getElementById(id) {
-      if (!elements.has(id)) elements.set(id, {
-        value: "", innerHTML: "", textContent: "", disabled: false,
-        classList: { add() {}, remove() {} }
-      });
-      return elements.get(id);
-    }
-  };
-  class BroadcastChannel { postMessage() {} close() {} }
-  const context = vm.createContext({ document, location: { search: "", hash: "" }, URLSearchParams, BroadcastChannel,
-    adminHandler: () => new Promise(() => {}), window: { adminApi: (...args) => context.adminHandler(...args) }, fetch: () => { throw Error("No request expected"); } });
+  const document = { getElementById(id) {
+    if (!elements.has(id)) elements.set(id, { value: "", innerHTML: "", textContent: "", disabled: false, dataset: {},
+      classList: { toggle() {}, add() {}, remove() {} } });
+    return elements.get(id);
+  } };
+  const h = { id: "h-1", lastFour: "1001", enabled: true, status: "active", poolStatus: "ready", balance: 40,
+    usedCount: 1, frozenCount: 1, maxUses: 4, remainingUses: 2, priority: 0, plusUsers: [{ email: "h@example.test" }] };
+  const manual = { id: "m-1", lastFour: "2002", credentialSource: "manual", source: "团购", enabled: true,
+    successCount: 1, frozenUses: 0, maxSuccess: 3, remainingUses: 2, successfulAccounts: [{ email: "m@example.test" }] };
+  const calls = [];
+  const context = vm.createContext({ document, window: { adminApi: async url => {
+    calls.push(url);
+    if (url.startsWith("/api/admin/hifupay/cards")) return { cards: [h] };
+    if (url === "/api/admin/zzshu/cards") return [manual, { ...manual, credentialSource: "hifupay", id: "duplicate" }];
+    if (url === "/api/admin/zzshu/import-status") return { ready: true, message: "可导入" };
+    throw Error("unexpected endpoint: " + url);
+  } }, confirm: () => true, prompt: () => null });
   vm.runInContext(script, context);
-  const cards = [
-    { id: "plus", enabled: true, poolStatus: "ready", status: "active", balance: 40, availableBalance: 40, lastFour: "1001", automaticPlusUsed: 1, priority: 0, plusUsers: [{ email: "plus@example.com" }] },
-    { id: "pro", enabled: true, poolStatus: "pro_protected", proProtected: true, proReservation: { type: "20X Pro", account: "pro@example.com", renewalAt: "2026-10-15" }, status: "active", balance: 150, availableBalance: 150, lastFour: "1002", automaticPlusUsed: 0, priority: 0 },
-    { id: "low", enabled: true, poolStatus: "low_balance", status: "active", balance: 0.01, availableBalance: 0.01, lastFour: "1003", automaticPlusUsed: 4, priority: 0 },
-    { id: "off", enabled: false, poolStatus: "pro_protected", proProtected: true, status: "active", balance: 10, availableBalance: 10, lastFour: "1004", automaticPlusUsed: 0, priority: 0 }
-  ];
-  context.cardsForTest = cards;
-  vm.runInContext("allCards=cardsForTest;applyCardSearch()", context);
+  await vm.runInContext("load()", context);
   const rows = document.getElementById("cards");
-  const tabs = document.getElementById("cardTabs");
-  assert.match(tabs.innerHTML, /Plus 可用 1/);
-  assert.match(tabs.innerHTML, /Pro 保护 1/);
-  assert.match(tabs.innerHTML, /需处理 1/);
-  assert.match(tabs.innerHTML, /已禁用 1/);
-  assert.match(rows.innerHTML, /ID plus/);
-  assert.doesNotMatch(rows.innerHTML, /ID low|plus@example.com|data-setting="priority"/);
-
-  document.getElementById("cardSearch").value = "pro@example.com";
-  document.getElementById("cardSearch").oninput();
-  assert.match(rows.innerHTML, /ID pro/);
-  assert.doesNotMatch(rows.innerHTML, /ID off/);
-  assert.match(document.getElementById("count").textContent, /全库搜索/);
-  document.getElementById("cardSearch").value = "";
-  document.getElementById("cardSearch").oninput();
-  document.getElementById("cards").onclick({ target: { closest(selector) { return selector === "[data-toggle]" ? { dataset: { toggle: "plus" } } : null; } } });
-  assert.match(rows.innerHTML, /plus@example.com/);
+  assert.match(rows.innerHTML, /•••• 1001/);
+  assert.match(rows.innerHTML, /•••• 2002/);
+  assert.doesNotMatch(rows.innerHTML, /duplicate/);
+  assert.match(rows.innerHTML, /嗨付同步/);
+  assert.match(rows.innerHTML, /团购/);
+  assert.match(rows.innerHTML, /冻结 1/);
+  assert.match(rows.innerHTML, /ZZS/);
+  assert.match(document.getElementById("stats").innerHTML, /卡池总数/);
+  assert.match(document.getElementById("total").textContent, /2 \/ 2/);
+  vm.runInContext("expanded.add('manual:m-1');render()", context);
+  assert.match(rows.innerHTML, /data-action="manual-cap"/);
+  assert.match(rows.innerHTML, /data-action="manual-retire"/);
+  vm.runInContext("expanded.add('h:h-1');render()", context);
   assert.match(rows.innerHTML, /data-setting="priority"/);
   assert.match(rows.innerHTML, /data-action="protect-pro"/);
-  assert.match(rows.innerHTML, /data-action="disable"/);
-  assert.match(rows.innerHTML, /data-setting="maxUses"/);
-  assert.doesNotMatch(rows.innerHTML, /data-action="assign-/);
-  vm.runInContext("allCards=cardsForTest;applyCardSearch()",context);
-  tabs.onclick({ target: { closest() { return { dataset: { category: "disabled" } }; } } });
-  assert.match(rows.innerHTML, /ID off/);
-  assert.doesNotMatch(rows.innerHTML, /ID pro/);
-
-  context.cardsForTest = Array.from({ length: 21 }, (_, index) => ({
-    ...cards[0], id: `ready-${index}`, lastFour: String(index).padStart(4, "0")
-  }));
-  vm.runInContext("allCards=cardsForTest;activeCategory='ready';page=0;applyCardSearch()", context);
-  assert.match(document.getElementById("pageInfo").textContent, /1 \/ 2/);
-  assert.match(rows.innerHTML, /ID ready-19/);
-  assert.doesNotMatch(rows.innerHTML, /ID ready-20/);
-  document.getElementById("nextPage").onclick();
-  assert.match(rows.innerHTML, /ID ready-20/);
-  assert.doesNotMatch(rows.innerHTML, /ID ready-0</);
+  document.getElementById("search").value = "团购";
+  document.getElementById("search").oninput();
+  assert.match(rows.innerHTML, /•••• 2002/);
+  assert.doesNotMatch(rows.innerHTML, /•••• 1001/);
+  assert.ok(calls.includes("/api/admin/zzshu/cards"));
 });

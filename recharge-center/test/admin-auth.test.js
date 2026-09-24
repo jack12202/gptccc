@@ -102,15 +102,15 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
     assert.equal(res.status, 200);
     const html = await res.text();
     assert.match(html, /src="\/admin\/session.js"/);
-    assert.match(html, /GPTC 后台|产品与卡密|支付卡池 · ZZS|Pro 履约工作台/);
+    assert.match(html, /GPTC 后台|产品与卡密|支付卡池|Pro 履约工作台/);
     if (page === "/admin/provider") {
       assert.match(html, /其他网站入口/);
       assert.doesNotMatch(html, /data-plus-provider/);
     }
     if (page === "/admin/zzshu") {
-      assert.match(html, /支付卡池 · ZZS/);
-      assert.match(html, /批量导入支付卡/);
-      assert.match(html, /data-retire/);
+      assert.match(html, /支付卡池/);
+      assert.match(html, /导入手动支付卡/);
+      assert.match(html, /manual-retire/);
       assert.doesNotMatch(html, /type="password"/);
     }
     if (page === "/admin/recoveries") {
@@ -134,7 +134,7 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
   const before = fs.readFileSync(process.env.DATA_FILE, "utf8");
   const productionVerifier = fs.readFileSync(new URL("../../scripts/verify-admin-session.mjs", import.meta.url), "utf8");
   assert.match(productionVerifier, /hasChannelCredentialInputs/);
-  assert.match(productionVerifier, /unified ZZS card tab/);
+  assert.match(productionVerifier, /unified payment-card page/);
   assert.equal((await fetch(base + "/api/admin/zzshu/credential")).status, 401);
   assert.equal((await fetch(base + "/api/admin/hifupay/credential")).status, 401);
   assert.equal((await fetch(base + "/api/admin/recharge-dashboard")).status, 401);
