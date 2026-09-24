@@ -40,6 +40,10 @@ test("atomic reservation, provider-scoped vouchers, serial card, exactly-once su
       a.settle(r.orderId,"success");
     }
     assert.equal(a.listCards()[0].successCount,5);
+    assert.equal(a.listCards()[0].successfulAccounts.length,5);
+    assert.equal(a.listCards()[0].successfulAccounts.filter(item => item.orderId === first.orderId).length,1);
+    assert.equal(a.listCards()[0].successfulAccounts.find(item => item.orderId === first.orderId).email,"one@example.test");
+    assert.equal(new ZzshuStore(file).listCards()[0].successfulAccounts.length,5);
     assert.equal(a.reserve(codes[5].code,"last@example.test","last").ok,false);
     assert.equal(a.voucher(codes[5].code).status,"unused");
     assert.equal(a.voucher("HPLUS"+codes[0].code.slice(6)),undefined);
@@ -165,6 +169,7 @@ test("unknown is held; manual resolution is audited and pauses repeated failed c
     assert.equal(s.manualResolve(first.orderId,"unpaid","checked payment ledger"),false);
     assert.equal(s.order(first.orderId).status,"failed");
     assert.equal(s.voucher(vouchers[0].code).status,"unused");
+    assert.equal(s.listCards()[0].successfulAccounts.length,0);
     assert.equal(s.reserve(vouchers[1].code,"second@example.test","second").ok,true);
     assert.equal(s.db.prepare("SELECT count(*) AS n FROM audit").get().n,1);
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }

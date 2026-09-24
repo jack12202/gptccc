@@ -39,10 +39,17 @@ test("admin can resolve an unknown ZZS order once and separately confirm renewal
   assert.equal(record.status, "needs_review");
   assert.equal(record.hasUpstreamQueryKey, false);
   assert.match(record.processingNote, /创建响应丢失/);
+  const pendingCards = await fetch(base + "/api/admin/zzshu/cards", { headers: { Cookie: cookie } }).then(response => response.json());
+  assert.equal(pendingCards.data[0].successfulAccounts.length, 0);
+  assert.equal(pendingCards.data[0].pendingAccount.email, "fixture@example.test");
   const resolution = `/api/admin/zzshu/orders/${order.orderId}/resolve`;
   assert.equal((await post(resolution, { outcome: "success", reason: "fixture upstream payment checked" })).status, 200);
   assert.equal((await post(resolution, { outcome: "success", reason: "fixture upstream payment checked" })).status, 409);
   assert.equal(store.listCards()[0].successCount, 1);
+  const cardsResponse = await fetch(base + "/api/admin/zzshu/cards", { headers: { Cookie: cookie } }).then(response => response.json());
+  assert.equal(cardsResponse.data[0].successfulAccounts.length, 1);
+  assert.equal(cardsResponse.data[0].successfulAccounts[0].email, "fixture@example.test");
+  assert.equal(cardsResponse.data[0].successfulAccounts[0].accountId, "account-1");
   const cancellation = `/api/admin/zzshu/orders/${order.orderId}/confirm-cancellation`;
   assert.equal((await post(cancellation, { reason: "fixture upstream renewal checked" })).status, 200);
   assert.equal((await post(cancellation, { reason: "fixture upstream renewal checked" })).status, 409);

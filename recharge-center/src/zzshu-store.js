@@ -115,7 +115,7 @@ export class ZzshuStore {
     return this.db.prepare("SELECT payment_cipher AS cipher FROM payment_cards WHERE credential_ref=? AND retired_at IS NULL").get(ref)?.cipher || "";
   }
   listCards() {
-    return this.db.prepare(`SELECT id,last_four AS lastFour,source,note,enabled,max_success AS maxSuccess,
+    const cards = this.db.prepare(`SELECT id,last_four AS lastFour,source,note,enabled,max_success AS maxSuccess,
       CASE WHEN credential_ref LIKE 'hifupay:%' THEN 'hifupay' ELSE 'manual' END AS credentialSource,
       CASE WHEN credential_ref LIKE 'hifupay:%' THEN substr(credential_ref,9) ELSE NULL END AS hifupayId,
       MAX(0,max_success-success_count) AS remainingUses,
@@ -125,6 +125,22 @@ export class ZzshuStore {
         (SELECT 1 FROM card_roles WHERE hifupay_id=substr(payment_cards.credential_ref,9) AND role='zzshu')
       )
       ORDER BY success_count DESC,created_at,id`).all();
+    const successes = this.db.prepare(`SELECT o.card_id AS cardId,o.id AS orderId,o.email,o.account_id AS accountId,
+      o.created_at AS submittedAt FROM orders o JOIN payment_cards c ON c.id=o.card_id
+      WHERE o.status='success' AND c.retired_at IS NULL ORDER BY o.created_at DESC,o.id DESC`).all();
+    const pending = this.db.prepare(`SELECT o.card_id AS cardId,o.id AS orderId,o.email,o.account_id AS accountId,
+      o.status,o.created_at AS submittedAt FROM orders o JOIN payment_cards c ON c.id=o.card_id
+      WHERE o.status IN ('reserved','submitting','processing','needs_review') AND c.retired_at IS NULL`).all();
+    const byCard = new Map();
+    for (const success of successes) {
+      if (!byCard.has(success.cardId)) byCard.set(success.cardId, []);
+      byCard.get(success.cardId).push({ orderId: success.orderId, email: success.email,
+        accountId: success.accountId, submittedAt: success.submittedAt });
+    }
+    const pendingByCard = new Map(pending.map(item => [item.cardId, { orderId: item.orderId,
+      email: item.email, accountId: item.accountId, status: item.status, submittedAt: item.submittedAt }]));
+    return cards.map(card => ({ ...card, successfulAccounts: byCard.get(card.id) || [],
+      pendingAccount: pendingByCard.get(card.id) || null }));
   }
   updateCard(id, { enabled, note, maxSuccess, resume } = {}) {
     const card = this.db.prepare("SELECT * FROM payment_cards WHERE id=?").get(id);
