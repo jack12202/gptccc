@@ -1645,6 +1645,21 @@ window._hmt = _hmt;
           setNotice("step2Notice", "密钥识别失败", result.message, "error");
           return;
         }
+        if (currentProvider === "zzshu") {
+          const session = result.data.fullAuthData;
+          const message = !session?.user?.id || !session?.user?.email || !session?.account?.id
+            ? "Session JSON 缺少账号 user.id、user.email 或 account.id，请重新获取完整内容。"
+            : session.account.planType !== "free"
+              ? "ZZS 当前仅支持免费账号开通 Plus；请确认该账号的 Session JSON 中 account.planType 为 free。"
+              : !session.accessToken || !session.sessionToken || !session.expires
+                ? "Session JSON 缺少 accessToken、sessionToken 或 expires，请重新获取完整内容。"
+                : "";
+          if (message) {
+            currentParsedSecret = null;
+            setNotice("step2Notice", "账号信息未通过", message, "error");
+            return;
+          }
+        }
         currentParsedSecret = result.data;
         const checkbox = document.getElementById("overwriteRecharge");
         if (checkbox) checkbox.checked = false;

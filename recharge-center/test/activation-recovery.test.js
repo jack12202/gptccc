@@ -73,3 +73,14 @@ test('reopened failed submission stays in assistance state instead of auto submi
   assert.match(p.node('step1Notice').innerHTML,/已提交，等待处理/);
   assert.doesNotMatch(p.node('step1Notice').innerHTML,/未使用|可继续激活|充值失败/);
 });
+
+test('ZZS account check rejects an incomplete Session before the confirmation step',async()=>{
+  const p=page(async()=>{throw Error('no request expected');});
+  p.run('currentProvider="zzshu"');
+  p.node('secretJson').value=JSON.stringify({user:{id:'user',email:'first@example.test'},
+    account:{id:'account',planType:'free'},accessToken:'fixture',expires:'2040-01-01'});
+  await p.run('parseSecret()');
+  assert.match(p.node('step2Notice').innerHTML,/sessionToken/);
+  assert.equal(p.run('currentParsedSecret'),null);
+  assert.equal(p.run('currentStep'),1);
+});

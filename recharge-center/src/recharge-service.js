@@ -1037,6 +1037,13 @@ export const rechargeService = {
     const canonicalCardInfo = canonicalLocalCardCode(input.cardInfo);
     const normalizedInput = { ...input, cardInfo: canonicalCardInfo };
     const unifiedCard = store.getHCardByCode(canonicalCardInfo);
+    const unifiedRoute = unifiedCard?.unified
+      ? unifiedCard.routedProvider || (store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h")
+      : "";
+    if (unifiedRoute === "zzshu" && !input.dryRun) {
+      const validation = zzshuService.validateSession(normalizedInput);
+      if (!validation.ok) return { ok: false, status: 400, message: validation.message };
+    }
     if (unifiedCard && !input.dryRun) {
       const parsedBinding = parseRechargeInput(normalizedInput);
       if (!parsedBinding.ok) return { ok: false, status: 400, message: parsedBinding.message };
@@ -1054,10 +1061,9 @@ export const rechargeService = {
     if (unifiedCard?.unified) {
       const parsedUnified = parseRechargeInput(normalizedInput);
       if (!parsedUnified.ok) return { ok: false, status: 400, message: parsedUnified.message };
-      const route = unifiedCard.routedProvider || (store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h");
-      const claim = store.claimUnifiedPlus(canonicalCardInfo, route);
+      const claim = store.claimUnifiedPlus(canonicalCardInfo, unifiedRoute);
       if (!claim.ok) return { ok: false, status: 409, message: claim.message };
-      if (route === "zzshu") return zzshuService.confirm(normalizedInput);
+      if (unifiedRoute === "zzshu") return zzshuService.confirm(normalizedInput);
     }
     if (isZzshuVoucher(canonicalCardInfo) || !unifiedCard && resolveProvider(input.provider) === "zzshu") return zzshuService.confirm(normalizedInput);
     const { cardInfo, productId, overwriteRecharge, siteSource } = normalizedInput;

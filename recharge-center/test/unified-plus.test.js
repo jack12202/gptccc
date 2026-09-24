@@ -36,6 +36,13 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   const session = JSON.stringify({ user: { id: "user", email: "new@example.test" },
     account: { id: "account", planType: "free" }, accessToken: "fixture-access",
     sessionToken: "fixture-session", expires: "2040-01-01" });
+  const incomplete = JSON.parse(session);
+  delete incomplete.sessionToken;
+  const invalid = await rechargeService.confirmRecharge({ cardInfo: first.code, provider: "h", secretJsonText: JSON.stringify(incomplete) });
+  assert.equal(invalid.ok, false);
+  assert.match(invalid.message, /sessionToken/);
+  assert.equal(local.getHCardByCode(first.code).boundEmail, "");
+  assert.equal(zzshuService.store.voucher(first.code).status, "unused");
   const unavailable = await rechargeService.confirmRecharge({ cardInfo: first.code, provider: "h", secretJsonText: session });
   assert.equal(unavailable.ok, false);
   assert.match(unavailable.message, /暂无可用支付卡/);

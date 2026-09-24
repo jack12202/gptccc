@@ -48,8 +48,31 @@ function session(input) {
       !data.account?.id || data.account?.planType !== "free" || !data.accessToken || !data.sessionToken || !data.expires) return null;
   return data;
 }
+function sessionValidation(input) {
+  let data;
+  try { data = typeof input === "string" ? JSON.parse(input) : input; }
+  catch { return { ok: false, message: "Session JSON 格式无效，请重新复制完整内容。" }; }
+  if (data?.fullAuthData) data = data.fullAuthData;
+  if (typeof data === "string") {
+    try { data = JSON.parse(data); }
+    catch { return { ok: false, message: "Session JSON 中的 fullAuthData 格式无效。" }; }
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data))
+    return { ok: false, message: "请粘贴完整账号 Session JSON。" };
+  if (!data.user?.id || !data.user?.email || !data.account?.id)
+    return { ok: false, message: "Session JSON 缺少账号 user.id、user.email 或 account.id，请重新获取完整内容。" };
+  if (data.account.planType !== "free")
+    return { ok: false, message: "ZZS 当前仅支持免费账号开通 Plus；请确认该账号的 Session JSON 中 account.planType 为 free。" };
+  if (!data.accessToken || !data.sessionToken || !data.expires)
+    return { ok: false, message: "Session JSON 缺少 accessToken、sessionToken 或 expires，请重新获取完整内容。" };
+  return { ok: true, data };
+}
 export const zzshuService = {
   store,
+  validateSession(input) {
+    const raw = typeof input.secretJsonText === "string" ? input.secretJsonText : input.fullAuthData;
+    return sessionValidation(raw);
+  },
   async listHifupayAssignments(refresh = false) {
     if (refresh) {
       const result = await hifupayAdapter.listCards({ fresh: true });
@@ -189,7 +212,8 @@ export const zzshuService = {
         ...(ready ? { data: { preflight: true, ready: true, provider: "zzshu" } } :
           { message: "测试请求的卡密、支付资料或订单预留未就绪" }) };
     }
-    if (!codePattern.test(code) || !token) return { ok: false, status: 400, message: "需要有效的 Plus 卡密和完整账号 Session JSON" };
+    if (!codePattern.test(code)) return { ok: false, status: 400, message: "Plus 卡密格式不正确" };
+    if (!token) return { ok: false, status: 400, message: sessionValidation(rawSession).message };
     const reject = (status, message, reason) => {
       if (config.zzshuTestMode && sha256(code) === config.zzshuTestVoucherHash) {
         try { store.audit("test-voucher", "pre_submit_rejected", reason); } catch { /* Preserve the rejection response. */ }
