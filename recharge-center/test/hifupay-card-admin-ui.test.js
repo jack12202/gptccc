@@ -23,6 +23,7 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(html, /<h1>支付卡池<\/h1>/);
   assert.match(html, /全部支付卡/);
   assert.match(html, /导入手动支付卡/);
+  assert.match(html, /批量设置总次数/);
   assert.ok(html.indexOf('id="importPanel"') < html.indexOf('<h2>全部支付卡</h2>'));
   assert.match(html, /id="importPanel" open/);
   assert.doesNotMatch(html, /嗨付支付卡<\/a>|ZZS 支付卡<\/a>/);
@@ -33,21 +34,22 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   const elements = new Map();
   const document = { getElementById(id) {
     if (!elements.has(id)) elements.set(id, { value: "", innerHTML: "", textContent: "", disabled: false, dataset: {},
-      classList: { toggle() {}, add() {}, remove() {} } });
+      classList: { toggle() {}, add() {}, remove() {} }, querySelectorAll() { return []; } });
     return elements.get(id);
   } };
   const h = { id: "h-1", lastFour: "1001", enabled: true, status: "active", poolStatus: "ready", balance: 40,
     usedCount: 1, frozenCount: 1, maxUses: 4, remainingUses: 2, priority: 0, plusUsers: [{ email: "h@example.test" }] };
   const manual = { id: "m-1", lastFour: "2002", credentialSource: "manual", source: "团购", enabled: true,
     successCount: 1, frozenUses: 0, maxSuccess: 3, remainingUses: 2, successfulAccounts: [{ email: "m@example.test" }] };
-  const calls = [];
-  const context = vm.createContext({ document, window: { adminApi: async url => {
+  const calls = [], writes = [];
+  const context = vm.createContext({ document, window: { adminApi: async (url, options) => {
     calls.push(url);
+    if (options?.method === "POST") { writes.push({ url, body: JSON.parse(options.body) }); return {}; }
     if (url.startsWith("/api/admin/hifupay/cards")) return { cards: [h] };
     if (url === "/api/admin/zzshu/cards") return [manual, { ...manual, credentialSource: "hifupay", id: "duplicate" }];
     if (url === "/api/admin/zzshu/import-status") return { ready: true, message: "可导入" };
     throw Error("unexpected endpoint: " + url);
-  } }, confirm: () => true, prompt: () => null });
+  } }, confirm: () => true, prompt: () => "5" });
   vm.runInContext(script, context);
   await vm.runInContext("load()", context);
   const rows = document.getElementById("cards");
@@ -63,6 +65,9 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(rows.innerHTML, /剩余 <strong>2<\/strong> \/ 总 4/);
   assert.match(document.getElementById("total").textContent, /2 \/ 2/);
   vm.runInContext("expanded.add('manual:m-1');render()", context);
+  assert.match(rows.innerHTML, /class="history-item"/);
+  assert.match(rows.innerHTML, /class="history-email">m@example.test/);
+  assert.match(rows.innerHTML, /class="history-meta"/);
   assert.match(rows.innerHTML, /data-action="manual-cap"/);
   assert.match(rows.innerHTML, /data-action="manual-retire"/);
   vm.runInContext("expanded.add('h:h-1');render()", context);
@@ -73,6 +78,19 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(rows.innerHTML, /•••• 2002/);
   assert.doesNotMatch(rows.innerHTML, /•••• 1001/);
   assert.ok(calls.includes("/api/admin/zzshu/cards"));
+  document.getElementById("search").value = "";
+  document.getElementById("search").oninput();
+  document.getElementById("selectPage").onclick();
+  assert.equal(document.getElementById("selectedCount").textContent, "已选 2 张");
+  await document.getElementById("bulkbar").onclick({ target: { closest: () => ({ dataset: { bulk: "disable" } }) } });
+  assert.deepEqual(writes.map(write => write.url), ["/api/admin/hifupay/cards/h-1/disable", "/api/admin/zzshu/cards/m-1"]);
+  assert.equal(document.getElementById("selectedCount").textContent, "已选 0 张");
+  document.getElementById("selectPage").onclick();
+  await document.getElementById("bulkbar").onclick({ target: { closest: () => ({ dataset: { bulk: "cap" } }) } });
+  assert.deepEqual(writes.slice(2), [
+    { url: "/api/admin/hifupay/cards/h-1/settings", body: { field: "maxUses", value: 5 } },
+    { url: "/api/admin/zzshu/cards/m-1", body: { maxSuccess: 5, note: "" } }
+  ]);
   vm.runInContext("cards.push({...cards[0],uid:'h:paused',id:'paused',state:'disabled',channels:[],remaining:5});render()", context);
   assert.match(document.getElementById("stats").innerHTML, /<strong>4<\/strong><small>当前可轮选次数/);
   assert.match(document.getElementById("stats").innerHTML, /<strong>9<\/strong><small>卡池剩余总次数（含不可轮选）/);
