@@ -42,6 +42,7 @@ test("admin can resolve an unknown ZZS order once and separately confirm renewal
   assert.equal(record.customerCardId, "");
   assert.equal(record.paymentCardLastFour, "4242");
   assert.equal(record.accountId, "account-1");
+  assert.equal(record.salesChannel, "fixture");
   assert.equal(record.status, "needs_review");
   assert.equal(record.hasUpstreamQueryKey, false);
   assert.match(record.processingNote, /创建响应丢失/);

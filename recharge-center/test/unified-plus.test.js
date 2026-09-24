@@ -18,7 +18,7 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   const { JsonStore } = await import("../src/store.js");
   const local = new JsonStore(process.env.DATA_FILE);
   const old = local.createHCards({ count: 1 })[0];
-  const created = rechargeService.createHCards({ count: 2, plan: "plus" });
+  const created = rechargeService.createHCards({ count: 2, plan: "plus", source: "微信" });
   assert.equal(created.ok, true);
   const [first, second] = created.data.cards;
   assert.equal(local.getHCardByCode(old.code).unified, false);
@@ -89,6 +89,7 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   assert.equal(linked.customerCardId, first.id);
   assert.equal(linked.customerCardCode, first.code);
   assert.equal(linked.provider, "zzshu");
+  assert.equal(linked.salesChannel, "微信");
   assert.equal(linked.paymentCardLastFour, "4242");
   assert.equal(local.getHCardByCode(first.code).status, "used");
   assert.equal(zzshuService.store.voucher(first.code).status, "used");

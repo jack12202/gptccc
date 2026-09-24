@@ -706,7 +706,8 @@ export const rechargeService = {
     const customerCardFields = card => ({
       customerCardId: card?.id || "",
       customerCardCode: card?.code || "",
-      customerCardMask: card?.cardMask || ""
+      customerCardMask: card?.cardMask || "",
+      salesChannel: card?.source || ""
     });
     const primaryRecords = store.listRechargeOrders().map(item => ({
       ...item,
@@ -717,6 +718,7 @@ export const rechargeService = {
       const legacyCode = linkedCard ? "" : decryptSecretText(item.voucherCipher, config.recoveryEncryptionKey, "zzshu-voucher");
       return {
         ...customerCardFields(linkedCard),
+        salesChannel: linkedCard?.source || item.voucherSource || "",
         ...(legacyCode ? { customerCardCode: legacyCode, customerCardMask: maskCard(legacyCode) } : {}),
         id: item.id, provider: "zzshu", cardMask: item.lastFour ? `****${item.lastFour}` : "", productId: config.hifupayProductId,
         paymentCardLastFour: item.lastFour || "",

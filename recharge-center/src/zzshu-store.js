@@ -322,7 +322,7 @@ export class ZzshuStore {
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
   listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
     o.review_reason AS reviewReason,o.cancellation,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,c.last_four AS lastFour,
-    v.code_hash AS voucherHash,v.code_cipher AS voucherCipher,o.created_at AS createdAt,o.updated_at AS updatedAt
+    v.code_hash AS voucherHash,v.code_cipher AS voucherCipher,v.source AS voucherSource,o.created_at AS createdAt,o.updated_at AS updatedAt
     FROM orders o JOIN payment_cards c ON c.id=o.card_id JOIN vouchers v ON v.id=o.voucher_id ORDER BY o.created_at DESC`).all(); }
   orderSummary() {
     const counts = this.db.prepare(`SELECT

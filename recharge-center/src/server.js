@@ -357,7 +357,7 @@ function serveHCardAdmin(res) {
       <div class="form">
         <label>卡密套餐<select id="plan"><option value="plus">Plus</option><option value="pro_x5">Pro 5x</option><option value="pro_x20">Pro 20x</option></select></label>
         <label>生成数量<input id="count" type="number" min="1" max="100" value="10"></label>
-        <label>销售来源<select id="source"><option>卡网</option><option>微信</option><option>漫飞公司</option><option value="custom">其他</option></select><input id="customSource" type="text" maxlength="40" placeholder="请备注来源，例如：秋风店铺" hidden></label>
+        <label>销售渠道<select id="source"><option>卡网</option><option>微信</option><option>代理</option><option>漫飞公司</option><option value="custom">其他</option></select><input id="customSource" type="text" maxlength="40" placeholder="例如：代理张三、某公司团购" hidden></label>
         <button id="generate" type="button">生成卡密</button>
       </div>
       <div class="status" id="statusBox">选择数量和来源后生成。</div>
@@ -906,6 +906,7 @@ function serveRecoveryAdmin(res) {
     .state-badge.warning { color: #92400e; background: #fffbeb; }
     .state-badge.progress { color: #1d4ed8; background: #eff6ff; }
     .status-note { font-size: 11px; }
+    .sales-channel { display:inline-block; margin-top:7px; padding:2px 7px; border-radius:5px; background:#eef4ff; color:#254887; font-size:11px; font-weight:650; }
     .action-cell, th:last-child { position: sticky; right: 0; background: #fff; box-shadow: -5px 0 8px -8px #64748b; }
     .action-cell .row-actions { gap: 5px; flex-wrap: nowrap; align-items: center; }
     .action-cell button { padding: 0 7px; font-size: 12px; white-space: nowrap; }
@@ -932,11 +933,11 @@ function serveRecoveryAdmin(res) {
     <section>
       <div id="cardOrderFilter" class="hint" style="display:none;margin-top:14px">正在查看指定客户卡密的全部订单 <button class="secondary" id="clearCardOrderFilter" type="button">查看全部订单</button></div>
       <div class="quick-filters" id="recordQuickFilters"><button class="secondary" id="filterAll" data-filter="">全部订单</button><button class="secondary" id="filterAttention" data-filter="attention">需要处理</button><button class="secondary" id="filterSuccess" data-filter="success">充值成功</button></div>
-      <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="邮箱、账号 UUID、客户卡密或支付卡尾号"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需要跟进</option><option value="manual_queued">待人工</option><option value="manual_processing">人工处理中</option><option value="needs_info">需补资料</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>通道<select id="providerFilter"><option value="">全部通道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
+      <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="邮箱、UUID、卡密、销售渠道或支付卡尾号"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需要跟进</option><option value="manual_queued">待人工</option><option value="manual_processing">人工处理中</option><option value="needs_info">需补资料</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>充值协议<select id="providerFilter"><option value="">全部协议</option></select></label><label>销售渠道<select id="salesChannelFilter"><option value="">全部渠道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
       <p class="hint">人工充值完成后再点击“确认充值成功”；该按钮只更新本站订单和卡密状态，不会再次调用充值通道。自动任务“待确认”时请先核实原任务，不要直接补充充值。</p>
       <div class="table-wrap">
         <table><colgroup><col style="width:25%"><col style="width:22%"><col style="width:9%"><col style="width:17%"><col style="width:12%"><col style="width:15%"></colgroup>
-          <thead><tr><th>账号</th><th>客户卡密 / 通道</th><th>支付卡</th><th>状态</th><th>提交时间</th><th>操作</th></tr></thead>
+          <thead><tr><th>账号</th><th>客户卡密 / 充值协议</th><th>支付卡</th><th>状态</th><th>提交时间</th><th>操作</th></tr></thead>
           <tbody id="recoveries"><tr><td class="empty" colspan="6">暂无充值记录</td></tr></tbody>
         </table>
       </div>
@@ -1007,24 +1008,25 @@ function serveRecoveryAdmin(res) {
         const date = formatDate(item.createdAt);
         return '<tr class="record-row">'
           + '<td><div class="account-email" title="' + escapeHtml(item.userEmail || "") + '">' + escapeHtml(item.userEmail || "-") + '</div><div class="muted mono">UUID：' + escapeHtml(shortValue(item.accountId) || "未留存") + (item.accountId ? ' <button class="copy-inline" data-action="copy-uuid" data-order-id="' + id + '" aria-label="复制完整账号 UUID">复制</button>' : '') + '</div></td>'
-          + '<td><div class="mono">' + escapeHtml(shortValue(cardValue(item))) + ' <button class="copy-inline" data-action="copy-card" data-order-id="' + id + '" aria-label="复制完整客户卡密">复制</button></div><div class="muted">' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") : "Plus") + ' · ' + escapeHtml(item.fulfillmentMode === "manual" ? "人工" : ({zzshu:"ZZS",h:"嗨付",hifupay:"嗨付"})[item.provider] || item.provider || "-") + '</div></td>'
+          + '<td><div class="mono">' + escapeHtml(shortValue(cardValue(item))) + ' <button class="copy-inline" data-action="copy-card" data-order-id="' + id + '" aria-label="复制完整客户卡密">复制</button></div><div class="muted">' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") : "Plus") + ' · ' + escapeHtml(item.fulfillmentMode === "manual" ? "人工" : ({zzshu:"ZZS",h:"嗨付",hifupay:"嗨付"})[item.provider] || item.provider || "-") + '</div>' + (item.salesChannel ? '<span class="sales-channel">销售渠道：' + escapeHtml(item.salesChannel) + '</span>' : '<span class="muted">销售渠道：未记录</span>') + '</td>'
           + '<td class="mono">' + (item.paymentCardLastFour || item.hifupayCardLastFour ? '****' + escapeHtml(item.paymentCardLastFour || item.hifupayCardLastFour) : '-') + '</td>'
           + '<td><span class="state-badge ' + badge + '">' + escapeHtml(statusLabel(item.status)) + '</span><div class="muted status-note">' + escapeHtml(note) + '</div></td>'
           + '<td><time>' + escapeHtml(date).split(' ').map((part, index) => index ? '<span class="muted">' + part + '</span>' : part).join('<br>') + '</time></td>'
           + '<td class="action-cell"><div class="row-actions">' + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情') + '</button></div></td></tr>'
-          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div></div><div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
+          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div></div><div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
       }).join("");
     }
     function applyRecordFilters() {
       const keyword = document.getElementById("recordSearch").value.trim().toLowerCase();
       const status = document.getElementById("statusFilter").value;
       const provider = document.getElementById("providerFilter").value;
+      const salesChannel = document.getElementById("salesChannelFilter").value;
       const records = allRecords.filter(item => {
         const matchesStatus = !status || (status === "attention" ? needsFollowup(item) : item.status === status);
         return (!selectedCardId || item.customerCardId === selectedCardId)
-          && (!keyword || [item.userEmail, item.accountId, item.customerCardCode, item.customerCardMask, item.cardMask, item.paymentCardLastFour, item.hifupayCardLastFour, item.id]
+          && (!keyword || [item.userEmail, item.accountId, item.customerCardCode, item.customerCardMask, item.cardMask, item.paymentCardLastFour, item.hifupayCardLastFour, item.salesChannel, item.id]
             .some(value => String(value || "").toLowerCase().includes(keyword)))
-          && matchesStatus && (!provider || item.provider === provider);
+          && matchesStatus && (!provider || item.provider === provider) && (!salesChannel || item.salesChannel === salesChannel);
       });
       for (const [id, value] of [["filterAll", ""], ["filterAttention", "attention"], ["filterSuccess", "success"]]) {
         document.getElementById(id).classList.toggle("active", status === value);
@@ -1070,8 +1072,13 @@ function serveRecoveryAdmin(res) {
         const providerSelect = document.getElementById("providerFilter");
         const selectedProvider = providerSelect.value;
         const providers = [...new Set(allRecords.map(item => item.provider).filter(Boolean))].sort();
-        providerSelect.innerHTML = '<option value="">全部通道</option>' + providers.map(value => '<option value="' + escapeHtml(value) + '">' + escapeHtml(value) + '</option>').join("");
+        providerSelect.innerHTML = '<option value="">全部协议</option>' + providers.map(value => '<option value="' + escapeHtml(value) + '">' + escapeHtml(value) + '</option>').join("");
         providerSelect.value = selectedProvider;
+        const channelSelect = document.getElementById("salesChannelFilter");
+        const selectedChannel = channelSelect.value;
+        const channels = [...new Set(allRecords.map(item => item.salesChannel).filter(Boolean))].sort();
+        channelSelect.innerHTML = '<option value="">全部渠道</option>' + channels.map(value => '<option value="' + escapeHtml(value) + '">' + escapeHtml(value) + '</option>').join("");
+        channelSelect.value = selectedChannel;
         applyRecordFilters();
         const pending = allRecords.filter(needsFollowup);
         notifyNew(pending);
@@ -1109,7 +1116,7 @@ function serveRecoveryAdmin(res) {
       document.getElementById("cardOrderFilter").style.display = "none";
       currentPage = 1; applyRecordFilters();
     });
-    for (const [id, eventName] of [["recordSearch", "input"], ["statusFilter", "change"], ["providerFilter", "change"]]) {
+    for (const [id, eventName] of [["recordSearch", "input"], ["statusFilter", "change"], ["providerFilter", "change"], ["salesChannelFilter", "change"]]) {
       document.getElementById(id).addEventListener(eventName, () => { currentPage = 1; applyRecordFilters(); });
     }
     document.getElementById("recordQuickFilters").addEventListener("click", event => {
