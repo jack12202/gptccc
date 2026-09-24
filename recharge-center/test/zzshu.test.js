@@ -16,6 +16,14 @@ test("strict comma import, expiry, batch duplicates and masked preview", () => {
   assert.equal(JSON.stringify(publicPreview(rows)).includes("123"),false);
 });
 
+test("ZZS space-separated card format imports with year-month expiry and masked preview", () => {
+  const rows = parsePaymentCards(`${fakePan} 813 2028-09\n${fakePan},09/28,813\n4242424242424243 813 2020-09\n4242424242424244 813 2028-13`, new Set(), new Date("2026-09-01"));
+  assert.deepEqual(rows.map(row => row.status), ["ready", "duplicate", "error", "error"]);
+  assert.deepEqual(rows[0].payment, { cardNumber: fakePan, expMonth: 9, expYear: 2028, cvv: "813" });
+  assert.equal(JSON.stringify(publicPreview(rows)).includes(fakePan), false);
+  assert.equal(JSON.stringify(publicPreview(rows)).includes("813"), false);
+});
+
 test("atomic reservation, provider-scoped vouchers, serial card, exactly-once success and restart", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(),"zzshu-test-"));
   try {
