@@ -668,22 +668,40 @@ export const rechargeService = {
   },
 
   listRechargeSubmissions() {
-    const primaryRecords = store.listRechargeOrders();
-    const zzshuRecords = zzshuService.store.listOrders().map(item => ({
-      id: item.id, provider: "zzshu", cardMask: item.lastFour ? `****${item.lastFour}` : "", productId: config.hifupayProductId,
-      plan: "plus", fulfillmentMode: "auto", processingNote: item.reviewReason || "", paymentConfirmed: item.status === "success",
-      waitingMinutes: Math.max(0, Math.floor((Date.now() - Date.parse(item.createdAt)) / 60000)), status: item.status,
-      upstreamTaskId: item.upstreamOrderNo || "", providerSessionId: "", hifupayCardId: "", hifupayCardLastFour: "",
-      hifupaySafetyStatus: "", hifupayUnpaidConfirmationCount: 0, userEmail: item.email || "",
-      message: item.status === "success" ? "Plus 已开通" : item.status === "failed" ? "明确未支付" : item.reviewReason || "正在处理或待确认",
-      subscriptionCancellationStatus: item.cancellation || "", subscriptionActionRequired: false,
-      subscriptionActionMessage: item.status === "success" && item.cancellation !== "cancelled" ? "充值成功，正在等待 ZZS 确认自动续费已关闭。" : "",
-      subscriptionActionDetectedAt: "", subscriptionActionHandledAt: "",
-      needsAttention: item.status === "needs_review" || item.status === "success" && item.cancellation !== "cancelled",
-      hasUpstreamQueryKey: Boolean(item.hasUpstreamQueryKey),
-      createdAt: item.createdAt, updatedAt: item.updatedAt,
-      hasSecret: Boolean(zzshuService.store.sessionCipher(item.id)), hasOriginalJson: Boolean(zzshuService.store.sessionCipher(item.id)), hCardCodeAvailable: false
+    const customerCards = store.listHCards(1, true, true, true);
+    const cardsById = new Map(customerCards.map(card => [card.id, card]));
+    const cardsByHash = new Map(customerCards.filter(card => card.code).map(card => [sha256(card.code), card]));
+    const customerCardFields = card => ({
+      customerCardId: card?.id || "",
+      customerCardCode: card?.code || "",
+      customerCardMask: card?.cardMask || ""
+    });
+    const primaryRecords = store.listRechargeOrders().map(item => ({
+      ...item,
+      ...customerCardFields(cardsById.get(item.hCardId))
     }));
+    const zzshuRecords = zzshuService.store.listOrders().map(item => {
+      const linkedCard = cardsByHash.get(item.voucherHash);
+      const legacyCode = linkedCard ? "" : decryptSecretText(item.voucherCipher, config.recoveryEncryptionKey, "zzshu-voucher");
+      return {
+        ...customerCardFields(linkedCard),
+        ...(legacyCode ? { customerCardCode: legacyCode, customerCardMask: maskCard(legacyCode) } : {}),
+        id: item.id, provider: "zzshu", cardMask: item.lastFour ? `****${item.lastFour}` : "", productId: config.hifupayProductId,
+        paymentCardLastFour: item.lastFour || "",
+        plan: "plus", fulfillmentMode: "auto", processingNote: item.reviewReason || "", paymentConfirmed: item.status === "success",
+        waitingMinutes: Math.max(0, Math.floor((Date.now() - Date.parse(item.createdAt)) / 60000)), status: item.status,
+        upstreamTaskId: item.upstreamOrderNo || "", providerSessionId: "", hifupayCardId: "", hifupayCardLastFour: "",
+        hifupaySafetyStatus: "", hifupayUnpaidConfirmationCount: 0, userEmail: item.email || "",
+        message: item.status === "success" ? "Plus 已开通" : item.status === "failed" ? "明确未支付" : item.reviewReason || "正在处理或待确认",
+        subscriptionCancellationStatus: item.cancellation || "", subscriptionActionRequired: false,
+        subscriptionActionMessage: item.status === "success" && item.cancellation !== "cancelled" ? "充值成功，正在等待 ZZS 确认自动续费已关闭。" : "",
+        subscriptionActionDetectedAt: "", subscriptionActionHandledAt: "",
+        needsAttention: item.status === "needs_review" || item.status === "success" && item.cancellation !== "cancelled",
+        hasUpstreamQueryKey: Boolean(item.hasUpstreamQueryKey),
+        createdAt: item.createdAt, updatedAt: item.updatedAt,
+        hasSecret: Boolean(zzshuService.store.sessionCipher(item.id)), hasOriginalJson: Boolean(zzshuService.store.sessionCipher(item.id)), hCardCodeAvailable: false
+      };
+    });
     const records = [...primaryRecords, ...zzshuRecords]
       .sort((left, right) => String(right.updatedAt || right.createdAt).localeCompare(String(left.updatedAt || left.createdAt)));
     return {

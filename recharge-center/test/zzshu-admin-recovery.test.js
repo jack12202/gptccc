@@ -13,10 +13,12 @@ test("admin can resolve an unknown ZZS order once and separately confirm renewal
   process.env.RECOVERY_ENCRYPTION_KEY = "fixture-encryption-key";
   const { sharedZzshuStore: store } = await import("../src/zzshu-store.js");
   const { parsePaymentCards } = await import("../src/zzshu-cards.js");
+  const { encryptSecretText } = await import("../src/utils.js");
   const { server } = await import("../src/server.js");
   store.addPaymentCard(parsePaymentCards("4242424242424242,12/40,123")[0],
     { credentialRef: "fixture-ref", source: "fixture", note: "", enabled: true, maxSuccess: 2 });
-  const [voucher] = store.createVouchers(1, "fixture", 3, () => "fixture-cipher");
+  const [voucher] = store.createVouchers(1, "fixture", 3,
+    code => encryptSecretText(code, "fixture-encryption-key", "zzshu-voucher"));
   const order = store.reserve(voucher.code, "fixture@example.test", "account-1");
   store.markSubmitting(order.orderId);
   store.review(order.orderId, "创建响应丢失，等待核查");
@@ -36,6 +38,9 @@ test("admin can resolve an unknown ZZS order once and separately confirm renewal
   });
   const before = await fetch(base + "/api/admin/recharge-records", { headers: { Cookie: cookie } }).then(response => response.json());
   const record = before.data.records.find(item => item.id === order.orderId);
+  assert.equal(record.customerCardCode, voucher.code);
+  assert.equal(record.customerCardId, "");
+  assert.equal(record.paymentCardLastFour, "4242");
   assert.equal(record.status, "needs_review");
   assert.equal(record.hasUpstreamQueryKey, false);
   assert.match(record.processingNote, /创建响应丢失/);

@@ -1432,13 +1432,20 @@ export class JsonStore {
   listRechargeOrders() {
     const state = this.read();
     const sessions = new Map(state.rechargeSessions.map(session => [session.orderId, session]));
+    const cardsById = new Map(state.hCards.map(card => [card.id, card]));
+    const cardsByOrderId = new Map(state.hCards.filter(card => card.orderId).map(card => [card.orderId, card]));
+    const cardsByHash = new Map(state.hCards.map(card => [card.codeHash, card]));
     return state.orders
       .sort((left, right) => String(right.updatedAt || right.createdAt).localeCompare(String(left.updatedAt || left.createdAt)))
       .map(order => {
         const session = sessions.get(order.id);
+        const storedCode = order.cardInfoCiphertext ? decryptProtected(order.cardInfoCiphertext, "recharge-card-info") : "";
+        const customerCard = cardsById.get(order.hCardId) || cardsByOrderId.get(order.id)
+          || (storedCode ? cardsByHash.get(cardCodeHash(storedCode.trim().toUpperCase())) : null);
         return {
           id: order.id,
           provider: order.provider,
+          hCardId: customerCard?.id || order.hCardId || "",
           cardMask: order.cardMask,
           productId: order.productId,
           plan: order.plan || "plus",
@@ -1465,7 +1472,7 @@ export class JsonStore {
           updatedAt: order.updatedAt,
           hasSecret: Boolean(session?.authDataCiphertext || session?.authDataEncoded),
           hasOriginalJson: Boolean(session?.rawSecretCiphertext || session?.authDataCiphertext || session?.authDataEncoded),
-          hCardCodeAvailable: Boolean(order.hCardId && this.getHCardCode(order.hCardId))
+          hCardCodeAvailable: Boolean(customerCard?.codeCiphertext && decryptProtected(customerCard.codeCiphertext, "h-card-code"))
         };
       });
   }

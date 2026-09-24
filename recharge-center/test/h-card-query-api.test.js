@@ -161,6 +161,8 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   const successRecord = recordsPayload.data.records.find(item => item.id === successOrder.id);
   assert.equal(successRecord.hifupayCardId, "7172");
   assert.equal(successRecord.hifupayCardLastFour, "4113");
+  assert.equal(successRecord.customerCardId, cards[3].id);
+  assert.equal(successRecord.customerCardCode, cards[3].code);
 
   const tooMany = await post("/api/admin/h-cards/query", { inputs: Array.from({ length: 101 }, () => cards[0].code) }, { token: "query-test-admin-token" });
   assert.equal(tooMany.response.status, 400);

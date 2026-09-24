@@ -78,6 +78,11 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   assert.equal(duplicate.data.orderId, started.data.orderId);
   assert.equal(creates, 1);
   assert.equal((await rechargeService.getStatus(started.data.orderId)).data.status, "success");
+  const linked = rechargeService.listRechargeSubmissions().data.records.find(item => item.id === started.data.orderId);
+  assert.equal(linked.customerCardId, first.id);
+  assert.equal(linked.customerCardCode, first.code);
+  assert.equal(linked.provider, "zzshu");
+  assert.equal(linked.paymentCardLastFour, "4242");
   assert.equal(local.getHCardByCode(first.code).status, "used");
   assert.equal(zzshuService.store.voucher(first.code).status, "used");
   assert.equal((await rechargeService.verifyCard(first.code, "h")).ok, false);

@@ -137,3 +137,24 @@ test("historical recharge JSON can be purged without deleting recharge records",
   assert.equal(records.find(item => item.id === oldOrder.id).hasOriginalJson, false);
   assert.equal(records.find(item => item.id === newOrder.id).hasOriginalJson, true);
 });
+
+test("older H orders remain linked after the same customer card starts another order", async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-card-history-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const { JsonStore } = await import("../src/store.js");
+  const { encryptSecretText } = await import("../src/utils.js");
+  const { config } = await import("../src/config.js");
+  const store = new JsonStore(path.join(dir, "orders.json"));
+  const [card] = store.createHCards({ count: 1 });
+  const key = config.recoveryEncryptionKey || config.adminToken || "local-development-only";
+  const first = store.createOrder({ provider: "h", status: "failed",
+    cardInfoCiphertext: encryptSecretText(card.code, key, "recharge-card-info") });
+  assert.equal(store.reserveHCard(card.code, first.id, { email: "same@example.test" }).ok, true);
+  assert.equal(store.unlockHCard(store.getHCardByCode(card.code).id).ok, true);
+  const next = store.createOrder({ provider: "h", status: "processing",
+    cardInfoCiphertext: encryptSecretText(card.code, key, "recharge-card-info") });
+  assert.equal(store.reserveHCard(card.code, next.id, { email: "same@example.test" }).ok, true);
+  const records = store.listRechargeOrders();
+  assert.equal(records.find(item => item.id === first.id).hCardId, card.id);
+  assert.equal(records.find(item => item.id === next.id).hCardId, card.id);
+});
