@@ -30,7 +30,7 @@ test('customer card library searches partial codes and copies the successful ord
     {id:'card-c',code:third,plan:'plus',status:'unused',source:'fixture'}
   ];
   const records = [
-    {id:'newer-failed',customerCardId:'card-a',customerCardCode:first,paymentCardLastFour:'9911',provider:'zzshu',status:'failed',createdAt:'2026-09-24T12:00:00Z',hasOriginalJson:true,userEmail:'alice@example.test'},
+    {id:'newer-failed',customerCardId:'card-a',customerCardCode:first,paymentCardLastFour:'9911',provider:'zzshu',status:'failed',createdAt:'2026-09-24T12:00:00Z',hasOriginalJson:true,userEmail:'alice@example.test',accountId:'2628a750-ef4f-4cd3-a417-6626e9ab4f80'},
     {id:'successful',customerCardId:'card-a',customerCardCode:first,paymentCardLastFour:'9911',provider:'zzshu',status:'success',createdAt:'2026-09-23T12:00:00Z',hasOriginalJson:true,userEmail:'alice@example.test'},
     {id:'missing-json',customerCardId:'card-b',customerCardCode:second,hifupayCardLastFour:'5664',provider:'h',status:'failed',createdAt:'2026-09-24T11:00:00Z',hasOriginalJson:false,userEmail:'bob@example.test'}
   ];
@@ -92,6 +92,7 @@ test('customer card library searches partial codes and copies the successful ord
   await vm.runInContext('loadRecoveries()',orderContext);
   assert.equal(orderElement('recoveryCount').textContent,'2 / 3 条');
   assert.match(orderElement('recoveries').innerHTML,new RegExp(first));
+  assert.match(orderElement('recoveries').innerHTML,/UUID：2628a750-ef4f-4cd3-a417-6626e9ab4f80/);
   assert.match(orderElement('recoveries').innerHTML,/\*\*\*\*9911/);
   assert.doesNotMatch(orderElement('recoveries').innerHTML,/bob@example.test|\*\*\*\*5664/);
   orderElement('clearCardOrderFilter').click();
@@ -99,4 +100,7 @@ test('customer card library searches partial codes and copies the successful ord
   orderElement('recordSearch').value='9d2f';
   vm.runInContext('applyRecordFilters()',orderContext);
   assert.equal(orderElement('recoveryCount').textContent,'3 / 3 条');
+  orderElement('recordSearch').value='2628a750-ef4f-4cd3-a417-6626e9ab4f80';
+  vm.runInContext('applyRecordFilters()',orderContext);
+  assert.equal(orderElement('recoveryCount').textContent,'1 / 3 条');
 });

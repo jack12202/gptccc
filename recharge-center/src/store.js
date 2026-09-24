@@ -409,6 +409,7 @@ export class JsonStore {
       boundAccountId: normalizeAccountId(identity.accountId), boundAt: timestamp, hasSubmission: true, submittedAt: timestamp, updatedAt: timestamp });
     state.orders.push(order);
     state.rechargeSessions.push({ id: makeId("session"), orderId: order.id, userEmail: session.userEmail,
+      accountId: normalizeAccountId(identity.accountId || session.accountId),
       tokenHash: session.tokenHash, authDataCiphertext: session.authDataCiphertext,
       rawSecretCiphertext: session.rawSecretCiphertext, createdAt: timestamp });
     state.rechargeLogs.push({ id: makeId("log"), orderId: order.id, step: "pro.created", requestSummary: "",
@@ -490,6 +491,7 @@ export class JsonStore {
       id: makeId("session"),
       orderId: input.orderId,
       userEmail: input.userEmail || "",
+      accountId: normalizeAccountId(input.accountId),
       tokenHash: input.tokenHash || "",
       authDataCiphertext: input.authDataCiphertext || "",
       rawSecretCiphertext: input.rawSecretCiphertext || "",
@@ -1501,6 +1503,7 @@ export class JsonStore {
           hifupaySafetyStatus: order.hifupaySafetyStatus || "",
           hifupayUnpaidConfirmationCount: Number(order.hifupayUnpaidConfirmationCount || 0),
           userEmail: session?.userEmail || "",
+          accountId: session?.accountId || "",
           message: order.message || "",
           subscriptionCancellationStatus: order.subscriptionCancellationStatus || "",
           subscriptionActionRequired: Boolean(order.subscriptionActionRequired),

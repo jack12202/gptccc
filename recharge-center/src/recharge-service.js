@@ -293,6 +293,11 @@ function parseStoredSecret(order, session) {
   return { ok: true, data: result.data, rawText: raw };
 }
 
+function accountIdFromSecret(secret) {
+  const id = secret?.fullAuthData?.account?.id || secret?.account?.id || "";
+  return typeof id === "string" ? id.trim() : "";
+}
+
 function storedCardCode(order) {
   return decryptProtected(order?.cardInfoCiphertext, "recharge-card-info")
     || (order?.hCardId ? store.getHCardCode(order.hCardId) : "");
@@ -358,6 +363,25 @@ async function reconcileCzgptStatus(adapter, taskData, cardInfo) {
 }
 
 export const rechargeService = {
+  syncRecentAccountIds(days = 7) {
+    const state = store.read();
+    const cutoff = Date.now() - Math.max(1, Number(days) || 7) * 86400000;
+    const sessions = new Map(state.rechargeSessions.map(session => [session.orderId, session]));
+    let scanned = 0, updated = 0, missing = 0;
+    for (const order of state.orders) {
+      if (!Number.isFinite(Date.parse(order.createdAt)) || Date.parse(order.createdAt) < cutoff) continue;
+      const session = sessions.get(order.id);
+      if (!session) continue;
+      scanned++;
+      if (session.accountId) continue;
+      const parsed = parseStoredSecret(order, session);
+      const accountId = parsed.ok ? accountIdFromSecret(parsed.data) : "";
+      if (accountId) { session.accountId = accountId; updated++; }
+      else missing++;
+    }
+    if (updated) store.write(state);
+    return { scanned, updated, missing };
+  },
   getProviderSettings() {
     const settings = store.getSettings();
     const provider = normalizeProvider(settings.defaultProvider, defaultProvider());
@@ -699,7 +723,7 @@ export const rechargeService = {
         plan: "plus", fulfillmentMode: "auto", processingNote: item.reviewReason || "", useResolution: item.useResolution || "", paymentConfirmed: item.status === "success",
         waitingMinutes: Math.max(0, Math.floor((Date.now() - Date.parse(item.createdAt)) / 60000)), status: item.status,
         upstreamTaskId: item.upstreamOrderNo || "", providerSessionId: "", hifupayCardId: "", hifupayCardLastFour: "",
-        hifupaySafetyStatus: "", hifupayUnpaidConfirmationCount: 0, userEmail: item.email || "",
+        hifupaySafetyStatus: "", hifupayUnpaidConfirmationCount: 0, userEmail: item.email || "", accountId: item.accountId || "",
         message: item.status === "success" ? "Plus 已开通" : item.status === "failed" ? "明确未支付" : item.reviewReason || "正在处理或待确认",
         subscriptionCancellationStatus: item.cancellation || "", subscriptionActionRequired: false,
         subscriptionActionMessage: item.status === "success" && item.cancellation !== "cancelled" ? "充值成功，正在等待 ZZS 确认自动续费已关闭。" : "",
@@ -834,7 +858,7 @@ export const rechargeService = {
       }
       return { ok: true, status: 200, data: {
         orderId: zzshuOrder.id, provider: "zzshu", cardMask: zzshuOrder.lastFour ? `****${zzshuOrder.lastFour}` : "",
-        status: zzshuOrder.status, userEmail: zzshuOrder.email || "", message: zzshuOrder.review_reason || "",
+        status: zzshuOrder.status, userEmail: zzshuOrder.email || "", accountId: zzshuOrder.account_id || "", message: zzshuOrder.review_reason || "",
         createdAt: zzshuOrder.created_at, updatedAt: zzshuOrder.updated_at, hasSecret: Boolean(cipher),
         ...(reveal ? { cardInfo: "", secretJsonText, parseMessage: secretJsonText ? "" : "这笔订单没有可复制的原始 JSON。" } : {})
       } };
@@ -855,6 +879,7 @@ export const rechargeService = {
         hifupayCardLastFour: order.hifupayCardLastFour || "",
         status: order.status,
         userEmail: session?.userEmail || parsed.data?.userEmail || "",
+        accountId: session?.accountId || (parsed.ok ? accountIdFromSecret(parsed.data) : ""),
         message: order.message || "",
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
@@ -1088,7 +1113,7 @@ export const rechargeService = {
       const secret = parsed.data;
       const result = store.createProOrder({ code: cardInfo.trim(), identity: { email: secret.userEmail, accountId: secret.account?.id || "" },
         source: siteSource, ciphertext: encryptProtected(cardInfo.trim(), "recharge-card-info"),
-        session: { userEmail: secret.userEmail, tokenHash: sha256(secret.userGptToken),
+        session: { userEmail: secret.userEmail, accountId: accountIdFromSecret(secret), tokenHash: sha256(secret.userGptToken),
           authDataCiphertext: encryptProtected(JSON.stringify(secret.fullAuthData), "recharge-auth-data"),
           rawSecretCiphertext: encryptProtected(input.secretJsonText || JSON.stringify(secret.fullAuthData), "recharge-secret-json") } });
       if (!result.ok) return { ok: false, status: result.status, message: result.message };
@@ -1125,6 +1150,7 @@ export const rechargeService = {
     store.createRechargeSession({
       orderId: order.id,
       userEmail: secret.userEmail,
+      accountId: accountIdFromSecret(secret),
       tokenHash: sha256(secret.userGptToken),
       authDataCiphertext: encryptProtected(JSON.stringify(secret.fullAuthData), "recharge-auth-data"),
       rawSecretCiphertext: encryptProtected(input.secretJsonText || JSON.stringify(secret.fullAuthData), "recharge-secret-json")

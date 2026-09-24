@@ -912,12 +912,12 @@ function serveRecoveryAdmin(res) {
         <div><h1>充值订单 · 历史记录</h1><p class="hint">查看全部产品与通道的履约记录；有原始资料的订单可在此复制 JSON。</p></div>
       </div>
 
-      <div class="top-actions" style="margin-top:14px"><a href="/admin/pro-orders">Pro 履约工作台</a><button id="enableAlerts" type="button">开启桌面提醒</button><button class="secondary" id="refresh" type="button">立即刷新</button></div>
+      <div class="top-actions" style="margin-top:14px"><a href="/admin/pro-orders">Pro 履约工作台</a><button class="secondary" id="syncAccountIds" type="button">同步近 7 天账号 UUID</button><button id="enableAlerts" type="button">开启桌面提醒</button><button class="secondary" id="refresh" type="button">立即刷新</button></div>
       <div class="status" id="statusBox">正在加载充值记录…</div>
     </section>
     <section>
       <div id="cardOrderFilter" class="hint" style="display:none;margin-top:14px">正在查看指定客户卡密的全部订单 <button class="secondary" id="clearCardOrderFilter" type="button">查看全部订单</button></div>
-      <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="账号、客户卡密后四位或支付卡尾号"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需要跟进</option><option value="manual_queued">待人工</option><option value="manual_processing">人工处理中</option><option value="needs_info">需补资料</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>通道<select id="providerFilter"><option value="">全部通道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
+      <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="邮箱、账号 UUID、客户卡密或支付卡尾号"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需要跟进</option><option value="manual_queued">待人工</option><option value="manual_processing">人工处理中</option><option value="needs_info">需补资料</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>通道<select id="providerFilter"><option value="">全部通道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
       <p class="hint">人工充值完成后再点击“确认充值成功”；该按钮只更新本站订单和卡密状态，不会再次调用充值通道。自动任务“待确认”时请先核实原任务，不要直接补充充值。</p>
       <div class="table-wrap">
         <table>
@@ -967,7 +967,7 @@ function serveRecoveryAdmin(res) {
     function renderRows(items) {
       if (!items.length) return '<tr><td class="empty" colspan="7">暂无匹配记录</td></tr>';
       return items.map(item => '<tr class="' + (item.needsAttention ? 'needs-attention' : '') + '">'
-        + '<td>' + escapeHtml(item.userEmail || "-") + '</td>'
+        + '<td>' + escapeHtml(item.userEmail || "-") + '<br><small>UUID：' + escapeHtml(item.accountId || "未留存") + '</small></td>'
         + '<td>' + escapeHtml(item.customerCardCode || item.customerCardMask || (item.provider === "zzshu" ? "历史卡密未关联" : item.cardMask || "-")) + '<br><small>' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") + " · " + (item.fulfillmentMode === "manual" ? "人工" : "自动") : "通道 " + item.provider) + '</small></td>'
         + '<td>' + (item.paymentCardLastFour || item.hifupayCardLastFour ? '****' + escapeHtml(item.paymentCardLastFour || item.hifupayCardLastFour) : '-') + '</td>'
         + '<td>' + escapeHtml(statusLabel(item.status)) + (item.useResolution === 'frozen' ? '<br><span class="attention-badge">本次支付次数已冻结</span>' : item.hifupaySafetyStatus === 'confirming_unpaid' ? '<br><small>安全复核中</small>' : item.subscriptionCancellationStatus === 'cancelled' ? '<br><small>续费已关闭</small>' : item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<br><span class="attention-badge">续费状态待同步</span>' : item.provider === 'zzshu' && item.status === 'needs_review' ? '<br><span class="attention-badge">支付结果待核查</span>' : item.needsAttention ? '<br><span class="attention-badge">需取消续费</span>' : '') + '</td>'
@@ -989,7 +989,7 @@ function serveRecoveryAdmin(res) {
       const records = allRecords.filter(item => {
         const matchesStatus = !status || (status === "attention" ? item.needsAttention : item.status === status);
         return (!selectedCardId || item.customerCardId === selectedCardId)
-          && (!keyword || [item.userEmail, item.customerCardCode, item.customerCardMask, item.cardMask, item.paymentCardLastFour, item.hifupayCardLastFour, item.id]
+          && (!keyword || [item.userEmail, item.accountId, item.customerCardCode, item.customerCardMask, item.cardMask, item.paymentCardLastFour, item.hifupayCardLastFour, item.id]
             .some(value => String(value || "").toLowerCase().includes(keyword)))
           && matchesStatus && (!provider || item.provider === provider);
       });
@@ -1056,6 +1056,16 @@ function serveRecoveryAdmin(res) {
       } catch (error) { setStatus("提醒开启失败，请检查浏览器通知权限。", true); }
     });
     document.getElementById("refresh").addEventListener("click", loadRecoveries);
+    document.getElementById("syncAccountIds").addEventListener("click", async () => {
+      const button = document.getElementById("syncAccountIds");
+      button.disabled = true;
+      try {
+        const result = await api("/api/admin/recoveries/sync-account-ids", { method: "POST", body: "{}" });
+        await loadRecoveries();
+        setStatus("已核对近 7 天 " + result.scanned + " 笔订单，补齐 " + result.updated + " 个账号 UUID；" + result.missing + " 笔没有可恢复的账号 ID。", false);
+      } catch (error) { setStatus(error.message || "账号 UUID 同步失败。", true); }
+      finally { button.disabled = false; }
+    });
     document.getElementById("cardOrderFilter").style.display = selectedCardId ? "block" : "none";
     document.getElementById("clearCardOrderFilter").addEventListener("click", () => {
       selectedCardId = "";
@@ -1563,6 +1573,14 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/admin/recoveries/sync-account-ids") {
+      const body = await readJsonBody(req);
+      const auth = assertAdmin(req, url, body);
+      if (!auth.ok) { sendJson(res, auth.status, { success: false, message: auth.message }); return; }
+      sendJson(res, 200, { success: true, data: rechargeService.syncRecentAccountIds() });
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/admin/recharge-records") {
       const auth = assertAdmin(req, url);
       if (!auth.ok) {
@@ -1747,6 +1765,7 @@ export const server = http.createServer(async (req, res) => {
 
 const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMainModule) {
+  try { rechargeService.syncRecentAccountIds(); } catch { /* Keep existing orders untouched if the local data file is unavailable. */ }
   proService.recoverOnStart();
   server.listen(config.port, config.host, () => {
     console.log(`Recharge center MVP listening on http://${config.host}:${config.port}`);
