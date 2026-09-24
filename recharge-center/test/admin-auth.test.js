@@ -103,6 +103,10 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
     const html = await res.text();
     assert.match(html, /src="\/admin\/session.js"/);
     assert.match(html, /GPTC 后台|产品与卡密|支付卡池|Pro 履约工作台/);
+    if (page === "/admin") {
+      assert.match(html, /Plus 通道选择/);
+      assert.doesNotMatch(html, /统一状态|refreshDashboard/);
+    }
     if (page === "/admin/provider") {
       assert.match(html, /其他网站入口/);
       assert.doesNotMatch(html, /data-plus-provider/);
