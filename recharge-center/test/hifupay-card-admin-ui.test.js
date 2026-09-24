@@ -23,6 +23,8 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(html, /<h1>支付卡池<\/h1>/);
   assert.match(html, /全部支付卡/);
   assert.match(html, /导入手动支付卡/);
+  assert.ok(html.indexOf('id="importPanel"') < html.indexOf('<h2>全部支付卡</h2>'));
+  assert.match(html, /id="importPanel" open/);
   assert.doesNotMatch(html, /嗨付支付卡<\/a>|ZZS 支付卡<\/a>/);
   assert.equal((await fetch(base + "/admin/hifupay/cards?tab=zzshu", { headers: { Cookie: cookie } })).status, 200);
   const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
@@ -57,6 +59,8 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(rows.innerHTML, /冻结 1/);
   assert.match(rows.innerHTML, /ZZS/);
   assert.match(document.getElementById("stats").innerHTML, /卡池总数/);
+  assert.match(document.getElementById("stats").innerHTML, /<strong>4<\/strong><small>当前可轮选次数/);
+  assert.match(rows.innerHTML, /剩余 <strong>2<\/strong> \/ 总 4/);
   assert.match(document.getElementById("total").textContent, /2 \/ 2/);
   vm.runInContext("expanded.add('manual:m-1');render()", context);
   assert.match(rows.innerHTML, /data-action="manual-cap"/);
@@ -69,4 +73,7 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(rows.innerHTML, /•••• 2002/);
   assert.doesNotMatch(rows.innerHTML, /•••• 1001/);
   assert.ok(calls.includes("/api/admin/zzshu/cards"));
+  vm.runInContext("cards.push({...cards[0],uid:'h:paused',id:'paused',state:'disabled',channels:[],remaining:5});render()", context);
+  assert.match(document.getElementById("stats").innerHTML, /<strong>4<\/strong><small>当前可轮选次数/);
+  assert.match(document.getElementById("stats").innerHTML, /<strong>9<\/strong><small>卡池剩余总次数（含不可轮选）/);
 });
