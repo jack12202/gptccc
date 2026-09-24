@@ -31,12 +31,16 @@ try {
   cookie = setCookie.split(";")[0];
   csrf = (await login.json()).data.csrf;
   for (const page of pages) {
-    const response = await call(page, { headers: { Cookie: cookie }, redirect: "manual" });
+    let response = await call(page, { headers: { Cookie: cookie }, redirect: "manual" });
+    if (page === "/admin/zzshu") {
+      assert.equal(response.status, 303, "/admin/zzshu must redirect to the unified ZZS card tab");
+      assert.equal(response.headers.get("location"), "/admin/hifupay/cards?tab=zzshu");
+      response = await call(response.headers.get("location"), { headers: { Cookie: cookie }, redirect: "manual" });
+    }
     assert.equal(response.status, 200, `${page} must accept the shared session`);
     const html = await response.text();
     const hasChannelCredentialInputs = page === "/admin" && html.includes('id="hifupayKey" type="password"') && html.includes('id="zzshuKey" type="password"') && html.includes("window.adminApi");
-    const hasOnlyZzshuCredentialInput = page === "/admin/zzshu" && html.includes('id="zzshuApiKey" type="password"') && html.includes("window.adminApi");
-    assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasChannelCredentialInputs || hasOnlyZzshuCredentialInput), `${page} still contains legacy authentication`);
+    assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasChannelCredentialInputs), `${page} still contains legacy authentication`);
   }
   console.log("Admin login, shared session, protected pages and secure cookie verified.");
 } finally {
