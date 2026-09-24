@@ -554,6 +554,15 @@ export const rechargeService = {
   getRechargeDashboard() {
     const hifupay = this.listHifupayCards().data;
     const zzshuCards = zzshuService.store.listCards();
+    const hifupayById = new Map(hifupay.cards.map(card => [String(card.id), card]));
+    const zzshuChargeThreshold = Math.max(0, config.hifupayEstimatedPlusChargeUsd + config.hifupaySafetyBufferUsd);
+    const zzshuAvailableCards = zzshuCards.filter(card => {
+      if (!card.enabled || card.paused || card.remainingUses <= 0 || card.occupiedOrderId) return false;
+      if (card.credentialSource === "manual") return true;
+      const hCard = hifupayById.get(String(card.hifupayId));
+      return Boolean(hCard && hCard.enabled !== false && !hCard.missingFromUpstream && !hCard.inFlightCount &&
+        String(hCard.status || "").toLowerCase() === "active" && Number(hCard.balance) >= zzshuChargeThreshold);
+    }).length;
     const records = this.listRechargeSubmissions().data.records;
     const processingStatuses = new Set(["processing", "queued", "created", "reserved", "submitting", "locked", "pending"]);
     const reviewStatuses = new Set(["needs_review", "manual_queued", "manual_processing", "needs_info"]);
@@ -562,7 +571,8 @@ export const rechargeService = {
       const orders = channelOrders(provider);
       return {
         processing: orders.filter(item => processingStatuses.has(item.status)).length,
-        needsReview: orders.filter(item => reviewStatuses.has(item.status) || item.needsAttention).length,
+        needsReview: orders.filter(item => reviewStatuses.has(item.status) || item.needsAttention ||
+          item.status === "success" && item.subscriptionCancellationStatus === "pending").length,
         lastOrderUpdateAt: orders.map(item => item.updatedAt || item.createdAt || "").sort().at(-1) || ""
       };
     };
@@ -576,7 +586,7 @@ export const rechargeService = {
         ...summarizeOrders("h")
       },
       zzshu: {
-        availableCards: zzshuCards.filter(card => card.enabled && !card.paused && card.remainingUses > 0 && !card.occupiedOrderId).length,
+        availableCards: zzshuAvailableCards,
         totalCards: zzshuCards.length,
         lastSyncAt: zzshuSummary.lastSyncAt,
         lastSyncAttemptAt: zzshuSummary.lastSyncAttemptAt,
@@ -657,20 +667,19 @@ export const rechargeService = {
   },
 
   listRechargeSubmissions() {
-    const cutoff = Date.parse("2026-09-04T16:00:00.000Z");
-    store.purgeRechargeSecretsBefore("2026-09-04T16:00:00.000Z");
-    const primaryRecords = store.listRechargeOrders().filter(item => Date.parse(item.createdAt) >= cutoff);
-    const zzshuRecords = zzshuService.store.listOrders().filter(item => Date.parse(item.createdAt) >= cutoff).map(item => ({
+    const primaryRecords = store.listRechargeOrders();
+    const zzshuRecords = zzshuService.store.listOrders().map(item => ({
       id: item.id, provider: "zzshu", cardMask: item.lastFour ? `****${item.lastFour}` : "", productId: config.hifupayProductId,
       plan: "plus", fulfillmentMode: "auto", processingNote: item.reviewReason || "", paymentConfirmed: item.status === "success",
       waitingMinutes: Math.max(0, Math.floor((Date.now() - Date.parse(item.createdAt)) / 60000)), status: item.status,
       upstreamTaskId: item.upstreamOrderNo || "", providerSessionId: "", hifupayCardId: "", hifupayCardLastFour: "",
       hifupaySafetyStatus: "", hifupayUnpaidConfirmationCount: 0, userEmail: item.email || "",
       message: item.status === "success" ? "Plus 已开通" : item.status === "failed" ? "明确未支付" : item.reviewReason || "正在处理或待确认",
-      subscriptionCancellationStatus: item.cancellation || "", subscriptionActionRequired: item.status === "success" && item.cancellation !== "cancelled",
+      subscriptionCancellationStatus: item.cancellation || "", subscriptionActionRequired: false,
       subscriptionActionMessage: item.status === "success" && item.cancellation !== "cancelled" ? "充值成功，正在等待 ZZS 确认自动续费已关闭。" : "",
       subscriptionActionDetectedAt: "", subscriptionActionHandledAt: "",
       needsAttention: item.status === "needs_review" || item.status === "success" && item.cancellation !== "cancelled",
+      hasUpstreamQueryKey: Boolean(item.hasUpstreamQueryKey),
       createdAt: item.createdAt, updatedAt: item.updatedAt,
       hasSecret: Boolean(zzshuService.store.sessionCipher(item.id)), hasOriginalJson: Boolean(zzshuService.store.sessionCipher(item.id)), hCardCodeAvailable: false
     }));

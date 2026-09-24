@@ -40,3 +40,19 @@ test("嗨付拒绝的 API Key 不写入配置", async t => {
   assert.equal((await store.verifyAndSave("wrong-key")).ok, false);
   assert.equal(fs.existsSync(file), false);
 });
+
+test("嗨付部署 Key 可在后台验证后替换并在重启后保持", async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "hifupay-override-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const options = { file: path.join(directory, "key.json"), encryptionKey: () => "fixture-encryption-key",
+    environmentKey: () => "deployment-key", baseUrl: () => "https://hifupay.example.test",
+    fetchImpl: async (_url, request) => {
+      assert.equal(JSON.parse(request.body).apiKey, "replacement-key");
+      return { ok: true, json: async () => ({ success: true, apiKey: "session-key" }) };
+    } };
+  const store = new HifupayCredentialStore(options);
+  assert.equal(store.status().canConfigure, true);
+  assert.equal(store.key(), "deployment-key");
+  assert.equal((await store.verifyAndSave("replacement-key", { replace: true })).ok, true);
+  assert.equal(new HifupayCredentialStore(options).key(), "replacement-key");
+});

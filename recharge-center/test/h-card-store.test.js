@@ -93,7 +93,7 @@ test("submitted h cards can only be archived while untouched cards can be delete
   assert.equal(store.getHCardByCode(untouched.code), null);
 });
 
-test("all recharge records are listed and successful secrets expire after 45 days", async t => {
+test("all recharge records retain available JSON across time without a read-triggered purge", async t => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-recharge-record-test-"));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const dataFile = path.join(tempDir, "orders.json");
@@ -109,7 +109,7 @@ test("all recharge records are listed and successful secrets expire after 45 day
 
   const records = store.listRechargeOrders();
   assert.equal(records.length, 2);
-  assert.equal(records.find(item => item.id === success.id).hasOriginalJson, false);
+  assert.equal(records.find(item => item.id === success.id).hasOriginalJson, true);
   assert.equal(records.find(item => item.id === failed.id).hasOriginalJson, true);
 });
 

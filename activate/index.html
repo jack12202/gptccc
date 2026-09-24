@@ -1303,6 +1303,9 @@ window._hmt = _hmt;
       if (task.subscriptionCancellationStatus === "cancelled") {
         return '<div class="subscription-ok"><strong>自动续费已关闭</strong>本次充值已完成，无需再处理连续订阅。</div>';
       }
+      if (currentProvider === "zzshu" && task.status === "success" && task.subscriptionCancellationStatus === "unconfirmed") {
+        return '<div class="subscription-warning"><strong>续费状态待同步</strong>Plus 已开通，系统正在核对自动续费关闭结果。请稍后刷新充值进度。</div>';
+      }
       return "";
     }
 

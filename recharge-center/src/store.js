@@ -6,7 +6,6 @@ import { decryptSecretText, encryptSecretText } from "./utils.js";
 import { sharedZzshuStore } from "./zzshu-store.js";
 
 const PROVIDER_CONFIG_VERSION = 2;
-const RECHARGE_SECRET_RETENTION_DAYS = 45;
 
 function ensureDir(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -1391,28 +1390,6 @@ export class JsonStore {
     return this.read().rechargeSessions.find(item => item.orderId === orderId) || null;
   }
 
-  purgeExpiredRechargeSecrets(retentionDays = RECHARGE_SECRET_RETENTION_DAYS) {
-    const state = this.read();
-    const cutoff = Date.now() - Math.max(Number(retentionDays) || RECHARGE_SECRET_RETENTION_DAYS, 1) * 24 * 60 * 60 * 1000;
-    const terminalOrders = new Map(state.orders
-      .filter(order => order.status === "success")
-      .map(order => [order.id, Date.parse(order.manualCompletedAt || order.updatedAt || order.createdAt)]));
-    let purged = 0;
-    for (const session of state.rechargeSessions) {
-      const completedAt = terminalOrders.get(session.orderId);
-      if (!Number.isFinite(completedAt) || completedAt > cutoff) continue;
-      if (session.rawSecretCiphertext || session.authDataCiphertext || session.authDataEncoded) {
-        session.rawSecretCiphertext = "";
-        session.authDataCiphertext = "";
-        session.authDataEncoded = "";
-        session.secretPurgedAt = nowIso();
-        purged += 1;
-      }
-    }
-    if (purged) this.write(state);
-    return purged;
-  }
-
   purgeRechargeSecretsBefore(cutoffIso) {
     const cutoff = Date.parse(cutoffIso);
     if (!Number.isFinite(cutoff)) return 0;
@@ -1436,7 +1413,6 @@ export class JsonStore {
   }
 
   listRechargeOrders() {
-    this.purgeExpiredRechargeSecrets();
     const state = this.read();
     const sessions = new Map(state.rechargeSessions.map(session => [session.orderId, session]));
     return state.orders

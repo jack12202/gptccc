@@ -9,6 +9,7 @@ function sourceApiKey() {
 }
 
 let authorizedApiKey = "";
+let authorizedSourceKey = "";
 const hCardStore = new JsonStore();
 
 function apiHeaders(apiKey) {
@@ -208,7 +209,7 @@ function accountIdentity(fullAuthData, userEmail, accountId) {
 async function login({ fresh = false } = {}) {
   const key = sourceApiKey();
   if (!requiredString(key)) return { ok: false, status: 503, message: "h通道 API Key 未配置。" };
-  if (!fresh && requiredString(authorizedApiKey)) return { ok: true, status: 200, apiKey: authorizedApiKey };
+  if (!fresh && key === authorizedSourceKey && requiredString(authorizedApiKey)) return { ok: true, status: 200, apiKey: authorizedApiKey };
 
   const raw = await requestJson(config.hifupayBaseUrl, "/api/hfp/login", {
     method: "POST",
@@ -222,6 +223,7 @@ async function login({ fresh = false } = {}) {
   }
 
   authorizedApiKey = body.apiKey;
+  authorizedSourceKey = key;
   return { ok: true, status: raw.status, apiKey: authorizedApiKey };
 }
 

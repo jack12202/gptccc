@@ -51,7 +51,7 @@ function serveAdminOverview(res) {
 <style>
 *{box-sizing:border-box}body{margin:0;padding:20px;background:#f4f7fb;color:#132033;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:1180px;margin:auto}.panel{background:#fff;border:1px solid #dbe4ee;border-radius:16px;padding:22px;margin-bottom:16px;box-shadow:0 16px 42px #0f172a0d}h1,h2{margin:0 0 8px}h1{font-size:28px}h2{font-size:18px}p,.muted{color:#64748b;line-height:1.55}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.api-card,.metric{border:1px solid #dbe4ee;border-radius:13px;padding:17px;background:#fbfdff}.status-line{font-weight:800;margin:8px 0 14px}.good{color:#047857}.bad{color:#be123c}.form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}input{width:100%;min-height:44px;border:1px solid #cbd5e1;border-radius:9px;padding:0 11px;font:inherit}button,.link{min-height:44px;border:1px solid #99f6e4;border-radius:9px;padding:0 14px;background:#ecfdf5;color:#0f766e;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.choices button.active{background:#0f766e;color:#fff;border-color:#0f766e}.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.metric h2{display:flex;justify-content:space-between;gap:8px}.numbers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:15px}.number{padding:10px;background:#f1f5f9;border-radius:9px;text-align:center}.number b{display:block;font-size:22px}.message{margin-top:12px;min-height:22px;color:#1e3a8a}.message.error{color:#be123c}.nav{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}@media(max-width:760px){body{padding:12px}.grid,.metrics{grid-template-columns:1fr}.form{grid-template-columns:1fr}.numbers{grid-template-columns:repeat(3,1fr)}}
 </style></head><body><main>
-<section class="panel"><h1>充值系统总览</h1><p>统一管理嗨付和 ZZS。切换只影响尚未首次提交的 Plus 卡密；历史订单、卡密和用户 JSON 始终从本站保存的数据读取。</p><div class="nav"><a class="link" href="/admin/cards">卡密管理</a><a class="link" href="/admin/recoveries">订单明细</a><a class="link" href="/admin/hifupay/cards">支付卡池</a><a class="link" href="/admin/provider">其他网站入口</a></div></section>
+<section class="panel"><h1>充值系统总览</h1><p>统一管理嗨付和 ZZS。切换只影响尚未首次提交的 Plus 卡密；历史订单与卡密从本站查询，已保存的用户 JSON 可在订单明细中复制。</p><div class="nav"><a class="link" href="/admin/cards">卡密管理</a><a class="link" href="/admin/recoveries">订单明细</a><a class="link" href="/admin/hifupay/cards">支付卡池</a><a class="link" href="/admin/provider">其他网站入口</a></div></section>
 <section class="panel"><div class="grid">
 <article class="api-card" data-channel="hifupay"><h2>嗨付 API</h2><div class="status-line" id="hifupayState">读取中…</div><div class="form"><input id="hifupayKey" type="password" autocomplete="new-password" placeholder="填写新的嗨付 API Key"><button id="saveHifupay">验证并保存</button></div><div class="actions"><button id="checkHifupay">检测连接</button></div><div class="message" id="hifupayMessage"></div></article>
 <article class="api-card" data-channel="zzshu"><h2>ZZS API</h2><div class="status-line" id="zzshuState">读取中…</div><div class="form"><input id="zzshuKey" type="password" autocomplete="new-password" placeholder="填写新的 ZZS API Key"><button id="saveZzshu">验证并保存</button></div><div class="actions"><button id="checkZzshu">检测连接</button></div><div class="message" id="zzshuMessage"></div></article>
@@ -67,14 +67,14 @@ function text(id,value){document.getElementById(id).textContent=value}
 function message(id,value,error){const el=document.getElementById(id);el.textContent=value||"";el.classList.toggle("error",Boolean(error))}
 function formatTime(value){return value?new Date(value).toLocaleString("zh-CN",{hour12:false}):"暂无同步"}
 async function loadCredential(channel,path){
-  try{const d=await api(path);const configured=Boolean(d.configured),button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu");const state=document.getElementById(channel+"State");state.textContent=configured?"已配置 · "+(d.source==="environment"?"部署配置":"后台保存"):"未配置";state.className="status-line "+(configured?"good":"bad");document.getElementById(channel+"Key").disabled=!d.canConfigure;button.disabled=!d.canConfigure;button.textContent=configured?"验证并更换":"验证并保存";button.dataset.replace=configured?"1":"0"}catch(e){message(channel+"Message",e.message,true)}
+  try{const d=await api(path);const configured=Boolean(d.configured),button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu");const state=document.getElementById(channel+"State");state.textContent=configured?"已保存 · 连接待检测 · "+(d.source==="environment"?"部署配置":"后台保存"):"未配置";state.className="status-line "+(configured?"":"bad");document.getElementById(channel+"Key").disabled=!d.canConfigure;button.disabled=!d.canConfigure;button.textContent=configured?"验证并更换":"验证并保存";button.dataset.replace=configured?"1":"0"}catch(e){message(channel+"Message",e.message,true)}
 }
 async function save(channel,path){
   const input=document.getElementById(channel+"Key"), key=input.value.trim(); if(!key){message(channel+"Message","请填写 API Key。",true);return}
   const button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu"),replace=button.dataset.replace==="1";if(replace&&!confirm("新 API 验证成功后将替换当前 API。未完成订单存在时系统会拒绝更换。确认继续？"))return;
   try{await api(path,{method:"POST",body:JSON.stringify({apiKey:key,replace})});input.value="";message(channel+"Message",replace?"新 API 验证成功，已完成更换。":"验证成功，已保存。");await loadAll()}catch(e){message(channel+"Message",e.message,true)}
 }
-async function check(channel,path){try{const d=await api(path);message(channel+"Message","连接正常"+(d.points==null?"":" · 积分 "+d.points))}catch(e){message(channel+"Message",e.message,true)}}
+async function check(channel,path){const state=document.getElementById(channel+"State");try{const d=await api(path);state.textContent="连接正常 · "+new Date().toLocaleString("zh-CN",{hour12:false});state.className="status-line good";message(channel+"Message","连接正常"+(d.points==null?"":" · 积分 "+d.points))}catch(e){state.textContent="连接检测失败";state.className="status-line bad";message(channel+"Message",e.message,true)}}
 function renderDashboard(d){
   document.querySelectorAll("[data-provider]").forEach(b=>b.classList.toggle("active",b.dataset.provider===d.plusProvider));
   text("hAvailable",d.hifupay.availableCards);text("hProcessing",d.hifupay.processing);text("hReview",d.hifupay.needsReview);text("hifupaySync",formatTime(d.hifupay.lastSyncAt));
@@ -923,7 +923,7 @@ function serveRecoveryAdmin(res) {
       <div class="status" id="statusBox">正在加载充值记录…</div>
     </section>
     <section>
-      <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="输入账号或卡密"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需取消续费</option><option value="manual_queued">待人工</option><option value="manual_processing">人工处理中</option><option value="needs_info">需补资料</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>通道<select id="providerFilter"><option value="">全部通道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
+      <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="输入账号或卡密"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需要跟进</option><option value="manual_queued">待人工</option><option value="manual_processing">人工处理中</option><option value="needs_info">需补资料</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>通道<select id="providerFilter"><option value="">全部通道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
       <p class="hint">人工充值完成后再点击“确认充值成功”；该按钮只更新本站订单和卡密状态，不会再次调用充值通道。自动任务“待确认”时请先核实原任务，不要直接补充充值。</p>
       <div class="table-wrap">
         <table>
@@ -931,6 +931,7 @@ function serveRecoveryAdmin(res) {
           <tbody id="recoveries"><tr><td class="empty" colspan="7">暂无充值记录</td></tr></tbody>
         </table>
       </div>
+      <div class="actions"><button class="secondary" id="previousRecords" type="button">上一页</button><span id="recordPage" class="hint">第 1 页</span><button class="secondary" id="nextRecords" type="button">下一页</button></div>
     </section>
   </main>
   <script>
@@ -940,6 +941,8 @@ function serveRecoveryAdmin(res) {
     let firstLoad = true;
     let audioContext = null;
     let allRecords = [];
+    let currentPage = 1;
+    const recordsPerPage = 50;
 
     function setStatus(message, error = false) {
       statusBox.textContent = message;
@@ -972,12 +975,14 @@ function serveRecoveryAdmin(res) {
         + '<td>' + escapeHtml(item.userEmail || "-") + '</td>'
         + '<td>' + escapeHtml(item.cardMask || "-") + '<br><small>' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") + " · " + (item.fulfillmentMode === "manual" ? "人工" : "自动") : "通道 " + item.provider) + '</small></td>'
         + '<td>' + (item.hifupayCardLastFour ? '****' + escapeHtml(item.hifupayCardLastFour) : '-') + '</td>'
-        + '<td>' + escapeHtml(statusLabel(item.status)) + (item.hifupaySafetyStatus === 'confirming_unpaid' ? '<br><small>安全复核中</small>' : item.subscriptionCancellationStatus === 'cancelled' ? '<br><small>续费已关闭</small>' : item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<br><span class="attention-badge">续费状态待同步</span>' : item.needsAttention ? '<br><span class="attention-badge">需取消续费</span>' : '') + '</td>'
-        + '<td class="message">' + escapeHtml(item.needsAttention ? item.subscriptionActionMessage : item.message || "-") + '</td>'
+        + '<td>' + escapeHtml(statusLabel(item.status)) + (item.hifupaySafetyStatus === 'confirming_unpaid' ? '<br><small>安全复核中</small>' : item.subscriptionCancellationStatus === 'cancelled' ? '<br><small>续费已关闭</small>' : item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<br><span class="attention-badge">续费状态待同步</span>' : item.provider === 'zzshu' && item.status === 'needs_review' ? '<br><span class="attention-badge">支付结果待核查</span>' : item.needsAttention ? '<br><span class="attention-badge">需取消续费</span>' : '') + '</td>'
+        + '<td class="message">' + escapeHtml(item.provider === 'zzshu' && item.status === 'needs_review' ? item.processingNote || item.message || '-' : item.needsAttention ? item.subscriptionActionMessage || item.message || '-' : item.message || '-') + '</td>'
         + '<td>' + escapeHtml(formatDate(item.createdAt)) + '</td>'
         + '<td><div class="row-actions">'
         + (item.hasOriginalJson ? '<button class="secondary" type="button" data-action="copy-json" data-order-id="' + escapeHtml(item.id) + '">复制JSON</button>' : '')
-        + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : item.provider === "zzshu" && ["processing", "needs_review"].includes(item.status) ? '<button type="button" data-action="refresh-zzshu" data-order-id="' + escapeHtml(item.id) + '">安全补查</button>' : !isPro(item) && item.provider !== "zzshu" && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
+        + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : item.provider === "zzshu" && item.hasUpstreamQueryKey && ["processing", "needs_review"].includes(item.status) ? '<button type="button" data-action="refresh-zzshu" data-order-id="' + escapeHtml(item.id) + '">安全补查</button>' : !isPro(item) && item.provider !== "zzshu" && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
+        + (item.provider === 'zzshu' && item.status === 'needs_review' ? '<button class="secondary" type="button" data-action="resolve-zzshu-success" data-order-id="' + escapeHtml(item.id) + '">核实成功</button><button class="secondary" type="button" data-action="resolve-zzshu-unpaid" data-order-id="' + escapeHtml(item.id) + '">核实未支付</button>' : '')
+        + (item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<button class="secondary" type="button" data-action="confirm-zzshu-cancellation" data-order-id="' + escapeHtml(item.id) + '">核实续费已关闭</button>' : '')
         + (item.needsAttention && item.provider !== 'zzshu' ? '<button type="button" data-action="mark-subscription-handled" data-order-id="' + escapeHtml(item.id) + '">标记已处理</button>' : '')
         + '</div></td></tr>').join("");
     }
@@ -989,8 +994,13 @@ function serveRecoveryAdmin(res) {
         const matchesStatus = !status || (status === "attention" ? item.needsAttention : item.status === status);
         return (!keyword || [item.userEmail, item.cardMask].some(value => String(value || "").toLowerCase().includes(keyword))) && matchesStatus && (!provider || item.provider === provider);
       });
-      document.getElementById("recoveries").innerHTML = renderRows(records);
+      const pageCount = Math.max(1, Math.ceil(records.length / recordsPerPage));
+      currentPage = Math.min(currentPage, pageCount);
+      document.getElementById("recoveries").innerHTML = renderRows(records.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage));
       document.getElementById("recoveryCount").textContent = records.length + " / " + allRecords.length + " 条";
+      document.getElementById("recordPage").textContent = "第 " + currentPage + " / " + pageCount + " 页";
+      document.getElementById("previousRecords").disabled = currentPage <= 1;
+      document.getElementById("nextRecords").disabled = currentPage >= pageCount;
     }
     function playAlert() {
       if (!audioContext) return;
@@ -1010,8 +1020,8 @@ function serveRecoveryAdmin(res) {
         playAlert();
         if ("Notification" in window && Notification.permission === "granted") {
           const subscriptionCount = alertItems.filter(item => item.needsAttention).length;
-          new Notification(subscriptionCount ? "GPTC 有自动续费需要处理" : "GPTC 有新的待处理订单", {
-            body: subscriptionCount ? subscriptionCount + " 笔充值成功，但自动续费未关闭。" : alertItems.length + " 条充值订单需要跟进。"
+          new Notification(subscriptionCount ? "GPTC 有订单需要跟进" : "GPTC 有新的待处理订单", {
+            body: subscriptionCount ? subscriptionCount + " 笔订单需要核查或同步。" : alertItems.length + " 条充值订单需要跟进。"
           });
         }
       }
@@ -1040,16 +1050,18 @@ function serveRecoveryAdmin(res) {
         if ("Notification" in window) await Notification.requestPermission();
         const subscriptionCount = allRecords.filter(item => item.needsAttention).length;
         if (subscriptionCount && "Notification" in window && Notification.permission === "granted") {
-          new Notification("GPTC 有自动续费需要处理", { body: subscriptionCount + " 笔充值成功，但自动续费未关闭。" });
+          new Notification("GPTC 有订单需要跟进", { body: subscriptionCount + " 笔订单需要核查或同步。" });
         }
-        setStatus(subscriptionCount ? "桌面提醒已开启，当前有 " + subscriptionCount + " 笔自动续费需要处理。" : "桌面提醒已开启。页面保持打开时，会提示新的失败订单和自动续费事项。", false);
+        setStatus(subscriptionCount ? "桌面提醒已开启，当前有 " + subscriptionCount + " 笔订单需要跟进。" : "桌面提醒已开启。页面保持打开时，会提示新的待处理订单。", false);
         playAlert();
       } catch (error) { setStatus("提醒开启失败，请检查浏览器通知权限。", true); }
     });
     document.getElementById("refresh").addEventListener("click", loadRecoveries);
-    document.getElementById("recordSearch").addEventListener("input", applyRecordFilters);
-    document.getElementById("statusFilter").addEventListener("change", applyRecordFilters);
-    document.getElementById("providerFilter").addEventListener("change", applyRecordFilters);
+    for (const [id, eventName] of [["recordSearch", "input"], ["statusFilter", "change"], ["providerFilter", "change"]]) {
+      document.getElementById(id).addEventListener(eventName, () => { currentPage = 1; applyRecordFilters(); });
+    }
+    document.getElementById("previousRecords").addEventListener("click", () => { currentPage -= 1; applyRecordFilters(); });
+    document.getElementById("nextRecords").addEventListener("click", () => { currentPage += 1; applyRecordFilters(); });
     document.getElementById("recoveries").addEventListener("click", async event => {
       const button = event.target.closest("[data-action]");
       if (!button) return;
@@ -1069,8 +1081,25 @@ function serveRecoveryAdmin(res) {
           await navigator.clipboard.writeText(detail.secretJsonText || "");
           setStatus("JSON 已复制到剪贴板，请注意不要转发给无关人员。");
         } else if (action === "refresh-zzshu") {
-          await api("/api/admin/zzshu/orders/" + encodeURIComponent(orderId) + "/refresh", { method: "POST", body: JSON.stringify({}) });
-          setStatus("已完成安全补查，订单状态已更新。");
+          const latest = await api("/api/admin/zzshu/orders/" + encodeURIComponent(orderId) + "/refresh", { method: "POST", body: JSON.stringify({}) });
+          setStatus(latest.status === record.status ? "已查询上游，状态仍为" + statusLabel(latest.status) + "。" : "已查询上游，订单状态已更新。");
+          await loadRecoveries();
+        } else if (action.startsWith("resolve-zzshu-")) {
+          const outcome = action === "resolve-zzshu-success" ? "success" : "unpaid";
+          const reason = window.prompt("请填写至少 8 个字的核查依据（例如上游订单查询结果）。结果不明时请取消，保持订单占用。", "");
+          if (reason === null) return;
+          if (reason.trim().length < 8) { setStatus("核查依据至少需要 8 个字，订单状态未改变。", true); return; }
+          if (!window.confirm("确认该订单" + (outcome === "success" ? "充值成功并核销卡密" : "明确未支付并恢复卡密权益") + "？订单：" + orderId)) return;
+          await api("/api/admin/zzshu/orders/" + encodeURIComponent(orderId) + "/resolve", { method: "POST", body: JSON.stringify({ outcome, reason: reason.trim() }) });
+          setStatus("人工核查结果已记录，订单状态已更新。");
+          await loadRecoveries();
+        } else if (action === "confirm-zzshu-cancellation") {
+          const reason = window.prompt("确认上游显示续费已关闭后，填写至少 8 个字的核查依据。", "");
+          if (reason === null) return;
+          if (reason.trim().length < 8) { setStatus("核查依据至少需要 8 个字，订单状态未改变。", true); return; }
+          if (!window.confirm("确认这笔订单的自动续费已关闭？订单：" + orderId)) return;
+          await api("/api/admin/zzshu/orders/" + encodeURIComponent(orderId) + "/confirm-cancellation", { method: "POST", body: JSON.stringify({ reason: reason.trim() }) });
+          setStatus("已记录续费关闭核查结果。");
           await loadRecoveries();
         } else {
           const endpoint = action === "mark-pro-success"
@@ -1200,6 +1229,9 @@ async function reconcileStaleHifupayReservations(limit = 100) {
   }
   return result;
 }
+
+let credentialRotationInProgress = false;
+let activeRechargeConfirmations = 0;
 
 export const server = http.createServer(async (req, res) => {
   try {
@@ -1406,12 +1438,18 @@ export const server = http.createServer(async (req, res) => {
         sendJson(res, result.ok ? 200 : result.status, result.ok ? { success: true, data: { accepted: true } } : { success: false, message: result.message }); return;
       }
       if (req.method === "POST" && url.pathname === "/api/admin/hifupay/credential/verify-and-save") {
-        const dashboard = rechargeService.getRechargeDashboard();
-        if (body.replace === true && dashboard.hifupay.processing + dashboard.hifupay.needsReview > 0) {
-          sendJson(res, 409, { success: false, message: "嗨付仍有处理中或待核查订单，完成后才能更换 API Key。" }); return;
+        if (credentialRotationInProgress || activeRechargeConfirmations > 0) {
+          sendJson(res, 409, { success: false, message: "正在提交充值或更换凭据，请稍后重试。" }); return;
         }
-        const result = await hifupayCredentialStore.verifyAndSave(body.apiKey, { replace: body.replace === true });
-        sendJson(res, result.ok ? 200 : result.status, result.ok ? { success: true, data: { configured: true } } : { success: false, message: result.message }); return;
+        credentialRotationInProgress = true;
+        try {
+          const dashboard = rechargeService.getRechargeDashboard();
+          if (body.replace === true && dashboard.hifupay.processing + dashboard.hifupay.needsReview > 0) {
+            sendJson(res, 409, { success: false, message: "嗨付仍有处理中或待核查订单，完成后才能更换 API Key。" }); return;
+          }
+          const result = await hifupayCredentialStore.verifyAndSave(body.apiKey, { replace: body.replace === true });
+          sendJson(res, result.ok ? 200 : result.status, result.ok ? { success: true, data: { configured: true } } : { success: false, message: result.message }); return;
+        } finally { credentialRotationInProgress = false; }
       }
       sendJson(res, 404, { success: false, message: "Not found" }); return;
     }
@@ -1434,13 +1472,19 @@ export const server = http.createServer(async (req, res) => {
           data = { accepted: true, points: result.points };
         }
         else if (req.method === "POST" && endpoint === "credential/verify-and-save") {
-          const summary = zzshuService.store.orderSummary();
-          if (body.replace === true && summary.processing + summary.needsReview > 0) {
-            sendJson(res,409,{success:false,message:"ZZS 仍有处理中或待核查订单，完成后才能更换 API Key。"});return;
+          if (credentialRotationInProgress || activeRechargeConfirmations > 0) {
+            sendJson(res,409,{success:false,message:"正在提交充值或更换凭据，请稍后重试。"});return;
           }
-          const result = await zzshuCredentialStore.verifyAndSave(body.apiKey, { replace: body.replace === true });
-          if (!result.ok) { sendJson(res, result.status, { success: false, message: result.message }); return; }
-          data = { configured: true, points: result.points ?? null, channelEnabled: config.zzshuEnabled };
+          credentialRotationInProgress = true;
+          try {
+            const summary = zzshuService.store.orderSummary();
+            if (body.replace === true && summary.processing + summary.needsReview > 0) {
+              sendJson(res,409,{success:false,message:"ZZS 仍有处理中或待核查订单，完成后才能更换 API Key。"});return;
+            }
+            const result = await zzshuCredentialStore.verifyAndSave(body.apiKey, { replace: body.replace === true });
+            if (!result.ok) { sendJson(res, result.status, { success: false, message: result.message }); return; }
+            data = { configured: true, points: result.points ?? null, channelEnabled: config.zzshuEnabled };
+          } finally { credentialRotationInProgress = false; }
         }
         else if (req.method === "GET" && endpoint === "import-status") data = zzshuService.importStatus();
         else if (req.method === "GET" && endpoint === "diagnostics") data = zzshuService.diagnostics();
@@ -1455,8 +1499,10 @@ export const server = http.createServer(async (req, res) => {
         else if (req.method === "POST" && endpoint === "import") { const result=await zzshuService.importCards(body); if(!result.ok){sendJson(res,400,{success:false,message:result.message});return;} data=result.rows; }
         else if (req.method === "POST" && endpoint === "vouchers") data = zzshuService.createVouchers(body);
         else if (req.method === "POST" && /^cards\/[^/]+$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.updateCard(id,body)){sendJson(res,400,{success:false,message:"卡片不存在或次数上限无效"});return;} data={ok:true}; }
+        else if (req.method === "POST" && /^cards\/[^/]+\/retire$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]), result=zzshuService.store.retireManualCard(id); if(!result.ok){sendJson(res,409,{success:false,message:result.reason});return;} data={ok:true}; }
         else if (req.method === "POST" && /^orders\/[^/]+\/refresh$/.test(endpoint)) { const result=await zzshuService.refresh(decodeURIComponent(endpoint.split("/")[1])); data=result.data; }
         else if (req.method === "POST" && /^orders\/[^/]+\/resolve$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!["success","unpaid"].includes(body.outcome)||!zzshuService.store.manualResolve(id,body.outcome,String(body.reason||""))){sendJson(res,409,{success:false,message:"仅待确认订单可凭至少 8 字核查依据人工结案"});return;} zzshuService.syncUnifiedOrder(id); data={ok:true}; }
+        else if (req.method === "POST" && /^orders\/[^/]+\/confirm-cancellation$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.confirmCancellation(id,String(body.reason||""))){sendJson(res,409,{success:false,message:"仅成功订单可凭至少 8 字核查依据确认续费关闭"});return;} data={ok:true}; }
         else { sendJson(res,404,{success:false,message:"Not found"}); return; }
         sendJson(res,200,{success:true,data});
       } catch { sendJson(res,503,{success:false,message:"ZZS 管理操作未完成，请检查服务配置"}); }
@@ -1635,7 +1681,13 @@ export const server = http.createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/api/recharge/confirm") {
       const body = await readJsonBody(req);
-      const result = await rechargeService.confirmRecharge(body);
+      if (credentialRotationInProgress) {
+        sendJson(res, 503, { success: false, message: "充值通道正在更新，请稍后重新提交。" }); return;
+      }
+      activeRechargeConfirmations += 1;
+      let result;
+      try { result = await rechargeService.confirmRecharge(body); }
+      finally { activeRechargeConfirmations -= 1; }
       for (const orderId of result.hifupaySafetyPendingOrderIds || []) {
         scheduleHifupayOrderReconciliation(
           orderId,

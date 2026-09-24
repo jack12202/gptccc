@@ -35,7 +35,7 @@ async function vaultRequest(method, suffix, payment) {
 function safeOrder(order) {
   if (!order) return null;
   return { orderId: order.id, taskId: order.id, provider: "zzshu", providerLabel: "自动充值", status: order.status,
-    message: order.status === "success" ? "Plus 已开通" : order.status === "failed" ? "本次未完成，卡密权益已恢复，可以重新提交" :
+    message: order.status === "success" ? (order.cancellation === "cancelled" ? "Plus 已开通，续费已关闭" : "Plus 已开通，续费关闭状态待同步") : order.status === "failed" ? "本次未完成，卡密权益已恢复，可以重新提交" :
       order.status === "needs_review" && /银行卡持有人验证/.test(order.review_reason || "") ? "支付需要银行卡持有人验证，请等待处理，勿重复提交" :
       "正在处理或待确认，请勿重复提交", subscriptionCancellationStatus: order.cancellation };
 }
@@ -164,7 +164,7 @@ export const zzshuService = {
         voucher.status === "unused" ? "未使用" : "正在处理", boundAccount: voucher.email ?
           `${voucher.email.slice(0,1)}***@${voucher.email.split("@")[1]}` : "",
       subscriptionCancellationStatus: order?.subscriptionCancellationStatus || "",
-      subscriptionActionRequired: order?.status === "success" && order?.subscriptionCancellationStatus !== "cancelled",
+      subscriptionActionRequired: false,
       message: order?.message || (voucher.status === "unused" ? "可继续激活" : "请勿重复提交") };
   },
   syncUnifiedOrder(id) {
@@ -283,8 +283,11 @@ export const zzshuService = {
       return { ok: true, status: 200, data: safeOrder(order) };
     try {
       const result = await zzshuAdapter.status(order.upstream_card_key);
-      if (!result.ok || result.data.cardKey !== order.upstream_card_key || result.data.orderNo !== order.upstream_order_no || result.data.planType !== "plus")
+      if (!result.ok || result.data.cardKey !== order.upstream_card_key || result.data.orderNo !== order.upstream_order_no || result.data.planType !== "plus") {
+        if (result.ok) store.review(id, "上游查单返回与原订单不匹配，请人工核查");
+        store.markChecked(id, false);
         return { ok: true, status: 200, data: safeOrder(order) };
+      }
       const data = result.data;
       if (data.status === "success" && data.paid) store.settle(id,"success",data.cancellation);
       else if (data.status === "unpaid" && data.unpaid && !data.paid) store.settle(id,"failed");

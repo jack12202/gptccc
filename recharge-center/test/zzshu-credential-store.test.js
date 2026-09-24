@@ -67,3 +67,19 @@ test("invalid ZZS key is never persisted and only the verification endpoint is c
   assert.equal(fs.existsSync(file), false);
   assert.equal((await store.verifySaved()).status, 503);
 });
+
+test("ZZS deployment Key can be replaced from admin and remains active after restart", async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-override-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const options = { file: path.join(directory, "key.json"), encryptionKey: () => "fixture-encryption-key",
+    environmentKey: () => "deployment-key", baseUrl: () => "https://zzshu.example.test", timeoutMs: () => 15000,
+    fetchImpl: async (_url, request) => {
+      assert.equal(request.headers["X-API-Key"], "replacement-key");
+      return { ok: true, json: async () => ({ code: 0, data: { points: 1 } }) };
+    } };
+  const store = new ZzshuCredentialStore(options);
+  assert.equal(store.status().canConfigure, true);
+  assert.equal(store.key(), "deployment-key");
+  assert.equal((await store.verifyAndSave("replacement-key", { replace: true })).ok, true);
+  assert.equal(new ZzshuCredentialStore(options).key(), "replacement-key");
+});

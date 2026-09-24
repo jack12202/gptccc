@@ -33,6 +33,7 @@ test("atomic reservation, provider-scoped vouchers, serial card, exactly-once su
     assert.equal(b.settle(first.orderId,"success","unconfirmed"),true);
     assert.equal(a.settle(first.orderId,"success","cancelled"),false);
     assert.equal(b.order(first.orderId).cancellation,"cancelled");
+    assert.equal(a.confirmCancellation(first.orderId,"checked upstream cancellation"),false);
     for (let i=1;i<5;i++) {
       const r=b.reserve(codes[i].code,`u${i}@example.test`,`acc-${i}`);
       assert.equal(r.ok,true);
@@ -43,6 +44,23 @@ test("atomic reservation, provider-scoped vouchers, serial card, exactly-once su
     assert.equal(a.voucher(codes[5].code).status,"unused");
     assert.equal(a.voucher("HPLUS"+codes[0].code.slice(6)),undefined);
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
+
+test("manual renewal closure needs evidence and does not spend the card again", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-cancel-"));
+  try {
+    const s = new ZzshuStore(path.join(dir, "test.sqlite"));
+    s.addPaymentCard(parsePaymentCards(`${fakePan},12/40,123`)[0],
+      { credentialRef: "fixture-ref", source: "fixture", note: "", enabled: true, maxSuccess: 2 });
+    const [voucher] = s.createVouchers(1, "fixture", 3, () => "cipher");
+    const order = s.reserve(voucher.code, "fixture@example.test", "account-1");
+    assert.equal(s.settle(order.orderId, "success", "unconfirmed"), true);
+    assert.equal(s.confirmCancellation(order.orderId, "short"), false);
+    assert.equal(s.confirmCancellation(order.orderId, "checked upstream cancellation"), true);
+    assert.equal(s.confirmCancellation(order.orderId, "checked upstream cancellation"), false);
+    assert.equal(s.order(order.orderId).cancellation, "cancelled");
+    assert.equal(s.listCards()[0].successCount, 1);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test("ZZS order keeps its encrypted Session reference across restart without exposing it in lists", () => {
@@ -61,6 +79,79 @@ test("ZZS order keeps its encrypted Session reference across restart without exp
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 });
 
+test("retiring a manual payment card removes its credentials without losing order history or duplicate protection", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-retire-"));
+  try {
+    const file = path.join(dir, "test.sqlite"), s = new ZzshuStore(file);
+    const row = parsePaymentCards(`${fakePan},12/40,123`)[0];
+    s.addPaymentCard(row, { credentialRef: "local:fixture", paymentCipher: "encrypted-fixture-payment", source: "fixture", note: "", enabled: true, maxSuccess: 2 });
+    const cardId = s.listCards()[0].id;
+    const vouchers = s.createVouchers(2, "fixture", 3, () => "cipher");
+    const order = s.reserve(vouchers[0].code, "fixture@example.test", "account-1");
+    assert.match(s.retireManualCard(cardId).reason, /未完成订单/);
+    assert.equal(s.listCards().length, 1);
+    assert.equal(s.settle(order.orderId, "success", "cancelled"), true);
+    assert.equal(s.retireManualCard(cardId).ok, true);
+    assert.equal(s.listCards().length, 0);
+    assert.equal(s.paymentCipher("local:fixture"), "");
+    assert.equal(s.db.prepare("SELECT payment_cipher AS cipher FROM payment_cards WHERE id=?").get(cardId).cipher, null);
+    assert.equal(s.order(order.orderId).status, "success");
+    assert.equal(s.db.prepare("SELECT success_count AS count FROM payment_cards WHERE id=?").get(cardId).count, 1);
+    assert.equal(s.updateCard(cardId, { enabled: true }), false);
+    assert.equal(s.addPaymentCard(row, { credentialRef: "local:new", source: "fixture", note: "", enabled: true, maxSuccess: 1 }), false);
+    assert.equal(s.reserve(vouchers[1].code, "next@example.test", "account-2").ok, false);
+    assert.equal(s.voucher(vouchers[1].code).status, "unused");
+    assert.equal(new ZzshuStore(file).listCards().length, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("ZZS retirement cannot remove a Hifupay sourced card", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-retire-h-"));
+  try {
+    const s = new ZzshuStore(path.join(dir, "test.sqlite"));
+    assert.equal(s.assignHifupay({ id: "7172", lastFour: "4113" }, "zzshu").ok, true);
+    const card = s.listCards().find(item => item.credentialSource === "hifupay");
+    assert.match(s.retireManualCard(card.id).reason, /嗨付来源/);
+    assert.equal(s.listCards().length, 1);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("administrator history includes ZZS orders older than the first 500", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-history-"));
+  try {
+    const s = new ZzshuStore(path.join(dir, "test.sqlite"));
+    s.addPaymentCard(parsePaymentCards(`${fakePan},12/40,123`)[0],
+      { credentialRef: "fixture-ref", source: "fixture", note: "", enabled: true, maxSuccess: 1 });
+    s.createVouchers(501, "fixture", 3, () => "cipher");
+    const cardId = s.db.prepare("SELECT id FROM payment_cards LIMIT 1").get().id;
+    const vouchers = s.db.prepare("SELECT id FROM vouchers").all();
+    const insert = s.db.prepare("INSERT INTO orders(id,voucher_id,card_id,email,account_id,status,created_at,updated_at) VALUES(?,?,?,?,?,'failed',?,?)");
+    vouchers.forEach((voucher, index) => insert.run(`history-${index}`, voucher.id, cardId, "fixture@example.test", `account-${index}`, "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z"));
+    assert.equal(s.listOrders().length, 501);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("failed reconciliation attempts move behind other pending orders", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-reconcile-"));
+  try {
+    const s = new ZzshuStore(path.join(dir, "test.sqlite"));
+    for (const pan of ["4242424242424242", "4000000000000002"]) {
+      s.addPaymentCard(parsePaymentCards(`${pan},12/40,123`)[0],
+        { credentialRef: `fixture-${pan.slice(-4)}`, source: "fixture", note: "", enabled: true, maxSuccess: 1 });
+    }
+    s.createVouchers(2, "fixture", 3, () => "cipher");
+    const cards = s.db.prepare("SELECT id FROM payment_cards ORDER BY id").all();
+    const vouchers = s.db.prepare("SELECT id FROM vouchers ORDER BY id").all();
+    for (let index = 0; index < 2; index++) {
+      s.db.prepare("INSERT INTO orders(id,voucher_id,card_id,email,account_id,status,upstream_order_no,upstream_card_key,created_at,updated_at) VALUES(?,?,?,?,?,'processing',?,?,?,?)")
+        .run(`pending-${index}`, vouchers[index].id, cards[index].id, "fixture@example.test", `account-${index}`, `upstream-${index}`, `query-${index}`, "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+    }
+    assert.deepEqual(s.reconciliationIds(1), ["pending-0"]);
+    s.markChecked("pending-0", false);
+    assert.deepEqual(s.reconciliationIds(1), ["pending-1"]);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test("unknown is held; manual resolution is audited and pauses repeated failed cards", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(),"zzshu-test-"));
   try {
@@ -71,6 +162,9 @@ test("unknown is held; manual resolution is audited and pauses repeated failed c
     s.markSubmitting(first.orderId); s.review(first.orderId,"响应丢失");
     assert.equal(s.reserve(vouchers[1].code,"second@example.test","second").ok,false);
     assert.equal(s.manualResolve(first.orderId,"unpaid","checked payment ledger"),true);
+    assert.equal(s.manualResolve(first.orderId,"unpaid","checked payment ledger"),false);
+    assert.equal(s.order(first.orderId).status,"failed");
+    assert.equal(s.voucher(vouchers[0].code).status,"unused");
     assert.equal(s.reserve(vouchers[1].code,"second@example.test","second").ok,true);
     assert.equal(s.db.prepare("SELECT count(*) AS n FROM audit").get().n,1);
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }

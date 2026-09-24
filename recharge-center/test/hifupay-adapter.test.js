@@ -22,6 +22,7 @@ function sendJson(res, status, payload) {
 test("hifupay adapter submits Plus PH tasks and normalizes polling status", async t => {
   let pollCount = 0;
   let loginCount = 0;
+  let expectedLoginKey = "hifupay-test-key";
   let cardsCacheControl = "";
   let cardsAvailable = true;
   const standardCards = { cards: [{ id: "7172", lastFour: "4113", status: "active", balance: 66, expiryDate: "09/28" }, { id: "7667", lastFour: "6737", status: "active", balance: 20, expiryDate: "09/28" }] };
@@ -30,7 +31,7 @@ test("hifupay adapter submits Plus PH tasks and normalizes polling status", asyn
     if (req.method === "POST" && req.url === "/api/hfp/login") {
       loginCount += 1;
       const body = JSON.parse(await readBody(req));
-      assert.equal(body.apiKey, "hifupay-test-key");
+      assert.equal(body.apiKey, expectedLoginKey);
       assert.equal(body.platform, "haifupaytop");
       sendJson(res, 200, { success: true, apiKey: "hifupay-session-key" });
       return;
@@ -195,4 +196,14 @@ test("hifupay adapter submits Plus PH tasks and normalizes polling status", asyn
   assert.equal(failedStoredCard.status, "locked");
   assert.equal(failedStoredCard.boundEmail, "failed@example.com");
   assert.equal(failedStoredCard.boundAccountId, "account_failed");
+
+  const { hifupayCredentialStore } = await import("../src/hifupay-credential-store.js");
+  const originalKey = hifupayCredentialStore.key;
+  t.after(() => { hifupayCredentialStore.key = originalKey; });
+  expectedLoginKey = "replacement-test-key";
+  hifupayCredentialStore.key = () => expectedLoginKey;
+  cardsAvailable = true;
+  const beforeReplacement = loginCount;
+  assert.equal((await hifupayAdapter.listCards()).ok, true);
+  assert.equal(loginCount, beforeReplacement + 1);
 });

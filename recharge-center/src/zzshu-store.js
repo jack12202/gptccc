@@ -33,6 +33,8 @@ export class ZzshuStore {
     `);
     if (!this.db.prepare("PRAGMA table_info(payment_cards)").all().some(column => column.name === "payment_cipher"))
       this.db.exec("ALTER TABLE payment_cards ADD COLUMN payment_cipher TEXT");
+    if (!this.db.prepare("PRAGMA table_info(payment_cards)").all().some(column => column.name === "retired_at"))
+      this.db.exec("ALTER TABLE payment_cards ADD COLUMN retired_at TEXT");
     // Older databases made voucher_id unique in orders. A confirmed unpaid attempt
     // must remain in history while the same voucher can fund a later attempt.
     const ordersSql = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='orders'").get()?.sql || "";
@@ -110,27 +112,43 @@ export class ZzshuStore {
         options.source, options.note, options.enabled ? 1 : 0, options.maxSuccess, new Date().toISOString(), options.paymentCipher || null).changes === 1;
   }
   paymentCipher(ref) {
-    return this.db.prepare("SELECT payment_cipher AS cipher FROM payment_cards WHERE credential_ref=?").get(ref)?.cipher || "";
+    return this.db.prepare("SELECT payment_cipher AS cipher FROM payment_cards WHERE credential_ref=? AND retired_at IS NULL").get(ref)?.cipher || "";
   }
   listCards() {
     return this.db.prepare(`SELECT id,last_four AS lastFour,source,note,enabled,max_success AS maxSuccess,
       CASE WHEN credential_ref LIKE 'hifupay:%' THEN 'hifupay' ELSE 'manual' END AS credentialSource,
+      CASE WHEN credential_ref LIKE 'hifupay:%' THEN substr(credential_ref,9) ELSE NULL END AS hifupayId,
       MAX(0,max_success-success_count) AS remainingUses,
       success_count AS successCount,failures,paused,last_failure AS lastFailure,created_at AS createdAt,
       (SELECT id FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing','needs_review')) AS occupiedOrderId
-      FROM payment_cards WHERE credential_ref NOT LIKE 'hifupay:%' OR EXISTS
+      FROM payment_cards WHERE retired_at IS NULL AND (credential_ref NOT LIKE 'hifupay:%' OR EXISTS
         (SELECT 1 FROM card_roles WHERE hifupay_id=substr(payment_cards.credential_ref,9) AND role='zzshu')
+      )
       ORDER BY success_count DESC,created_at,id`).all();
   }
   updateCard(id, { enabled, note, maxSuccess, resume } = {}) {
     const card = this.db.prepare("SELECT * FROM payment_cards WHERE id=?").get(id);
-    if (!card) return false;
+    if (!card || card.retired_at) return false;
     const cap = maxSuccess === undefined ? card.max_success : Number(maxSuccess);
     if (!Number.isInteger(cap) || cap < Math.max(1,card.success_count) || cap > 100) return false;
     this.db.prepare("UPDATE payment_cards SET enabled=?,note=?,max_success=?,paused=?,failures=? WHERE id=?")
       .run(enabled === undefined ? card.enabled : Number(Boolean(enabled)), note === undefined ? card.note : String(note).slice(0, 200), cap,
         resume ? 0 : card.paused, resume ? 0 : card.failures, id);
     return true;
+  }
+  retireManualCard(id) {
+    return this.transaction(() => {
+      const card = this.db.prepare("SELECT id,credential_ref,retired_at FROM payment_cards WHERE id=?").get(id);
+      if (!card) return { ok: false, reason: "支付卡不存在。" };
+      if (card.credential_ref.startsWith("hifupay:")) return { ok: false, reason: "嗨付来源的卡请在卡片分配区管理。" };
+      if (card.retired_at) return { ok: false, reason: "这张卡已从卡池移出。" };
+      const active = this.db.prepare("SELECT 1 FROM orders WHERE card_id=? AND status IN ('reserved','submitting','processing','needs_review') LIMIT 1").get(id);
+      if (active) return { ok: false, reason: "支付卡仍被未完成订单占用，请先核查订单。" };
+      this.db.prepare("UPDATE payment_cards SET enabled=0,retired_at=?,payment_cipher=NULL,credential_ref=?,note='' WHERE id=? AND retired_at IS NULL")
+        .run(new Date().toISOString(), `retired:${id}`, id);
+      this.audit("card:" + id, "manual_card_retired", "管理员永久移出手动卡池并清除支付资料");
+      return { ok: true };
+    });
   }
   createVouchers(count, source, productId, encrypt) {
     const batch = crypto.randomUUID(), output = [];
@@ -181,7 +199,7 @@ export class ZzshuStore {
   listVouchers() { return this.db.prepare("SELECT id,batch_id AS batchId,source,product_id AS productId,status,order_id AS orderId,email,account_id AS accountId,created_at AS createdAt FROM vouchers WHERE id NOT LIKE 'hcard_%' ORDER BY created_at DESC LIMIT 500").all(); }
   unifiedOrderIds() { return this.db.prepare("SELECT order_id AS id FROM vouchers WHERE id LIKE 'hcard_%' AND order_id IS NOT NULL").all().map(row => row.id); }
   selectCandidate(allowedHifupayIds, allowManual) {
-    const candidates = this.db.prepare(`SELECT * FROM payment_cards WHERE enabled=1 AND paused=0 AND success_count<max_success
+    const candidates = this.db.prepare(`SELECT * FROM payment_cards WHERE enabled=1 AND paused=0 AND retired_at IS NULL AND success_count<max_success
       AND (credential_ref NOT LIKE 'hifupay:%' OR EXISTS (SELECT 1 FROM card_roles WHERE hifupay_id=substr(payment_cards.credential_ref,9) AND role='zzshu'))
       AND NOT EXISTS (SELECT 1 FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing','needs_review'))
       ORDER BY CASE WHEN success_count>0 THEN 0 ELSE 1 END,success_count DESC,created_at,id`).all();
@@ -223,12 +241,12 @@ export class ZzshuStore {
     FROM orders o JOIN payment_cards c ON c.id=o.card_id JOIN vouchers v ON v.id=o.voucher_id WHERE o.id=?`).get(id); }
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
   listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.upstream_order_no AS upstreamOrderNo,
-    o.review_reason AS reviewReason,o.cancellation,c.last_four AS lastFour,o.created_at AS createdAt,o.updated_at AS updatedAt
-    FROM orders o JOIN payment_cards c ON c.id=o.card_id ORDER BY o.created_at DESC LIMIT 500`).all(); }
+    o.review_reason AS reviewReason,o.cancellation,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,c.last_four AS lastFour,o.created_at AS createdAt,o.updated_at AS updatedAt
+    FROM orders o JOIN payment_cards c ON c.id=o.card_id ORDER BY o.created_at DESC`).all(); }
   orderSummary() {
     const counts = this.db.prepare(`SELECT
       SUM(CASE WHEN status IN ('reserved','submitting','processing') THEN 1 ELSE 0 END) AS processing,
-      SUM(CASE WHEN status='needs_review' THEN 1 ELSE 0 END) AS needsReview FROM orders`).get();
+      SUM(CASE WHEN status='needs_review' OR (status='success' AND cancellation!='cancelled') THEN 1 ELSE 0 END) AS needsReview FROM orders`).get();
     return { processing: Number(counts?.processing || 0), needsReview: Number(counts?.needsReview || 0),
       lastSyncAt: this.db.prepare("SELECT value FROM runtime_state WHERE key='last_successful_sync_at'").get()?.value || "",
       lastSyncAttemptAt: this.db.prepare("SELECT value FROM runtime_state WHERE key='last_sync_attempt_at'").get()?.value || "" };
@@ -322,6 +340,15 @@ export class ZzshuStore {
     if (outcome === "success") return this.settle(id,"success","unconfirmed");
     if (outcome === "unpaid") return this.settle(id,"failed");
     return false;
+  }
+  confirmCancellation(id, reason) {
+    if (!reason || reason.trim().length < 8) return false;
+    return this.transaction(() => {
+      const updated = this.db.prepare("UPDATE orders SET cancellation='cancelled',updated_at=? WHERE id=? AND status='success' AND cancellation!='cancelled'")
+        .run(new Date().toISOString(), id).changes;
+      if (updated) this.audit(id, "manual_cancellation_confirmed", reason.trim());
+      return updated === 1;
+    });
   }
 }
 

@@ -110,7 +110,13 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
     if (page === "/admin/zzshu") {
       assert.match(html, /支付卡池 · ZZS/);
       assert.match(html, /批量导入支付卡/);
+      assert.match(html, /data-retire/);
       assert.doesNotMatch(html, /type="password"/);
+    }
+    if (page === "/admin/recoveries") {
+      assert.match(html, /resolve-zzshu-success/);
+      assert.match(html, /resolve-zzshu-unpaid/);
+      assert.match(html, /支付结果待核查/);
     }
     if (!["/admin", "/admin/zzshu"].includes(page)) assert.doesNotMatch(html, /type="password"/);
     if (page === "/admin") {
