@@ -460,6 +460,7 @@ export const rechargeService = {
         statusLabel: H_CARD_STATUS_LABELS[record.status],
         boundAccount: maskedBoundAccount(record),
         canRecharge: record.status === "unused",
+        hasPriorSubmission: Boolean(record.hasOrder),
         message: record.subscriptionActionRequired
           ? "充值已经成功，但自动续费未关闭，请手动取消连续订阅。"
           : publicHCardMessage(record.status),
@@ -1018,6 +1019,20 @@ export const rechargeService = {
     const canonicalCardInfo = canonicalLocalCardCode(input.cardInfo);
     const normalizedInput = { ...input, cardInfo: canonicalCardInfo };
     const unifiedCard = store.getHCardByCode(canonicalCardInfo);
+    if (unifiedCard && !input.dryRun) {
+      const parsedBinding = parseRechargeInput(normalizedInput);
+      if (!parsedBinding.ok) return { ok: false, status: 400, message: parsedBinding.message };
+      const previous = unifiedCard.unified ? zzshuService.store.boundIdentity(canonicalCardInfo) : null;
+      if (previous?.email || previous?.accountId) {
+        const restored = store.bindHCardAccount(canonicalCardInfo, previous);
+        if (!restored.ok) return { ok: false, status: 409, message: restored.message };
+      }
+      const binding = store.bindHCardAccount(canonicalCardInfo, {
+        email: parsedBinding.data.userEmail, accountId: parsedBinding.data.account?.id || ""
+      });
+      if (!binding.ok) return { ok: false, status: 409, message: binding.message };
+    }
+
     if (unifiedCard?.unified) {
       const parsedUnified = parseRechargeInput(normalizedInput);
       if (!parsedUnified.ok) return { ok: false, status: 400, message: parsedUnified.message };

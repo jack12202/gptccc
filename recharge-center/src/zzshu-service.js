@@ -160,7 +160,8 @@ export const zzshuService = {
     // the background and through the explicit admin refresh action.
     const order = voucher.orderId ? safeOrder(store.order(voucher.orderId)) : null;
     return { ok: true, status: voucher.status === "used" ? "success" : order?.status || voucher.status,
-      canRecharge: voucher.status === "unused", statusLabel: voucher.status === "used" ? "充值成功" :
+      canRecharge: voucher.status === "unused", hasPriorSubmission: store.hasVoucherOrders(code),
+      statusLabel: voucher.status === "used" ? "充值成功" :
         voucher.status === "unused" ? "未使用" : "正在处理", boundAccount: voucher.email ?
           `${voucher.email.slice(0,1)}***@${voucher.email.split("@")[1]}` : "",
       subscriptionCancellationStatus: order?.subscriptionCancellationStatus || "",
@@ -207,6 +208,15 @@ export const zzshuService = {
          sha256(code) !== config.zzshuTestVoucherHash ||
          sha256(String(token.account.id)) !== config.zzshuTestAccountHash))
       return reject(403, "此卡密或账号暂未开放提交，兑换权益未消耗", "测试卡密或账号门禁未通过");
+    if (/^HPLUS[0-9A-F]{32}$/.test(code)) {
+      const previous = store.boundIdentity(code);
+      if (previous?.email || previous?.accountId) {
+        const restored = hifupayStore.bindHCardAccount(code, previous);
+        if (!restored.ok) return reject(409, restored.message, "历史账号绑定不匹配");
+      }
+      const binding = hifupayStore.bindHCardAccount(code, { email: token.user.email, accountId: String(token.account.id) });
+      if (!binding.ok) return reject(409, binding.message, "账号绑定不匹配");
+    }
     if (!config.zzshuEnabled || !zzshuCredentialStore.key()) return reject(503, "通道尚未启用，兑换权益未消耗", "通道或 API 凭据未就绪");
     let allowedHifupayIds=null;
     if (store.hasHifupayAssignments()) {

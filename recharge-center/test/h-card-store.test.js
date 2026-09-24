@@ -46,11 +46,14 @@ test("h cards bind once, stay locked on failure, and support admin unlock/disabl
     email: "new@example.com",
     accountId: "account_new"
   });
-  assert.equal(secondReservation.ok, true);
+  assert.equal(secondReservation.status, "account_mismatch");
+  assert.equal(store.reserveHCard(cards[0].code, "order-2", {
+    email: "first@example.com", accountId: "account_first"
+  }).ok, true);
   const listedAfterRebind = store.listHCards().find(card => card.id === cards[0].id);
   assert.equal(listedAfterRebind.status, "locked");
-  assert.equal(listedAfterRebind.boundEmail, "new@example.com");
-  assert.equal(listedAfterRebind.boundAccountId, "account_new");
+  assert.equal(listedAfterRebind.boundEmail, "first@example.com");
+  assert.equal(listedAfterRebind.boundAccountId, "account_first");
 
   const secondId = store.getHCardByCode(cards[1].code).id;
   assert.equal(store.setHCardDisabled(secondId, true, "人工暂停").status, "disabled");

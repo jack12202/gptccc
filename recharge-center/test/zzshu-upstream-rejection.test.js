@@ -52,6 +52,14 @@ test("documented pre-create rejection releases voucher; cardholder verification 
   assert.equal(service.store.listCards()[0].successCount, 0);
   assert.equal(service.store.listCards()[0].remainingUses, 2);
 
+  const other = JSON.parse(session);
+  other.user.email = "other@example.test";
+  other.account.id = "other";
+  const mismatch = await service.confirm({ cardInfo: vouchers[0].code, secretJsonText: JSON.stringify(other) });
+  assert.equal(mismatch.ok, false);
+  assert.match(mismatch.message, /绑定首次/);
+  assert.equal(directCalls, 1);
+
   const created = await service.confirm({ cardInfo: vouchers[1].code, secretJsonText: session });
   assert.equal(created.ok, true);
   assert.equal(created.data.status, "processing");

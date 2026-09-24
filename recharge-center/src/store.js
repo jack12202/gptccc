@@ -549,6 +549,23 @@ export class JsonStore {
     return result;
   }
 
+  bindHCardAccount(code, identity) {
+    const state = this.read();
+    const card = state.hCards.find(item => item.codeHash === cardCodeHash(String(code).trim().toUpperCase()));
+    if (!card || card.disabledAt || card.archivedAt) return { ok: false, message: "卡密当前不可使用。" };
+    if (!hasAccountIdentity(identity)) return { ok: false, message: "缺少账号信息。" };
+    if (card.boundEmail || card.boundAccountId) {
+      return cardIdentityMatches(card, identity) ? { ok: true } :
+        { ok: false, message: "此卡密已绑定首次提交的账号，充值失败也不能更换账号，请使用原账号。" };
+    }
+    card.boundEmail = normalizeEmail(identity.email);
+    card.boundAccountId = normalizeAccountId(identity.accountId);
+    card.boundAt = nowIso();
+    card.hasSubmission = true;
+    this.write(state);
+    return { ok: true };
+  }
+
   claimUnifiedPlus(code, provider) {
     if (!["h", "zzshu"].includes(provider)) return { ok: false, message: "无效的 Plus 通道" };
     const state = this.read();
@@ -1182,6 +1199,7 @@ export class JsonStore {
         found: true,
         provider: card.provider,
         status,
+        hasOrder: Boolean(order),
         boundEmail: card.boundEmail || "",
         boundAccountId: card.boundAccountId || "",
         source: card.source || "未分类",
@@ -1242,6 +1260,8 @@ export class JsonStore {
       this.write(state);
       return { ok: false, status: "expired", message: "激活码已过期，请联系人工处理。" };
     }
+    if ((card.boundEmail || card.boundAccountId) && !cardIdentityMatches(card, identity))
+      return { ok: false, status: "account_mismatch", message: "此卡密已绑定首次提交的账号，不能更换账号。" };
     if (card.status === "used") return { ok: false, status: "used", message: "卡密已使用，请勿重复提交。" };
     if (card.status === "reserved") {
       return { ok: false, status: "locked", message: "卡密已锁定，请勿重复提交。" };
@@ -1304,9 +1324,6 @@ export class JsonStore {
     Object.assign(card, {
       status: "unused",
       orderId: "",
-      boundEmail: "",
-      boundAccountId: "",
-      boundAt: "",
       lockReason: "",
       usedAt: "",
       updatedAt: nowIso()

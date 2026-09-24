@@ -223,9 +223,22 @@ export class ZzshuStore {
       ? allowedHifupayIds?.has(item.credential_ref.slice(8)) : allowManual);
   }
   manualCandidate() { return this.selectCandidate(null, true); }
+  boundIdentity(code) {
+    const voucher = this.voucher(code);
+    if (!voucher) return null;
+    const first = this.db.prepare("SELECT email,account_id AS accountId FROM orders WHERE voucher_id=? ORDER BY created_at,id LIMIT 1").get(voucher.id);
+    return { email: voucher.email || first?.email || "", accountId: voucher.accountId || first?.accountId || "" };
+  }
   reserveUncommitted(code, email, accountId, allowedHifupayIds, allowManual, sessionCipher = "") {
     const voucher = this.voucher(code);
     if (!voucher) return { ok: false, reason: "卡密不存在" };
+    // Recover legacy failed-order bindings before allowing another attempt.
+    const first = this.db.prepare("SELECT email,account_id AS accountId FROM orders WHERE voucher_id=? ORDER BY created_at,id LIMIT 1").get(voucher.id);
+    const boundEmail = voucher.email || first?.email;
+    const boundId = voucher.accountId || first?.accountId;
+    if ((boundEmail && boundEmail !== email) || (boundId && boundId !== accountId))
+      return { ok: false, reason: "此卡密已绑定首次提交的账号，充值失败也不能更换账号，请使用原账号。" };
+    this.db.prepare("UPDATE vouchers SET email=?,account_id=? WHERE id=?").run(email,accountId,voucher.id);
     if (voucher.status !== "unused") return { ok: false, reason: voucher.status === "used" ? "卡密已使用" : "卡密处理中", orderId: voucher.email === email && voucher.accountId === accountId ? voucher.orderId : undefined };
     const active = this.db.prepare("SELECT count(*) AS n FROM orders WHERE status IN ('reserved','submitting','processing','needs_review')").get().n;
     if (active >= Math.max(1, config.zzshuConcurrency)) return { ok: false, reason: "通道处理量已满，请稍后再试" };
@@ -309,7 +322,7 @@ export class ZzshuStore {
       if (!order || order.status !== "reserved") return false;
       this.audit(id,"pre_submit_aborted",reason);
       this.db.prepare("DELETE FROM orders WHERE id=?").run(id);
-      this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL,email=NULL,account_id=NULL WHERE id=?").run(order.voucher_id);
+      this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL WHERE id=?").run(order.voucher_id);
       return true;
     });
   }
@@ -320,7 +333,7 @@ export class ZzshuStore {
       const at = new Date().toISOString();
       this.db.prepare("UPDATE orders SET status='failed',review_reason=?,updated_at=? WHERE id=? AND status='submitting'")
         .run(reason,at,id);
-      this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL,email=NULL,account_id=NULL WHERE id=? AND order_id=?")
+      this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL WHERE id=? AND order_id=?")
         .run(order.voucher_id,id);
       this.audit(id,"upstream_rejected_before_create",reason);
       return true;
@@ -339,7 +352,7 @@ export class ZzshuStore {
       } else if (state === "failed") {
         this.db.prepare("UPDATE payment_cards SET failures=failures+1,last_failure='上游明确未支付' WHERE id=?").run(order.card_id);
         this.db.prepare("UPDATE payment_cards SET paused=1 WHERE id=? AND failures>=?").run(order.card_id,Math.max(1,config.zzshuFailureThreshold));
-        this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL,email=NULL,account_id=NULL WHERE id=? AND order_id=?")
+        this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL WHERE id=? AND order_id=?")
           .run(order.voucher_id,id);
       }
       this.db.prepare("UPDATE orders SET status=?,cancellation=?,review_reason='',updated_at=? WHERE id=?")

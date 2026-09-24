@@ -65,6 +65,13 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   assert.equal(started.ok, true);
   assert.equal(started.data.provider, "zzshu");
   assert.equal(creates, 1);
+  const other = JSON.parse(session);
+  other.user.email = "other@example.test";
+  other.account.id = "other-account";
+  const blocked = await rechargeService.confirmRecharge({ cardInfo: first.code, provider: "h", secretJsonText: JSON.stringify(other) });
+  assert.equal(blocked.ok, false);
+  assert.match(blocked.message, /绑定首次/);
+  assert.equal(creates, 1);
   assert.equal(rechargeService.updatePlusProvider("h").ok, true);
   assert.equal((await rechargeService.verifyCard(first.code, "h")).data.selectedProvider, "zzshu");
   const duplicate = await rechargeService.confirmRecharge({ cardInfo: first.code, provider: "h", secretJsonText: session });

@@ -98,9 +98,11 @@ test("h card query APIs are read-only, authenticated where required, and rate li
     assert.equal(payload.success, true);
     assert.equal(payload.data.status, expectedStatus);
     assert.equal(payload.data.canRecharge, expectedStatus === "unused");
+    assert.equal(payload.data.hasPriorSubmission, [2, 3, 4].includes(index));
     assert.deepEqual(Object.keys(payload.data).sort(), [
       "boundAccount",
       "canRecharge",
+      "hasPriorSubmission",
       "message",
       "plan",
       "status",

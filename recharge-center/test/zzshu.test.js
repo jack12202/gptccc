@@ -35,7 +35,7 @@ test("atomic reservation, provider-scoped vouchers, serial card, exactly-once su
     assert.equal(b.order(first.orderId).cancellation,"cancelled");
     assert.equal(a.confirmCancellation(first.orderId,"checked upstream cancellation"),false);
     for (let i=1;i<5;i++) {
-      const r=b.reserve(codes[i].code,`u${i}@example.test`,`acc-${i}`);
+      const r=b.reserve(codes[i].code,i === 1 ? "two@example.test" : `u${i}@example.test`,i === 1 ? "acc-two" : `acc-${i}`);
       assert.equal(r.ok,true);
       a.settle(r.orderId,"success");
     }
@@ -245,4 +245,29 @@ test("direct create is Plus-only and sends the full Session without region rotat
     const result=await zzshuAdapter.create({token,payment:{cardNumber:fakePan,expMonth:12,expYear:2040,cvv:"123"}});
     assert.equal(result.ok,true);
   } finally {globalThis.fetch=oldFetch;config.zzshuEnabled=oldEnabled;config.zzshuApiKey=oldKey;config.zzshuBaseUrl=oldUrl;}
+});
+
+
+test("failed and unavailable vouchers retain their first account across restart", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-binding-"));
+  try {
+    const file = path.join(dir, "state.sqlite"), s = new ZzshuStore(file);
+    const [v] = s.createVouchers(1, "fixture", 3, () => "cipher");
+    assert.equal(s.reserve(v.code, "first@example.test", "first").ok, false);
+    assert.match(s.reserve(v.code, "second@example.test", "second").reason, /绑定首次/);
+    s.addPaymentCard(parsePaymentCards(`${fakePan},12/40,123`)[0], {credentialRef:"fixture", source:"fixture", note:"", enabled:true, maxSuccess:3});
+    const first = s.reserve(v.code, "first@example.test", "first");
+    assert.equal(first.ok, true);
+    s.settle(first.orderId, "failed");
+    const restarted = new ZzshuStore(file);
+    assert.equal(restarted.voucher(v.code).status, "unused");
+    assert.match(restarted.reserve(v.code, "second@example.test", "second").reason, /绑定首次/);
+    const retry = restarted.reserve(v.code, "first@example.test", "first");
+    assert.equal(retry.ok, true);
+    assert.notEqual(retry.orderId, first.orderId);
+    assert.equal(restarted.listCards()[0].successCount, 0);
+    assert.equal(restarted.reserve(v.code, "first@example.test", "first").orderId, retry.orderId);
+    assert.match(restarted.reserve(v.code, "second@example.test", "second").reason, /绑定首次/);
+    s.db.close(); restarted.db.close();
+  } finally { fs.rmSync(dir, {recursive:true,force:true}); }
 });

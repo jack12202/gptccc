@@ -1032,6 +1032,14 @@ window._hmt = _hmt;
     let lastCardStatusMessage = "";
     let pollTimer = 0;
     let pollInFlight = false;
+    let submissionPending = false;
+    let cardStatusTimer = 0;
+    function pendingKey() { return "gptcPending:" + document.getElementById("cardInfo").value.trim().toUpperCase(); }
+    function setSubmissionPending(value) {
+      submissionPending = value;
+      try { if (value) sessionStorage.setItem(pendingKey(), "1"); else sessionStorage.removeItem(pendingKey()); } catch {}
+    }
+
 
     function showToast(text) {
       const toast = document.getElementById("toast");
@@ -1226,7 +1234,7 @@ window._hmt = _hmt;
       const checkbox = document.getElementById("overwriteRecharge");
       const button = document.getElementById("confirmRechargeBtn");
       if (!checkbox || !button) return;
-      button.disabled = Boolean(currentTaskId) || !checkbox.checked;
+      button.disabled = Boolean(submissionPending || currentTaskId || currentOrderId) || !checkbox.checked;
     }
 
     function updateVerifiedCardDisplay(cardInfo) {
@@ -1364,14 +1372,14 @@ window._hmt = _hmt;
         : `
           <div class="result-top">
             <div class="result-heading">
-              <h3 class="result-title">充值失败</h3>
-              <p class="result-subtitle">${escapeHtml(message)}</p>
+              <h3 class="result-title">已提交，等待处理</h3>
+              <p class="result-subtitle">提交记录已保留，正在等待人工核查和处理。</p>
             </div>
-            <span class="result-badge">需处理</span>
+            <span class="result-badge">待处理</span>
           </div>
           <div class="result-actions">
-            <div>请保留页面提示，联系客服核查。</div>
-            <button class="support-action" type="button" onclick="copySupportContact()">联系人工处理</button>
+            <div>请勿重复提交。如等候时间较长，请联系人工客服。</div>
+            ${statusActionButtonsHtml()}
             ${cardStatusToolsHtml()}
           </div>
         `;
@@ -1434,6 +1442,7 @@ window._hmt = _hmt;
     async function queryCardStatusFromInput() {
       const cardInfo = document.getElementById("cardInfo").value.trim();
       const button = document.getElementById("queryCardStatusBtn");
+      clearTimeout(cardStatusTimer);
       if (!cardInfo) {
         setNotice("step1Notice", "请输入卡密", "输入需要查询的卡密后，再点击“充值结果查询”。", "error");
         return;
@@ -1463,17 +1472,31 @@ window._hmt = _hmt;
             }
           }
           const account = result.boundAccount ? ` 绑定账号：${result.boundAccount}。` : "";
-          const nextStep = result.canRecharge ? " 你可以点击“验证激活码”继续充值。" : "";
+          const waitingForHelp = result.status === "failed" || (result.status === "unused" && result.hasPriorSubmission);
+          const nextStep = result.canRecharge && !waitingForHelp ? " 你可以点击“验证激活码”继续充值。" : "";
           const subscriptionStep = result.subscriptionActionRequired
             ? " 请登录 ChatGPT，依次进入“头像 → 设置 → 账户 → 订阅管理”，手动取消连续包月计划；取消后本月 Plus 仍然有效，到期后不再自动续费。"
             : "";
-          const noticeType = result.status === "failed" || result.status === "disabled"
+          const noticeType = result.status === "disabled"
             ? "error"
-            : (result.status === "unused" || result.status === "success") && !result.subscriptionActionRequired
+            : !waitingForHelp && (result.status === "unused" || result.status === "success") && !result.subscriptionActionRequired
               ? "success"
               : "info";
-          const title = result.subscriptionActionRequired ? "充值成功，需取消连续订阅" : result.statusLabel || "卡密状态";
-          setNotice("step1Notice", title, (result.message || "查询完成。") + account + nextStep + subscriptionStep, noticeType);
+          const title = waitingForHelp ? "已提交，等待处理" : result.subscriptionActionRequired ? "充值成功，需取消连续订阅" : result.statusLabel || "卡密状态";
+          const detail = waitingForHelp ? "提交记录已保留，正在等待人工核查和处理。如等候时间较长，请联系人工客服。请勿重复提交。" : (result.message || "查询完成。") + nextStep + subscriptionStep;
+          setNotice("step1Notice", title, detail + account, noticeType);
+          if (submissionPending || waitingForHelp || !result.canRecharge) goStep(1);
+          if (result.status === "success" || result.status === "used") {
+            setSubmissionPending(false);
+            document.getElementById("confirmRechargeBtn").textContent = "充值已完成";
+          } else if (waitingForHelp) {
+            setSubmissionPending(false);
+            cardStatusTimer = setTimeout(() => queryCardStatusFromInput(), 60000);
+          } else if (submissionPending || waitingForHelp || ["reserved", "locked", "processing", "queued", "submitting", "needs_review", "syncing"].includes(result.status)) {
+            if (submissionPending && result.canRecharge && !waitingForHelp) setNotice("step1Notice", "正在确认提交结果", "暂未查到已受理的订单，请勿重复提交。如一直未确认，请联系客服核查。", "info");
+            cardStatusTimer = setTimeout(() => queryCardStatusFromInput(), waitingForHelp ? 60000 : 10000);
+          }
+          return Boolean(result.canRecharge && !submissionPending && !waitingForHelp);
         } else if (currentProvider === "xiaoyu") {
           const data = await postJson("/api/recharge/query-task-status", {
             taskId: cardInfo,
@@ -1497,7 +1520,7 @@ window._hmt = _hmt;
           } else if (task.status === "needs_review" || task.status === "syncing") {
             setNotice("step1Notice", "充值结果待确认", message || "订单状态仍在同步，请稍后重新查询，不要重复提交。", "info");
           } else {
-            setNotice("step1Notice", "充值失败", message || "请保留页面信息并联系人工核查。", "error");
+            setNotice("step1Notice", "已提交，等待处理", "提交记录已保留，正在等待人工核查和处理。如等候时间较长，请联系人工客服。", "info");
           }
         } else {
           const data = await postJson("/api/recharge/query-card-status", {
@@ -1511,7 +1534,8 @@ window._hmt = _hmt;
           setNotice("step1Notice", "卡密使用查询结果", message, "success");
         }
       } catch (error) {
-        setNotice("step1Notice", "充值结果查询失败", error.message || "请稍后重试或联系人工。", "error");
+        setNotice("step1Notice", "暂未取得最新进度", "本次查询未完成，不代表充值失败，请勿重复提交。系统会继续查询。", "info");
+        cardStatusTimer = setTimeout(() => queryCardStatusFromInput(), 10000);
       } finally {
         button.disabled = false;
         button.textContent = "查询卡密状态";
@@ -1569,6 +1593,7 @@ window._hmt = _hmt;
     async function verifyCard() {
       const cardInfo = document.getElementById("cardInfo").value.trim();
       const button = document.getElementById("verifyCardBtn");
+      if (submissionPending) { await queryCardStatusFromInput(); return; }
       button.disabled = true;
       button.textContent = "验证中...";
       try {
@@ -1578,7 +1603,7 @@ window._hmt = _hmt;
         });
         const upstream = data.data || data.upstream?.data || data.upstream || {};
         if (!data.success) {
-          if (/^HPRO(?:5|20)/i.test(cardInfo)) { await queryCardStatusFromInput(); return; }
+          if (/^(HPLUS|HPRO5|HPRO20|ZZPLUS)/i.test(cardInfo)) { await queryCardStatusFromInput(); return; }
           const message = mapCardVerifyMessage({ message: data.data?.message || data.message });
           setNotice("step1Notice", isUsedCardMessage(message) ? "卡密已使用" : "激活码验证失败", isUsedCardMessage(message) ? "" : message, "error");
           return;
@@ -1627,9 +1652,9 @@ window._hmt = _hmt;
         setTextIfPresent("confirmEmail", result.data.userEmail);
         setTextIfPresent("confirmCard", document.getElementById("cardInfo").value.trim());
         const submitMessage = currentProvider === "zzshu"
-          ? `已识别账号邮箱：${result.data.userEmail}。请确认账号目前为免费套餐，且本次开通 Plus。`
+          ? `已识别账号邮箱：${result.data.userEmail}。首次确认提交后，卡密将绑定此账号；充值失败也不能更换账号。`
           : currentProvider === "h"
-          ? `已识别账号邮箱：${result.data.userEmail}，确认充值后将绑定此账号。`
+          ? `已识别账号邮箱：${result.data.userEmail}。首次确认提交后，卡密将绑定此账号；充值失败也不能更换账号。`
           : `已识别账号邮箱：${result.data.userEmail}，请确认这是你要充值的账号。`;
         setNotice("step2Notice", "账号信息识别成功", submitMessage, "success");
         goStep(3);
@@ -1645,7 +1670,7 @@ window._hmt = _hmt;
       const button = document.getElementById("confirmRechargeBtn");
       const progressBox = document.getElementById("progressBox");
       const resultBox = document.getElementById("resultBox");
-      if (currentTaskId || currentOrderId) {
+      if (submissionPending || currentTaskId || currentOrderId) {
         setNotice("step3Notice", "充值任务已经提交", "系统正在查询原任务，请不要重复提交卡密。", "success");
         return;
       }
@@ -1667,19 +1692,21 @@ window._hmt = _hmt;
         siteSource: currentSiteSource
       };
       button.disabled = true;
+      setSubmissionPending(true);
       button.textContent = "提交中...";
       progressBox.style.display = "block";
       resultBox.style.display = "none";
       try {
         const data = await postJson("/api/recharge/confirm", payload);
         const task = data.data || {};
+        setSubmissionPending(false);
         currentOrderId = task.orderId || "";
         if (!data.success || task.success === false || (!task.taskId && !task.plan?.startsWith("pro_"))) {
-          const message = mapRechargeMessage(task.message || data.message, "failed");
-          setNotice("step3Notice", "充值提交失败", currentOrderId ? message + " 订单已保留，客服可以继续处理。" : message, "error");
+          const message = currentOrderId ? "提交记录已保留，正在等待人工核查和处理。如等候时间较长，请联系人工客服。" : mapRechargeMessage(task.message || data.message, "failed");
+          setNotice("step3Notice", currentOrderId ? "已提交，等待处理" : "暂未完成提交", message, currentOrderId ? "info" : "error");
           progressBox.style.display = "none";
           if (currentOrderId) {
-            renderResultBox("fail", message + " 订单已保留，若人工处理成功，页面会自动更新。");
+            renderResultBox("fail", message);
             resultBox.style.display = "block";
             schedulePoll(10000);
           }
@@ -1694,11 +1721,12 @@ window._hmt = _hmt;
         renderProgressBox(mapRechargeMessage(task.message, task.status || "queued"), task);
         pollStatus();
       } catch (error) {
-        setNotice("step3Notice", "充值提交失败", error.message || "网络请求异常。", "error");
+        setNotice("step3Notice", "正在确认提交结果", "网络中断，后台可能已收到提交。系统会查询原记录，请勿重复提交；如一直未确认，请联系客服。", "info");
         progressBox.style.display = "none";
+        cardStatusTimer = setTimeout(() => queryCardStatusFromInput(), 3000);
       } finally {
-        button.disabled = Boolean(currentTaskId || currentOrderId) || !document.getElementById("overwriteRecharge").checked;
-        button.textContent = currentTaskId || currentOrderId ? "已提交，正在查询" : "确认充值";
+        button.disabled = Boolean(submissionPending || currentTaskId || currentOrderId) || !document.getElementById("overwriteRecharge").checked;
+        button.textContent = submissionPending ? "正在确认提交结果" : currentTaskId || currentOrderId ? "已提交，正在查询" : "确认充值";
       }
     }
 
@@ -1732,11 +1760,9 @@ window._hmt = _hmt;
         if (!data.success) {
           setNotice(
             "step3Notice",
-            currentProvider === "czgpt" ? "暂未取得最新进度" : "状态查询失败",
-            currentProvider === "czgpt"
-              ? "本次查询暂时没有返回最终结果，系统会继续查询，请不要重复提交卡密。"
-              : mapRechargeMessage(data.message, "failed"),
-            currentProvider === "czgpt" ? "info" : "error"
+            "暂未取得最新进度",
+            "本次查询暂时没有返回最终结果，请勿重复提交。如等候时间较长，请联系人工客服。",
+            "info"
           );
           schedulePoll(4000);
           return;
@@ -1755,6 +1781,8 @@ window._hmt = _hmt;
           return;
         }
         if (task.status === "success") {
+          setNotice("step3Notice", "充值已完成", "充值结果已确认。", "success");
+          document.getElementById("confirmRechargeBtn").textContent = "充值已完成";
           renderResultBox("success", mapRechargeMessage(task.message, task.status), task);
           if ((currentProvider === "h" && task.subscriptionCancellationStatus === "pending") || (currentProvider === "zzshu" && task.subscriptionCancellationStatus === "unconfirmed")) schedulePoll(60000);
         } else if (task.status === "syncing") {
@@ -1764,8 +1792,9 @@ window._hmt = _hmt;
           renderResultBox("review", mapRechargeMessage(task.message, "needs_review"));
           schedulePoll(10000);
         } else {
-          renderResultBox("fail", mapRechargeMessage(task.message, task.status));
-          if (currentOrderId) schedulePoll(10000);
+          setNotice("step3Notice", "已提交，等待处理", "提交记录已保留，正在等待人工核查和处理。如等候时间较长，请联系人工客服。", "info");
+          renderResultBox("fail", "提交记录已保留，正在等待人工核查和处理。");
+          if (currentOrderId) schedulePoll(60000);
         }
         progressBox.style.display = "none";
         resultBox.style.display = "block";
@@ -1807,7 +1836,10 @@ window._hmt = _hmt;
 
       setTimeout(() => {
         if (currentStep === 1) {
-          verifyCard();
+          if (/^(HPLUS|HPRO5|HPRO20|ZZPLUS)/i.test(cardInfo)) {
+            try { submissionPending = sessionStorage.getItem(pendingKey()) === "1"; } catch {}
+            queryCardStatusFromInput().then(canRecharge => { if (canRecharge) verifyCard(); });
+          } else verifyCard();
         }
       }, 150);
     }
