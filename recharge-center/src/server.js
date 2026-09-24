@@ -900,6 +900,32 @@ function serveRecoveryAdmin(res) {
     th { color: #475569; }
     td.message { max-width: 300px; white-space: normal; line-height: 1.5; }
     .row-actions button { min-height: 34px; padding: 0 10px; font-size: 13px; }
+
+    .toolbar { align-items: end; }
+    .toolbar label:first-child { flex: 1; min-width: 280px; }
+    .quick-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+    .quick-filters button.active { color: #fff; background: #0f766e; border-color: #0f766e; }
+    table { table-layout: fixed; min-width: 960px; }
+    th { background: #f8fafc; font-size: 12px; padding: 13px 10px; }
+    td { padding: 18px 10px; white-space: normal; line-height: 1.6; }
+    .record-row:hover td { background: #f8fbfc; }
+    .account-email { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
+    .muted { color: #64748b; font-size: 12px; margin-top: 4px; }
+    .copy-inline { padding: 0 2px; min-height: 24px; border-radius: 4px; color: #0f766e; background: transparent; font-size: 12px; font-weight: 500; }
+    .state-badge { display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 650; }
+    .state-badge.success { color: #047857; background: #ecfdf5; }
+    .state-badge.warning { color: #92400e; background: #fffbeb; }
+    .state-badge.progress { color: #1d4ed8; background: #eff6ff; }
+    .status-note { font-size: 11px; }
+    .action-cell, th:last-child { position: sticky; right: 0; background: #fff; box-shadow: -5px 0 8px -8px #64748b; }
+    .action-cell .row-actions { gap: 5px; flex-wrap: nowrap; align-items: center; }
+    .action-cell button { padding: 0 7px; font-size: 12px; white-space: nowrap; }
+    .detail-toggle { color: #475569; background: #f1f5f9; }
+    .detail-row td { background: #f8fafc; padding: 20px; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px; overflow-wrap: anywhere; }
+    .detail-label { display: block; color: #64748b; font-size: 12px; margin-bottom: 5px; }
+    .detail-actions:not(:empty) { padding-top: 16px; margin-top: 16px; border-top: 1px solid #e2e8f0; }
     .empty { padding: 28px 8px; color: #64748b; text-align: center; }
     .hint { margin: 10px 0 0; font-size: 13px; }
     @media (max-width: 640px) { body { padding: 12px; } section { padding: 16px; } .top-actions > *, .toolbar button { width: 100%; justify-content: center; } }
@@ -917,12 +943,13 @@ function serveRecoveryAdmin(res) {
     </section>
     <section>
       <div id="cardOrderFilter" class="hint" style="display:none;margin-top:14px">正在查看指定客户卡密的全部订单 <button class="secondary" id="clearCardOrderFilter" type="button">查看全部订单</button></div>
+      <div class="quick-filters" id="recordQuickFilters"><button class="secondary" id="filterAll" data-filter="">全部订单</button><button class="secondary" id="filterAttention" data-filter="attention">需要处理</button><button class="secondary" id="filterSuccess" data-filter="success">充值成功</button></div>
       <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="邮箱、账号 UUID、客户卡密或支付卡尾号"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需要跟进</option><option value="manual_queued">待人工</option><option value="manual_processing">人工处理中</option><option value="needs_info">需补资料</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>通道<select id="providerFilter"><option value="">全部通道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
       <p class="hint">人工充值完成后再点击“确认充值成功”；该按钮只更新本站订单和卡密状态，不会再次调用充值通道。自动任务“待确认”时请先核实原任务，不要直接补充充值。</p>
       <div class="table-wrap">
-        <table>
-          <thead><tr><th>账号</th><th>客户卡密 / 通道</th><th>支付卡</th><th>状态</th><th>结果说明</th><th>提交时间</th><th>操作</th></tr></thead>
-          <tbody id="recoveries"><tr><td class="empty" colspan="7">暂无充值记录</td></tr></tbody>
+        <table><colgroup><col style="width:25%"><col style="width:22%"><col style="width:9%"><col style="width:17%"><col style="width:12%"><col style="width:15%"></colgroup>
+          <thead><tr><th>账号</th><th>客户卡密 / 通道</th><th>支付卡</th><th>状态</th><th>提交时间</th><th>操作</th></tr></thead>
+          <tbody id="recoveries"><tr><td class="empty" colspan="6">暂无充值记录</td></tr></tbody>
         </table>
       </div>
       <div class="actions"><button class="secondary" id="previousRecords" type="button">上一页</button><span id="recordPage" class="hint">第 1 页</span><button class="secondary" id="nextRecords" type="button">下一页</button></div>
@@ -964,35 +991,56 @@ function serveRecoveryAdmin(res) {
     function needsFollowup(item) {
       return ["failed", "needs_review", "manual_queued", "manual_processing", "needs_info"].includes(item.status) || item.needsAttention;
     }
-    function renderRows(items) {
-      if (!items.length) return '<tr><td class="empty" colspan="7">暂无匹配记录</td></tr>';
-      return items.map(item => '<tr class="' + (item.needsAttention ? 'needs-attention' : '') + '">'
-        + '<td>' + escapeHtml(item.userEmail || "-") + '<br><small>UUID：' + escapeHtml(item.accountId || "未留存") + '</small></td>'
-        + '<td>' + escapeHtml(item.customerCardCode || item.customerCardMask || (item.provider === "zzshu" ? "历史卡密未关联" : item.cardMask || "-")) + '<br><small>' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") + " · " + (item.fulfillmentMode === "manual" ? "人工" : "自动") : "通道 " + item.provider) + '</small></td>'
-        + '<td>' + (item.paymentCardLastFour || item.hifupayCardLastFour ? '****' + escapeHtml(item.paymentCardLastFour || item.hifupayCardLastFour) : '-') + '</td>'
-        + '<td>' + escapeHtml(statusLabel(item.status)) + (item.useResolution === 'frozen' ? '<br><span class="attention-badge">本次支付次数已冻结</span>' : item.hifupaySafetyStatus === 'confirming_unpaid' ? '<br><small>安全复核中</small>' : item.subscriptionCancellationStatus === 'cancelled' ? '<br><small>续费已关闭</small>' : item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<br><span class="attention-badge">续费状态待同步</span>' : item.provider === 'zzshu' && item.status === 'needs_review' ? '<br><span class="attention-badge">支付结果待核查</span>' : item.needsAttention ? '<br><span class="attention-badge">需取消续费</span>' : '') + '</td>'
-        + '<td class="message">' + escapeHtml(item.provider === 'zzshu' && item.status === 'needs_review' ? item.processingNote || item.message || '-' : item.needsAttention ? item.subscriptionActionMessage || item.message || '-' : item.message || '-') + '</td>'
-        + '<td>' + escapeHtml(formatDate(item.createdAt)) + '</td>'
-        + '<td><div class="row-actions">'
-        + (item.hasOriginalJson ? '<button class="secondary" type="button" data-action="copy-json" data-order-id="' + escapeHtml(item.id) + '">复制JSON</button>' : '')
+    const expandedRecoveryIds = new Set();
+    function shortValue(value) {
+      const text = String(value || "");
+      return text.length > 20 ? text.slice(0, 8) + "…" + text.slice(-7) : text;
+    }
+    function cardValue(item) {
+      return item.customerCardCode || item.customerCardMask || (item.provider === "zzshu" ? "历史卡密未关联" : item.cardMask || "-");
+    }
+    function renderRecoveryActions(item) {
+      return ''
         + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : item.provider === "zzshu" && item.hasUpstreamQueryKey && ["processing", "needs_review"].includes(item.status) ? '<button type="button" data-action="refresh-zzshu" data-order-id="' + escapeHtml(item.id) + '">安全补查</button>' : !isPro(item) && item.provider !== "zzshu" && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
         + (item.provider === 'zzshu' && item.status === 'needs_review' ? '<button class="secondary" type="button" data-action="resolve-zzshu-success" data-order-id="' + escapeHtml(item.id) + '">核实成功</button><button class="secondary" type="button" data-action="resolve-zzshu-unpaid" data-order-id="' + escapeHtml(item.id) + '">核实未支付</button>' : '')
         + (item.provider === 'zzshu' && item.status === 'failed' && item.useResolution === 'frozen' ? '<button class="secondary" type="button" data-action="release-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">释放冻结次数</button><button class="secondary" type="button" data-action="consume-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">记为已消耗</button>' : '')
         + (item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<button class="secondary" type="button" data-action="confirm-zzshu-cancellation" data-order-id="' + escapeHtml(item.id) + '">核实续费已关闭</button>' : '')
         + (item.needsAttention && item.provider !== 'zzshu' ? '<button type="button" data-action="mark-subscription-handled" data-order-id="' + escapeHtml(item.id) + '">标记已处理</button>' : '')
-        + '</div></td></tr>').join("");
+;
+    }
+    function renderRows(items) {
+      if (!items.length) return '<tr><td class="empty" colspan="6">暂无匹配记录</td></tr>';
+      return items.map(item => {
+        const id = escapeHtml(item.id);
+        const expanded = expandedRecoveryIds.has(item.id);
+        const badge = item.status === "success" ? "success" : needsFollowup(item) ? "warning" : "progress";
+        const note = item.useResolution === "frozen" ? "本次支付次数已冻结" : item.hifupaySafetyStatus === "confirming_unpaid" ? "安全复核中" : item.subscriptionCancellationStatus === "cancelled" ? "续费已关闭" : item.provider === "zzshu" && item.status === "success" ? "续费状态待同步" : item.provider === "zzshu" && item.status === "needs_review" ? "支付结果待核查" : item.needsAttention ? "需取消续费" : "";
+        const message = item.provider === "zzshu" && item.status === "needs_review" ? item.processingNote || item.message : item.needsAttention ? item.subscriptionActionMessage || item.message : item.message;
+        const date = formatDate(item.createdAt);
+        return '<tr class="record-row">'
+          + '<td><div class="account-email" title="' + escapeHtml(item.userEmail || "") + '">' + escapeHtml(item.userEmail || "-") + '</div><div class="muted mono">UUID：' + escapeHtml(shortValue(item.accountId) || "未留存") + (item.accountId ? ' <button class="copy-inline" data-action="copy-uuid" data-order-id="' + id + '" aria-label="复制完整账号 UUID">复制</button>' : '') + '</div></td>'
+          + '<td><div class="mono">' + escapeHtml(shortValue(cardValue(item))) + ' <button class="copy-inline" data-action="copy-card" data-order-id="' + id + '" aria-label="复制完整客户卡密">复制</button></div><div class="muted">' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") : "Plus") + ' · ' + escapeHtml(item.fulfillmentMode === "manual" ? "人工" : ({zzshu:"ZZS",h:"嗨付",hifupay:"嗨付"})[item.provider] || item.provider || "-") + '</div></td>'
+          + '<td class="mono">' + (item.paymentCardLastFour || item.hifupayCardLastFour ? '****' + escapeHtml(item.paymentCardLastFour || item.hifupayCardLastFour) : '-') + '</td>'
+          + '<td><span class="state-badge ' + badge + '">' + escapeHtml(statusLabel(item.status)) + '</span><div class="muted status-note">' + escapeHtml(note) + '</div></td>'
+          + '<td><time>' + escapeHtml(date).split(' ').map((part, index) => index ? '<span class="muted">' + part + '</span>' : part).join('<br>') + '</time></td>'
+          + '<td class="action-cell"><div class="row-actions">' + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情') + '</button></div></td></tr>'
+          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div></div><div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
+      }).join("");
     }
     function applyRecordFilters() {
       const keyword = document.getElementById("recordSearch").value.trim().toLowerCase();
       const status = document.getElementById("statusFilter").value;
       const provider = document.getElementById("providerFilter").value;
       const records = allRecords.filter(item => {
-        const matchesStatus = !status || (status === "attention" ? item.needsAttention : item.status === status);
+        const matchesStatus = !status || (status === "attention" ? needsFollowup(item) : item.status === status);
         return (!selectedCardId || item.customerCardId === selectedCardId)
           && (!keyword || [item.userEmail, item.accountId, item.customerCardCode, item.customerCardMask, item.cardMask, item.paymentCardLastFour, item.hifupayCardLastFour, item.id]
             .some(value => String(value || "").toLowerCase().includes(keyword)))
           && matchesStatus && (!provider || item.provider === provider);
       });
+      for (const [id, value] of [["filterAll", ""], ["filterAttention", "attention"], ["filterSuccess", "success"]]) {
+        document.getElementById(id).classList.toggle("active", status === value);
+      }
       const pageCount = Math.max(1, Math.ceil(records.length / recordsPerPage));
       currentPage = Math.min(currentPage, pageCount);
       document.getElementById("recoveries").innerHTML = renderRows(records.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage));
@@ -1076,6 +1124,12 @@ function serveRecoveryAdmin(res) {
     for (const [id, eventName] of [["recordSearch", "input"], ["statusFilter", "change"], ["providerFilter", "change"]]) {
       document.getElementById(id).addEventListener(eventName, () => { currentPage = 1; applyRecordFilters(); });
     }
+    document.getElementById("recordQuickFilters").addEventListener("click", event => {
+      const button = event.target.closest("[data-filter]");
+      if (!button) return;
+      document.getElementById("statusFilter").value = button.dataset.filter;
+      currentPage = 1; applyRecordFilters();
+    });
     document.getElementById("previousRecords").addEventListener("click", () => { currentPage -= 1; applyRecordFilters(); });
     document.getElementById("nextRecords").addEventListener("click", () => { currentPage += 1; applyRecordFilters(); });
     document.getElementById("recoveries").addEventListener("click", async event => {
@@ -1085,6 +1139,18 @@ function serveRecoveryAdmin(res) {
       const orderId = button.dataset.orderId;
       const record = allRecords.find(item => item.id === orderId);
       if (!record) { setStatus("订单记录已更新，请刷新后重试。", true); return; }
+      if (action === "toggle-details") {
+        if (expandedRecoveryIds.has(orderId)) expandedRecoveryIds.delete(orderId);
+        else expandedRecoveryIds.add(orderId);
+        applyRecordFilters(); return;
+      }
+      if (action === "copy-uuid" || action === "copy-card") {
+        try {
+          await navigator.clipboard.writeText(action === "copy-uuid" ? record.accountId || "" : cardValue(record));
+          setStatus(action === "copy-uuid" ? "完整账号 UUID 已复制。" : "完整客户卡密已复制。");
+        } catch (error) { setStatus("复制失败，请展开详情手动复制。", true); }
+        return;
+      }
       if (["mark-success", "mark-pro-success"].includes(action)) {
         const plan = record.plan === "pro_x5" ? "Pro 5x" : record.plan === "pro_x20" ? "Pro 20x" : "Plus";
         if (!window.confirm("确认这笔订单已在外部完成充值？\\n账号：" + (record.userEmail || "-") + "\\n套餐：" + plan + "\\n订单：" + orderId + "\\n只同步本站状态，不会再次提交充值。")) return;

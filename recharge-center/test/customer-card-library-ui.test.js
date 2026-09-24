@@ -86,17 +86,32 @@ test('customer card library searches partial codes and copies the successful ord
       classList:{toggle(){}},addEventListener(name,handler){this[name]=handler}});
     return orderNodes.get(id);
   };
-  const orderContext = vm.createContext({document:{getElementById:orderElement},URLSearchParams,console,
+  const orderContext = vm.createContext({document:{getElementById:orderElement},URLSearchParams,console,navigator:{clipboard:{writeText:async value=>clipboard.push(value)}},
     window:{location:{search:'?cardId=card-a'},history:{replaceState(){}},setInterval(){},adminApi:async()=>({records})}});
   vm.runInContext(orderScript,orderContext);
   await vm.runInContext('loadRecoveries()',orderContext);
   assert.equal(orderElement('recoveryCount').textContent,'2 / 3 条');
-  assert.match(orderElement('recoveries').innerHTML,new RegExp(first));
-  assert.match(orderElement('recoveries').innerHTML,/UUID：2628a750-ef4f-4cd3-a417-6626e9ab4f80/);
+  assert.doesNotMatch(orderElement('recoveries').innerHTML,new RegExp(first));
+  assert.match(orderElement('recoveries').innerHTML,/UUID：2628a750…9ab4f80/);
   assert.match(orderElement('recoveries').innerHTML,/\*\*\*\*9911/);
   assert.doesNotMatch(orderElement('recoveries').innerHTML,/bob@example.test|\*\*\*\*5664/);
+  const clickOrder = action => orderElement('recoveries').click({target:{closest:()=>({dataset:{action,orderId:'newer-failed'}})}});
+  await clickOrder('copy-uuid');
+  assert.equal(clipboard.at(-1),records[0].accountId);
+  await clickOrder('copy-card');
+  assert.equal(clipboard.at(-1),first);
+  await clickOrder('toggle-details');
+  assert.match(orderElement('recoveries').innerHTML,new RegExp(first));
+  assert.match(orderElement('recoveries').innerHTML,/完整账号 UUID/);
+  await clickOrder('toggle-details');
+  assert.doesNotMatch(orderElement('recoveries').innerHTML,/完整账号 UUID<\/span>/);
   orderElement('clearCardOrderFilter').click();
   assert.equal(orderElement('recoveryCount').textContent,'3 / 3 条');
+  orderElement('recordQuickFilters').click({target:{closest:()=>({dataset:{filter:'attention'}})}});
+  assert.equal(orderElement('recoveryCount').textContent,'2 / 3 条');
+  orderElement('recordQuickFilters').click({target:{closest:()=>({dataset:{filter:'success'}})}});
+  assert.equal(orderElement('recoveryCount').textContent,'1 / 3 条');
+  orderElement('recordQuickFilters').click({target:{closest:()=>({dataset:{filter:''}})}});
   orderElement('recordSearch').value='9d2f';
   vm.runInContext('applyRecordFilters()',orderContext);
   assert.equal(orderElement('recoveryCount').textContent,'3 / 3 条');
