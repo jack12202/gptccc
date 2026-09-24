@@ -186,8 +186,9 @@ function normalizeState(state) {
 }
 
 export class JsonStore {
-  constructor(filePath = config.dataFile) {
+  constructor(filePath = config.dataFile, usageStore = sharedZzshuStore) {
     this.filePath = filePath;
+    this.usageStore = usageStore;
     ensureDir(filePath);
     if (!fs.existsSync(filePath)) {
       fs.writeFileSync(filePath, JSON.stringify(createInitialState(), null, 2));
@@ -422,18 +423,17 @@ export class JsonStore {
     if (!order) return null;
     const card = state.hifupayCards.find(item => item.id === order.hifupayCardId);
     if (!card) return this.moveProToManual(order.id, "指定付款卡不存在，已转人工处理。");
-    if (sharedZzshuStore.role(card.id).role !== "h") return this.moveProToManual(order.id, "指定付款卡已分配其他通道，已转人工处理。");
     if ((card.inFlightOrders || []).length) return null;
     if (card.enabled === false || hifupayRemoteStatus(card.status) !== "active" || card.usageMode === "pro_reserved" || activeHifupayProReservation(state, card.id) ||
       card.balance === null || card.balance < order.estimatedChargeUsd + order.safetyBufferUsd) {
       return this.moveProToManual(order.id, "指定付款卡不可用或余额不足，已转人工处理。");
     }
-    if (!sharedZzshuStore.claimH(card.id,order.id)) return null;
+    if (!this.usageStore.claimH(card.id,order.id)) return null;
     card.inFlightOrders ||= [];
     card.inFlightOrders.push({ orderId: order.id, plan: "pro_x5", email: state.rechargeSessions.find(item => item.orderId === order.id)?.userEmail || "",
       estimatedChargeUsd: order.estimatedChargeUsd, balanceBefore: card.balance, state: "submitting", reservedAt: nowIso() });
     order.status = "submitting"; order.message = "充值任务正在提交，请勿重复操作。"; order.updatedAt = nowIso();
-    try { this.write(state); } catch (error) { sharedZzshuStore.releaseH(card.id,order.id); throw error; }
+    try { this.write(state); } catch (error) { this.usageStore.releaseH(card.id,order.id); throw error; }
     return order;
   }
 
@@ -445,6 +445,31 @@ export class JsonStore {
     order.updatedAt = nowIso(); this.write(state);
     return order;
   }
+
+  selectManualProCard(orderId, cardId) {
+    const state = this.read();
+    const order = state.orders.find(item => item.id === String(orderId));
+    if (!order || !["pro_x5", "pro_x20"].includes(order.plan) || order.fulfillmentMode !== "manual" ||
+      !["manual_queued", "manual_processing", "needs_info"].includes(order.status))
+      return { ok: false, status: 409, message: "只有待人工处理的 Pro 订单可以选择支付卡。" };
+    const selected = state.hifupayCards.find(item => item.id === String(cardId));
+    if (!selected || selected.enabled === false || selected.missingSince || hifupayRemoteStatus(selected.status) !== "active")
+      return { ok: false, status: 409, message: "所选支付卡不可用，请先刷新卡池。" };
+    const usage = this.usageStore.hifupayUsage(selected.id);
+    if (!usage || !usage.enabled || usage.paused ||
+      usage.maxSuccess <= usage.zzshuSuccessCount + usage.hSuccessCount + usage.frozenUses)
+      return { ok: false, status: 409, message: "所选支付卡次数已用完或处于冻结状态。" };
+    if (order.hifupayCardId === selected.id) return { ok: true, order };
+    order.hifupayCardId = selected.id;
+    order.hifupayCardLastFour = selected.lastFour || "";
+    order.selectedCardSnapshotId = selected.id;
+    order.updatedAt = nowIso();
+    this.write(state);
+    return { ok: true, order };
+  }
+
+  claimManualProCardUse(cardId, orderId) { return this.usageStore.claimH(cardId, orderId); }
+  releaseManualProCardUse(cardId, orderId) { return this.usageStore.releaseH(cardId, orderId); }
 
   listProOrders() {
     const state = this.read();
@@ -685,6 +710,9 @@ export class JsonStore {
       if (!Array.isArray(card.inFlightOrders)) card.inFlightOrders = [];
       if (typeof card.enabled !== "boolean") card.enabled = true;
       if (!card.usageMode) card.usageMode = "plus";
+      if (card.lastFour) this.usageStore.ensureHifupayCard(card, Math.max(Number(config.hifupayMaxPlusUsers) || 4, 1),
+        card.plusUsers.length + state.orders.filter(item => ["pro_x5","pro_x20"].includes(item.plan) &&
+          item.hifupayCardId === card.id && item.status === "success").length);
       if (!state.hifupayCards.includes(card)) state.hifupayCards.push(card);
     }
 
@@ -713,7 +741,8 @@ export class JsonStore {
     const safetyBuffer = Math.max(Number(config.hifupaySafetyBufferUsd) || 0, 0);
     const plusMaxBalance = hifupayPlusMaxBalance();
     return state.hifupayCards.map(card => {
-      const assignedToZzshu = sharedZzshuStore.role(card.id).role === "zzshu";
+      const assignedToZzshu = false;
+      const sharedUsage = this.usageStore.hifupayUsage(card.id);
       const plusUsers = Array.isArray(card.plusUsers) ? card.plusUsers : [];
       const inFlightOrders = Array.isArray(card.inFlightOrders) ? card.inFlightOrders : [];
       const plusInFlight = inFlightOrders.filter(item => item.plan === "plus").length;
@@ -727,8 +756,8 @@ export class JsonStore {
       const highBalanceProtected = card.balance !== null && card.balance > plusMaxBalance;
       let poolStatus = "ready";
       if (card.missingSince) poolStatus = "upstream_missing";
-      else if (assignedToZzshu) poolStatus = "zzshu_assigned";
       else if (proProtected || pro5xSelected) poolStatus = "pro_protected";
+      else if (sharedUsage && sharedUsage.maxSuccess <= sharedUsage.hSuccessCount + sharedUsage.zzshuSuccessCount + sharedUsage.frozenUses) poolStatus = "uses_exhausted";
       else if (!card.enabled) poolStatus = "disabled";
       else if (hifupayRemoteStatus(card.status) !== "active") poolStatus = "upstream_unavailable";
       else if (highBalanceProtected) poolStatus = "high_balance";
@@ -746,6 +775,11 @@ export class JsonStore {
         proProtected,
         pro5xSelected,
         assignedToZzshu,
+        sharedUsageId: sharedUsage?.id || "",
+        maxUses: sharedUsage?.maxSuccess ?? null,
+        usedCount: (sharedUsage?.hSuccessCount || 0) + (sharedUsage?.zzshuSuccessCount || 0),
+        frozenCount: sharedUsage?.frozenUses || 0,
+        remainingUses: sharedUsage ? Math.max(0,sharedUsage.maxSuccess-sharedUsage.hSuccessCount-sharedUsage.zzshuSuccessCount-sharedUsage.frozenUses) : null,
         missingFromUpstream: Boolean(card.missingSince),
         missingSince: card.missingSince || "",
         lastSeenAt: card.lastSeenAt || "",
@@ -810,20 +844,19 @@ export class JsonStore {
 
     for (const card of state.hifupayCards) {
       if (card.inFlightOrders?.some(item => item.orderId === normalizedOrderId)) {
-        if (!sharedZzshuStore.claimH(card.id, normalizedOrderId)) return { ok: false, status: "assigned_elsewhere", message: "此卡已分配其他通道或由其他订单占用。" };
+        if (!this.usageStore.claimH(card.id, normalizedOrderId)) return { ok: false, status: "assigned_elsewhere", message: "此卡已分配其他通道或由其他订单占用。" };
         if (normalizedPlan === "plus" && (
           card.usageMode === "pro_reserved" ||
           activeHifupayProReservation(state, card.id) ||
           pro5xCardHeld(state, card.id) ||
           (card.balance !== null && card.balance > plusMaxBalance)
         )) {
-          sharedZzshuStore.releaseH(card.id, normalizedOrderId);
+          this.usageStore.releaseH(card.id, normalizedOrderId);
           return { ok: false, status: "protected", message: "原预留卡片已进入 Pro 或高余额保护，充值未提交。" };
         }
         return { ok: true, cardId: card.id, hifupayCardId: card.id, lastFour: card.lastFour || "", reused: true };
       }
       if (card.enabled === false || hifupayRemoteStatus(card.status) !== "active") continue;
-      if (sharedZzshuStore.role(card.id).role !== "h") continue;
       if (normalizedPlan === "plus" && (
         card.usageMode === "pro_reserved" ||
         activeHifupayProReservation(state, card.id) ||
@@ -846,15 +879,14 @@ export class JsonStore {
     }
 
     candidates.sort((left, right) => {
-      // 足额候选中优先消耗可用余额较少的卡，避免长期闲置低余额卡；priority 仅作为并列时的稳定排序。
-      const leftAvailable = Number(left.card.balance) - left.inFlight.reduce((sum, item) => sum + (Number(item.estimatedChargeUsd) || 0), 0);
-      const rightAvailable = Number(right.card.balance) - right.inFlight.reduce((sum, item) => sum + (Number(item.estimatedChargeUsd) || 0), 0);
-      return leftAvailable - rightAvailable
+      // 按管理员设置的顺序使用当前卡；当前卡次数或余额不足才轮到下一张。
+      return Number(right.card.id === hifupayCardId(preferredCardId)) - Number(left.card.id === hifupayCardId(preferredCardId))
         || (Number(left.card.priority) || 0) - (Number(right.card.priority) || 0)
+        || String(left.card.createdAt || "").localeCompare(String(right.card.createdAt || ""))
         || left.card.id.localeCompare(right.card.id);
     });
 
-    const selected = candidates.find(item => sharedZzshuStore.claimH(item.card.id, normalizedOrderId))?.card;
+    const selected = candidates.find(item => this.usageStore.claimH(item.card.id, normalizedOrderId))?.card;
     if (!selected) {
       return {
         ok: false,
@@ -877,7 +909,7 @@ export class JsonStore {
       reservedAt: nowIso()
     });
     selected.updatedAt = nowIso();
-    try { this.write(state); } catch (error) { sharedZzshuStore.releaseH(selected.id, normalizedOrderId); throw error; }
+    try { this.write(state); } catch (error) { this.usageStore.releaseH(selected.id, normalizedOrderId); throw error; }
     return { ok: true, cardId: selected.id, hifupayCardId: selected.id, lastFour: selected.lastFour || "", reused: false };
   }
 
@@ -888,7 +920,7 @@ export class JsonStore {
     const normalizedPlan = String(plan || "plus").trim().toLowerCase();
     const card = state.hifupayCards.find(item => item.id === normalizedCardId);
     if (!card) return { ok: false, status: "not_found", message: "嗨付卡片不在本地卡池中，充值未提交。" };
-    if (sharedZzshuStore.role(normalizedCardId).role !== "h" || !sharedZzshuStore.hasHClaim(normalizedCardId, normalizedOrderId)) {
+    if (!this.usageStore.hasHClaim(normalizedCardId, normalizedOrderId)) {
       return { ok: false, status: "assigned_elsewhere", message: "卡片用途或统一占用不匹配，充值未提交。" };
     }
     const inFlight = Array.isArray(card.inFlightOrders) ? card.inFlightOrders : [];
@@ -925,7 +957,6 @@ export class JsonStore {
     const normalizedCardId = hifupayCardId(cardId);
     const card = state.hifupayCards.find(item => item.id === normalizedCardId);
     if (!card) return { ok: false, status: "not_found", message: "嗨付卡片不存在。" };
-    if (sharedZzshuStore.role(normalizedCardId).role !== "h") return { ok: false, status: "assigned_elsewhere", message: "这张卡已分配吱吱鼠，不能设置嗨付 Pro 保护。" };
     if (Array.isArray(card.inFlightOrders) && card.inFlightOrders.length) {
       return { ok: false, status: "in_flight", message: "这张卡还有充值待确认，请先处理后再设置 Pro 保护。" };
     }
@@ -1082,6 +1113,7 @@ export class JsonStore {
       if (inFlight) inFlight.state = "needs_review";
       card.updatedAt = nowIso();
       this.write(state);
+      this.usageStore.freezeH(card.id, orderId);
       return { ok: true, status: "needs_review", cardId: card.id };
     }
 
@@ -1120,7 +1152,15 @@ export class JsonStore {
     }
     card.updatedAt = nowIso();
     this.write(state);
-    sharedZzshuStore.releaseH(card.id, orderId);
+    if (paymentConfirmed && card.lastFour) {
+      const proSuccesses = new Set(state.orders.filter(item => ["pro_x5","pro_x20"].includes(item.plan) &&
+        item.hifupayCardId === card.id && item.status === "success").map(item => item.id));
+      if (plan !== "plus") proSuccesses.add(String(orderId));
+      this.usageStore.ensureHifupayCard(card,Math.max(Number(config.hifupayMaxPlusUsers) || 4, 1),
+        card.plusUsers.length + proSuccesses.size);
+    }
+    if (paymentConfirmed) this.usageStore.releaseH(card.id, orderId);
+    else this.usageStore.freezeH(card.id, orderId);
     return { ok: true, status: paymentConfirmed ? "recorded" : "released", cardId: card.id, learnedChargeUsd };
   }
 
@@ -1133,7 +1173,7 @@ export class JsonStore {
     if (before === card.inFlightOrders.length) return { ok: false, status: "not_found", message: "嗨付卡片预留不存在。" };
     card.updatedAt = nowIso();
     this.write(state);
-    sharedZzshuStore.releaseH(card.id, orderId);
+    this.usageStore.releaseH(card.id, orderId);
     return { ok: true, status: "released", cardId: card.id };
   }
 
@@ -1375,7 +1415,7 @@ export class JsonStore {
     if (!["unused", "expired"].includes(card.status) && !card.disabledAt) {
       return { ok: false, status: card.status, message: "只有未使用、已过期或已禁用且没有提交记录的卡密可以删除。" };
     }
-    if (card.unified && code && !sharedZzshuStore.removeUnusedUnifiedVoucher(code)) {
+    if (card.unified && code && !this.usageStore.removeUnusedUnifiedVoucher(code)) {
       return { ok: false, status: "linked", message: "通用卡密已有关联记录，不能删除，只能归档。" };
     }
     state.hCards.splice(index, 1);

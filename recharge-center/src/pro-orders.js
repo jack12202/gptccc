@@ -124,6 +124,12 @@ export function createProService({ store = new JsonStore(), adapter = hifupayAda
         safetyBufferUsd: Number(settings.pro5xSafetyBufferUsd) || 0, cards: store.listHifupayCards() };
     },
     updateSettings(input) { return store.updatePro5xSettings(input); },
+    selectCard(id, cardId) {
+      const result = store.selectManualProCard(id, cardId);
+      if (!result.ok) return result;
+      store.addLog({ orderId: id, step: "pro.admin.select-card", requestSummary: String(cardId), responseSummary: "selected" });
+      return { ok: true, status: 200, data: this.detail(id) };
+    },
     list() { return store.listProOrders().map(({ session, ...order }) => ({ id: order.id, plan: order.plan, status: order.status,
       fulfillmentMode: order.fulfillmentMode, initialFulfillmentMode: order.initialFulfillmentMode || order.fulfillmentMode,
       selectedCardSnapshotId: order.selectedCardSnapshotId || "", userEmail: session?.userEmail || "", source: order.siteSource,
@@ -150,8 +156,14 @@ export function createProService({ store = new JsonStore(), adapter = hifupayAda
       } else if (action === "mark-success") {
         if (order.status === "success") return { ok: true, status: 200, data: expose(order) };
         if (order.fulfillmentMode !== "manual" || !["manual_queued", "manual_processing", "needs_info"].includes(order.status)) return { ok: false, status: 409, message: "自动任务待确认，不能直接人工同步成功。" };
-        if (!store.completeHCard(order.hCardId, id)) return { ok: false, status: 409, message: "卡密状态不允许同步成功。" };
+        if (order.hifupayCardId && !store.claimManualProCardUse(order.hifupayCardId, id))
+          return { ok: false, status: 409, message: "所选支付卡没有可用次数或正在处理其他订单，请重新核对。" };
+        if (!store.completeHCard(order.hCardId, id)) {
+          if (order.hifupayCardId) store.releaseManualProCardUse(order.hifupayCardId, id);
+          return { ok: false, status: 409, message: "卡密状态不允许同步成功。" };
+        }
         store.updateOrder(id, { status: "success", paymentConfirmed: true, message: "人工充值成功，系统已同步完成。", manualCompletedAt: new Date().toISOString(), manualCompletedBy: "admin", processingNote: String(note || order.processingNote || "").slice(0, 1000) });
+        if (order.hifupayCardId) store.recordHifupayResult({ cardId: order.hifupayCardId, orderId: id, plan: order.plan, paymentConfirmed: true, status: "success" });
       } else return { ok: false, status: 400, message: "不支持的操作。" };
       store.addLog({ orderId: id, step: `pro.admin.${action}`, requestSummary: "admin", responseSummary: "completed" });
       return { ok: true, status: 200, data: expose(readOrder(id)) };

@@ -117,12 +117,15 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
       assert.match(html, /resolve-zzshu-success/);
       assert.match(html, /resolve-zzshu-unpaid/);
       assert.match(html, /支付结果待核查/);
+      assert.match(html, /href="\/admin\/pro-orders">Pro 履约工作台/);
     }
+    if (page === "/admin/cards") assert.match(html, /href="\/admin#protocol-settings">设置 Plus 通道/);
     if (!["/admin", "/admin/zzshu"].includes(page)) assert.doesNotMatch(html, /type="password"/);
     if (page === "/admin") {
       assert.match(html, /嗨付 API/);
       assert.match(html, /ZZS API/);
       assert.match(html, /Plus 通道选择/);
+      assert.match(html, /id="protocol-settings"/);
       assert.doesNotMatch(html, /value="[^\"]+"/);
     }
     assert.doesNotMatch(html, /X-Admin-Token|localStorage\.setItem|tokenFromQuery/);

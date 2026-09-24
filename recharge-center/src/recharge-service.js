@@ -612,6 +612,14 @@ export const rechargeService = {
     return { ok: result.ok, status: result.ok ? 200 : 404, data: result.ok ? result : undefined, message: result.message };
   },
 
+  setHifupayCardMaxUses(cardId, maxUses) {
+    const card = store.listHifupayCards().find(item => item.id === String(cardId));
+    if (!card?.sharedUsageId) return { ok: false, status: 404, message: "支付卡次数记录不存在，请先同步卡池。" };
+    const ok = zzshuService.store.updateCard(card.sharedUsageId, { maxSuccess: maxUses });
+    return { ok, status: ok ? 200 : 400, data: ok ? { cardId, maxUses } : undefined,
+      message: ok ? "" : "总次数必须为 1–100，且不能少于已消耗与已冻结次数。" };
+  },
+
   protectHifupayCardForPro(cardId, input = {}) {
     const result = store.protectHifupayCardForPro(cardId, input);
     return {
@@ -688,7 +696,7 @@ export const rechargeService = {
         ...(legacyCode ? { customerCardCode: legacyCode, customerCardMask: maskCard(legacyCode) } : {}),
         id: item.id, provider: "zzshu", cardMask: item.lastFour ? `****${item.lastFour}` : "", productId: config.hifupayProductId,
         paymentCardLastFour: item.lastFour || "",
-        plan: "plus", fulfillmentMode: "auto", processingNote: item.reviewReason || "", paymentConfirmed: item.status === "success",
+        plan: "plus", fulfillmentMode: "auto", processingNote: item.reviewReason || "", useResolution: item.useResolution || "", paymentConfirmed: item.status === "success",
         waitingMinutes: Math.max(0, Math.floor((Date.now() - Date.parse(item.createdAt)) / 60000)), status: item.status,
         upstreamTaskId: item.upstreamOrderNo || "", providerSessionId: "", hifupayCardId: "", hifupayCardLastFour: "",
         hifupaySafetyStatus: "", hifupayUnpaidConfirmationCount: 0, userEmail: item.email || "",
@@ -1355,20 +1363,18 @@ export const rechargeService = {
                   orderId: order.id,
                   plan: config.hifupayPlan,
                   paymentConfirmed: false,
-                  status: "failed"
+                  status: "needs_review"
                 });
-                nextStatus = "failed";
-                message = "支付未完成，系统已完成安全复核；如已改用其他通道，无需重复提交。";
+                nextStatus = "needs_review";
+                message = "上游显示未支付，本次支付卡次数已冻结，请等待管理员核查。";
                 hifupaySafetyPatch = {
-                  hifupaySafetyStatus: "released_unpaid",
-                  hifupayReservationReleasedAt: new Date().toISOString(),
-                  hifupayReservationReleaseReason: "confirmed_terminal_unpaid_balance_unchanged"
+                  hifupaySafetyStatus: "await_admin_unpaid"
                 };
                 store.addLog({
                   orderId: order.id,
-                  step: "h.reservation.released",
+                  step: "h.reservation.frozen",
                   requestSummary: logPayload({ reason: "confirmed_terminal_unpaid" }),
-                  responseSummary: "balance_unchanged"
+                  responseSummary: "awaiting_admin_release"
                 });
               } else {
                 const safetyStatus = inspection.status || "balance_check_failed";

@@ -71,18 +71,8 @@ test("Hifupay admin groups cards, searches all groups and expands actions withou
   assert.match(rows.innerHTML, /data-setting="priority"/);
   assert.match(rows.innerHTML, /data-action="protect-pro"/);
   assert.match(rows.innerHTML, /data-action="disable"/);
-  assert.match(rows.innerHTML, /data-action="assign-zzshu"/);
-  const requests=[];
-  context.confirm=()=>true;
-  context.adminHandler=async (url,options={})=>{
-    requests.push({url,body:options.body ? JSON.parse(options.body) : null});
-    return url.includes("/assign")?{ok:true}:{cards:[{...cards[0],assignedToZzshu:true,poolStatus:"zzshu_assigned"}]};
-  };
-  await document.getElementById("cards").onclick({target:{closest(selector){return selector==="[data-action]"?{dataset:{action:"assign-zzshu",id:"plus"},disabled:false}:null}}});
-  assert.equal(requests[0].url,"/api/admin/zzshu/hifupay-cards/plus/assign");
-  assert.equal(requests[0].body.role,"zzshu");
-  vm.runInContext("activeCategory='all';applyCardSearch()",context);
-  assert.match(rows.innerHTML,/data-action="assign-h"/);
+  assert.match(rows.innerHTML, /data-setting="maxUses"/);
+  assert.doesNotMatch(rows.innerHTML, /data-action="assign-/);
   vm.runInContext("allCards=cardsForTest;applyCardSearch()",context);
   tabs.onclick({ target: { closest() { return { dataset: { category: "disabled" } }; } } });
   assert.match(rows.innerHTML, /ID off/);

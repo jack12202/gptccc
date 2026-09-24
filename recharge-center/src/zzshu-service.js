@@ -81,10 +81,10 @@ export const zzshuService = {
     }
     const needed=Math.max(0,config.hifupayEstimatedPlusChargeUsd+config.hifupaySafetyBufferUsd);
     return hifupayStore.listHifupayCards().map(card => {
-      const role=store.role(card.id).role, occupied=card.inFlightCount>0 || Boolean(store.role(card.id).hOrderId);
+      const role="shared", occupied=card.inFlightCount>0 || Boolean(store.role(card.id).hOrderId);
       const balance=Number(card.balance), active=String(card.status||"").toLowerCase()==="active";
-      const eligible=role==="zzshu" && card.enabled!==false && active && Number.isFinite(balance) && balance>=needed && !occupied;
-      const eligibilityReason=eligible?"可用于吱吱鼠 Plus":role!=="zzshu"?"尚未分配给吱吱鼠":
+      const eligible=card.enabled!==false && active && Number.isFinite(balance) && balance>=needed && !occupied && !card.proProtected && !card.pro5xSelected;
+      const eligibilityReason=eligible?"可用于吱吱鼠 Plus":
         card.enabled===false?"本地已停用":occupied?"有未决订单占用":card.missingFromUpstream?"嗨付本次同步未返回此卡":!active?`嗨付状态 ${card.status||"未知"}`:
         !Number.isFinite(balance)?"余额未知":`余额不足，至少需要 $${needed.toFixed(2)}`;
       return {id:card.id,lastFour:card.lastFour,balance:card.balance,status:card.status,enabled:card.enabled,
@@ -243,15 +243,16 @@ export const zzshuService = {
     }
     if (!config.zzshuEnabled || !zzshuCredentialStore.key()) return reject(503, "通道尚未启用，兑换权益未消耗", "通道或 API 凭据未就绪");
     let allowedHifupayIds=null;
-    if (store.hasHifupayAssignments()) {
+    if (hifupayStore.listHifupayCards().length) {
       try {
         const upstream=await hifupayAdapter.listCards();
         if (!upstream.ok) throw new Error("嗨付卡片状态不可用");
+        hifupayStore.syncHifupayCards(upstream.data.cards);
         const local=new Map(hifupayStore.listHifupayCards().map(card=>[card.id,card]));
         const needed=Math.max(0,config.hifupayEstimatedPlusChargeUsd+config.hifupaySafetyBufferUsd);
         allowedHifupayIds=new Set(upstream.data.cards.filter(card=>{
           const id=String(card.id||""), balance=Number(card.balance);
-          return store.role(id).role==="zzshu" && local.get(id)?.enabled!==false &&
+          return local.get(id)?.enabled!==false && !local.get(id)?.proProtected && !local.get(id)?.pro5xSelected &&
             String(card.status||"").toLowerCase()==="active" && Number.isFinite(balance) && balance>=needed;
         }).map(card=>String(card.id)));
       } catch { allowedHifupayIds = new Set(); }

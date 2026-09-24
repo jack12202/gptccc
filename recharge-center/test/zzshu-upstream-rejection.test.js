@@ -50,7 +50,8 @@ test("documented pre-create rejection releases voucher; cardholder verification 
   assert.equal(service.store.voucher(vouchers[0].code).status, "unused");
   assert.equal(service.store.listOrders()[0].status, "failed");
   assert.equal(service.store.listCards()[0].successCount, 0);
-  assert.equal(service.store.listCards()[0].remainingUses, 2);
+  assert.equal(service.store.listCards()[0].remainingUses, 1);
+  assert.equal(service.store.listCards()[0].frozenUses, 1);
 
   const other = JSON.parse(session);
   other.user.email = "other@example.test";
@@ -66,7 +67,8 @@ test("documented pre-create rejection releases voucher; cardholder verification 
   const waiting = await service.refresh(created.data.orderId);
   assert.equal(waiting.data.status, "needs_review");
   assert.match(waiting.data.message, /银行卡持有人验证/);
-  assert.equal(service.store.listCards()[0].occupiedOrderId, created.data.orderId);
+  assert.equal(service.store.listCards()[0].occupiedOrderId, null);
+  assert.equal(service.store.listCards()[0].frozenUses, 2);
   assert.equal(JSON.stringify(waiting.data).includes("secret-must-not-leak"), false);
   assert.equal(fs.readFileSync(process.env.ZZSHU_DB_FILE).includes(Buffer.from("secret-must-not-leak")), false);
   assert.equal((await service.confirm({ cardInfo: vouchers[1].code, secretJsonText: session })).data.orderId, created.data.orderId);
@@ -79,9 +81,10 @@ test("documented pre-create rejection releases voucher; cardholder verification 
   assert.equal(service.store.listCards()[0].successCount, 1);
   await service.refresh(created.data.orderId);
   assert.equal(service.store.listCards()[0].successCount, 1);
+  assert.equal(service.store.resolveFrozenUse(rejected.data?.orderId || service.store.listOrders().find(item => item.status === "failed").id, "release", "upstream rejected before creation"), true);
   const expiredSession = await service.confirm({ cardInfo: vouchers[0].code, secretJsonText: session });
   assert.equal(expiredSession.ok, false);
   assert.match(expiredSession.message, /重新获取完整 Session/);
   assert.equal(service.store.voucher(vouchers[0].code).status, "unused");
-  assert.equal(service.store.listCards()[0].remainingUses, 1);
+  assert.equal(service.store.listCards()[0].remainingUses, 0);
 });

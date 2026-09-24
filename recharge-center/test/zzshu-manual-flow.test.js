@@ -127,12 +127,14 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   assert.equal(service.store.manualResolve(unknown.data.orderId,"unpaid","fixture payment record checked"),true);
   assert.equal(service.store.voucher(vouchers[4].code).status,"unused");
   assert.equal(service.store.listCards().find(c=>c.lastFour === "4242").successCount,2);
+  assert.equal(service.store.resolveFrozenUse(unknown.data.orderId,"release","fixture payment record checked"),true);
   paymentResultMode = "normal";
   const unpaid = await service.confirm({cardInfo:vouchers[6].code,secretJsonText:session});
   assert.equal(unpaid.ok,true);
   assert.equal((await service.refresh(unpaid.data.orderId)).data.status,"failed");
   assert.equal(service.store.voucher(vouchers[6].code).status,"unused");
   assert.equal(service.store.listCards().find(c=>c.lastFour === "4242").successCount,2);
+  assert.equal(service.store.resolveFrozenUse(unpaid.data.orderId,"release","fixture payment record checked"),true);
   const retry = await service.confirm({cardInfo:vouchers[4].code,secretJsonText:session});
   assert.equal(retry.ok,true);
   assert.notEqual(retry.data.orderId,unknown.data.orderId);

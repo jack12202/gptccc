@@ -29,12 +29,18 @@ export class ZzshuStore {
         h_order_id TEXT, updated_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS h_card_claims (hifupay_id TEXT NOT NULL, order_id TEXT NOT NULL,
         PRIMARY KEY(hifupay_id,order_id));
+      CREATE TABLE IF NOT EXISTS h_frozen_claims (hifupay_id TEXT NOT NULL, order_id TEXT NOT NULL,
+        PRIMARY KEY(hifupay_id,order_id));
       CREATE UNIQUE INDEX IF NOT EXISTS zzshu_hifupay_ref ON payment_cards(credential_ref) WHERE credential_ref LIKE 'hifupay:%';
     `);
     if (!this.db.prepare("PRAGMA table_info(payment_cards)").all().some(column => column.name === "payment_cipher"))
       this.db.exec("ALTER TABLE payment_cards ADD COLUMN payment_cipher TEXT");
     if (!this.db.prepare("PRAGMA table_info(payment_cards)").all().some(column => column.name === "retired_at"))
       this.db.exec("ALTER TABLE payment_cards ADD COLUMN retired_at TEXT");
+    if (!this.db.prepare("PRAGMA table_info(payment_cards)").all().some(column => column.name === "frozen_count"))
+      this.db.exec("ALTER TABLE payment_cards ADD COLUMN frozen_count INTEGER NOT NULL DEFAULT 0");
+    if (!this.db.prepare("PRAGMA table_info(payment_cards)").all().some(column => column.name === "h_success_count"))
+      this.db.exec("ALTER TABLE payment_cards ADD COLUMN h_success_count INTEGER NOT NULL DEFAULT 0");
     // Older databases made voucher_id unique in orders. A confirmed unpaid attempt
     // must remain in history while the same voucher can fund a later attempt.
     const ordersSql = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='orders'").get()?.sql || "";
@@ -57,6 +63,10 @@ export class ZzshuStore {
     }
     if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === "session_cipher"))
       this.db.exec("ALTER TABLE orders ADD COLUMN session_cipher TEXT");
+    if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === "use_resolution"))
+      this.db.exec("ALTER TABLE orders ADD COLUMN use_resolution TEXT NOT NULL DEFAULT ''");
+    this.db.exec("DROP INDEX IF EXISTS zzshu_card_active");
+    this.db.exec("CREATE UNIQUE INDEX zzshu_card_active ON orders(card_id) WHERE status IN ('reserved','submitting','processing')");
     this.db.exec("INSERT OR IGNORE INTO h_card_claims(hifupay_id,order_id) SELECT hifupay_id,h_order_id FROM card_roles WHERE h_order_id IS NOT NULL");
     this.db.exec("UPDATE card_roles SET h_order_id=NULL WHERE h_order_id IS NOT NULL");
   }
@@ -74,10 +84,31 @@ export class ZzshuStore {
   }
   hasHClaim(hifupayId, orderId) { return Boolean(this.db.prepare("SELECT 1 FROM h_card_claims WHERE hifupay_id=? AND order_id=?").get(String(hifupayId),String(orderId))); }
   hasHifupayAssignments() { return Boolean(this.db.prepare("SELECT 1 FROM card_roles WHERE role='zzshu' LIMIT 1").get()); }
+  ensureHifupayCard(card, defaultMax = 4, hSuccessCount = 0) {
+    if (!card?.id || !/^\d{4}$/.test(String(card.lastFour || ""))) return null;
+    const ref = `hifupay:${card.id}`;
+    const existing = this.db.prepare("SELECT id FROM payment_cards WHERE credential_ref=?").get(ref);
+    if (!existing) this.db.prepare(`INSERT INTO payment_cards(id,fingerprint,last_four,credential_ref,source,note,enabled,max_success,h_success_count,created_at)
+      VALUES(?,?,?,?,?,'',1,?,?,?)`).run(crypto.randomUUID(),crypto.createHash("sha256").update(ref).digest("hex"),String(card.lastFour),ref,"嗨付",Math.max(1,defaultMax,hSuccessCount),hSuccessCount,new Date().toISOString());
+    else this.db.prepare("UPDATE payment_cards SET last_four=?,h_success_count=? WHERE credential_ref=?")
+      .run(String(card.lastFour),hSuccessCount,ref);
+    return this.db.prepare("SELECT id FROM payment_cards WHERE credential_ref=?").get(ref)?.id || null;
+  }
+  hifupayUsage(hifupayId) {
+    return this.db.prepare(`SELECT id,max_success AS maxSuccess,success_count AS zzshuSuccessCount,h_success_count AS hSuccessCount,
+      frozen_count AS frozenUses,enabled,paused FROM payment_cards WHERE credential_ref=? AND retired_at IS NULL`)
+      .get(`hifupay:${hifupayId}`) || null;
+  }
   claimH(hifupayId, orderId) {
     return this.transaction(() => {
-      const id=String(hifupayId), current=this.role(id);
-      if (current.role !== "h") return false;
+      const id=String(hifupayId), card=this.db.prepare("SELECT * FROM payment_cards WHERE credential_ref=? AND retired_at IS NULL").get(`hifupay:${id}`);
+      if (!card || !card.enabled || card.paused) return false;
+      if (!this.hasHClaim(id,orderId)) {
+        const activeZ=this.db.prepare("SELECT COUNT(*) AS n FROM orders WHERE card_id=? AND status IN ('reserved','submitting','processing')").get(card.id).n;
+        const activeH=this.db.prepare("SELECT COUNT(*) AS n FROM h_card_claims WHERE hifupay_id=?").get(id).n;
+        if (activeZ || activeH) return false;
+        if (card.success_count+card.h_success_count+card.frozen_count+activeZ+activeH >= card.max_success) return false;
+      }
       this.db.prepare("INSERT OR IGNORE INTO card_roles(hifupay_id,role,h_order_id,updated_at) VALUES(?,'h',NULL,?)")
         .run(id,new Date().toISOString());
       this.db.prepare("INSERT OR IGNORE INTO h_card_claims(hifupay_id,order_id) VALUES(?,?)").run(id,orderId);
@@ -85,7 +116,23 @@ export class ZzshuStore {
     });
   }
   releaseH(hifupayId, orderId) {
-    this.db.prepare("DELETE FROM h_card_claims WHERE hifupay_id=? AND order_id=?").run(String(hifupayId),String(orderId));
+    return this.transaction(() => {
+      const id=String(hifupayId),order=String(orderId);
+      this.db.prepare("DELETE FROM h_card_claims WHERE hifupay_id=? AND order_id=?").run(id,order);
+      const frozen=this.db.prepare("DELETE FROM h_frozen_claims WHERE hifupay_id=? AND order_id=?").run(id,order).changes;
+      if (frozen) this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE credential_ref=?").run(`hifupay:${id}`);
+      return true;
+    });
+  }
+  freezeH(hifupayId, orderId) {
+    return this.transaction(() => {
+      const id=String(hifupayId),order=String(orderId);
+      if (this.db.prepare("SELECT 1 FROM h_frozen_claims WHERE hifupay_id=? AND order_id=?").get(id,order)) return true;
+      if (!this.db.prepare("DELETE FROM h_card_claims WHERE hifupay_id=? AND order_id=?").run(id,order).changes) return false;
+      this.db.prepare("INSERT INTO h_frozen_claims(hifupay_id,order_id) VALUES(?,?)").run(id,order);
+      this.db.prepare("UPDATE payment_cards SET frozen_count=frozen_count+1 WHERE credential_ref=?").run(`hifupay:${id}`);
+      return true;
+    });
   }
   assignHifupay(card, role) {
     if (!["h","zzshu"].includes(role) || !card?.id || !/^\d{4}$/.test(String(card.lastFour || ""))) return {ok:false,reason:"卡片资料不完整"};
@@ -118,12 +165,10 @@ export class ZzshuStore {
     const cards = this.db.prepare(`SELECT id,last_four AS lastFour,source,note,enabled,max_success AS maxSuccess,
       CASE WHEN credential_ref LIKE 'hifupay:%' THEN 'hifupay' ELSE 'manual' END AS credentialSource,
       CASE WHEN credential_ref LIKE 'hifupay:%' THEN substr(credential_ref,9) ELSE NULL END AS hifupayId,
-      MAX(0,max_success-success_count) AS remainingUses,
-      success_count AS successCount,failures,paused,last_failure AS lastFailure,created_at AS createdAt,
-      (SELECT id FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing','needs_review')) AS occupiedOrderId
-      FROM payment_cards WHERE retired_at IS NULL AND (credential_ref NOT LIKE 'hifupay:%' OR EXISTS
-        (SELECT 1 FROM card_roles WHERE hifupay_id=substr(payment_cards.credential_ref,9) AND role='zzshu')
-      )
+      MAX(0,max_success-success_count-h_success_count-frozen_count) AS remainingUses,
+      success_count AS successCount,h_success_count AS hifupaySuccessCount,frozen_count AS frozenUses,failures,paused,last_failure AS lastFailure,created_at AS createdAt,
+      (SELECT id FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing')) AS occupiedOrderId
+      FROM payment_cards WHERE retired_at IS NULL
       ORDER BY success_count DESC,created_at,id`).all();
     const successes = this.db.prepare(`SELECT o.card_id AS cardId,o.id AS orderId,o.email,o.account_id AS accountId,
       o.created_at AS submittedAt FROM orders o JOIN payment_cards c ON c.id=o.card_id
@@ -146,7 +191,10 @@ export class ZzshuStore {
     const card = this.db.prepare("SELECT * FROM payment_cards WHERE id=?").get(id);
     if (!card || card.retired_at) return false;
     const cap = maxSuccess === undefined ? card.max_success : Number(maxSuccess);
-    if (!Number.isInteger(cap) || cap < Math.max(1,card.success_count) || cap > 100) return false;
+    const activeZ = this.db.prepare("SELECT COUNT(*) AS n FROM orders WHERE card_id=? AND status IN ('reserved','submitting','processing')").get(id).n;
+    const activeH = card.credential_ref.startsWith('hifupay:')
+      ? this.db.prepare("SELECT COUNT(*) AS n FROM h_card_claims WHERE hifupay_id=?").get(card.credential_ref.slice(8)).n : 0;
+    if (!Number.isInteger(cap) || cap < Math.max(1,card.success_count+card.h_success_count+card.frozen_count+activeZ+activeH) || cap > 100) return false;
     this.db.prepare("UPDATE payment_cards SET enabled=?,note=?,max_success=?,paused=?,failures=? WHERE id=?")
       .run(enabled === undefined ? card.enabled : Number(Boolean(enabled)), note === undefined ? card.note : String(note).slice(0, 200), cap,
         resume ? 0 : card.paused, resume ? 0 : card.failures, id);
@@ -215,10 +263,13 @@ export class ZzshuStore {
   listVouchers() { return this.db.prepare("SELECT id,batch_id AS batchId,source,product_id AS productId,status,order_id AS orderId,email,account_id AS accountId,created_at AS createdAt FROM vouchers WHERE id NOT LIKE 'hcard_%' ORDER BY created_at DESC LIMIT 500").all(); }
   unifiedOrderIds() { return this.db.prepare("SELECT order_id AS id FROM vouchers WHERE id LIKE 'hcard_%' AND order_id IS NOT NULL").all().map(row => row.id); }
   selectCandidate(allowedHifupayIds, allowManual) {
-    const candidates = this.db.prepare(`SELECT * FROM payment_cards WHERE enabled=1 AND paused=0 AND retired_at IS NULL AND success_count<max_success
-      AND (credential_ref NOT LIKE 'hifupay:%' OR EXISTS (SELECT 1 FROM card_roles WHERE hifupay_id=substr(payment_cards.credential_ref,9) AND role='zzshu'))
-      AND NOT EXISTS (SELECT 1 FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing','needs_review'))
-      ORDER BY CASE WHEN success_count>0 THEN 0 ELSE 1 END,success_count DESC,created_at,id`).all();
+    const candidates = this.db.prepare(`SELECT * FROM payment_cards WHERE enabled=1 AND paused=0 AND retired_at IS NULL AND success_count+h_success_count+frozen_count<max_success
+      AND success_count+h_success_count+frozen_count+
+        (SELECT COUNT(*) FROM h_card_claims WHERE hifupay_id=substr(payment_cards.credential_ref,9))<max_success
+      AND (credential_ref NOT LIKE 'hifupay:%' OR NOT EXISTS
+        (SELECT 1 FROM h_card_claims WHERE hifupay_id=substr(payment_cards.credential_ref,9)))
+      AND NOT EXISTS (SELECT 1 FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing'))
+      ORDER BY CASE WHEN success_count+h_success_count>0 THEN 0 ELSE 1 END,success_count+h_success_count DESC,created_at,id`).all();
     return candidates.find(item => item.credential_ref.startsWith("hifupay:")
       ? allowedHifupayIds?.has(item.credential_ref.slice(8)) : allowManual);
   }
@@ -240,7 +291,7 @@ export class ZzshuStore {
       return { ok: false, reason: "此卡密已绑定首次提交的账号，充值失败也不能更换账号，请使用原账号。" };
     this.db.prepare("UPDATE vouchers SET email=?,account_id=? WHERE id=?").run(email,accountId,voucher.id);
     if (voucher.status !== "unused") return { ok: false, reason: voucher.status === "used" ? "卡密已使用" : "卡密处理中", orderId: voucher.email === email && voucher.accountId === accountId ? voucher.orderId : undefined };
-    const active = this.db.prepare("SELECT count(*) AS n FROM orders WHERE status IN ('reserved','submitting','processing','needs_review')").get().n;
+    const active = this.db.prepare("SELECT count(*) AS n FROM orders WHERE status IN ('reserved','submitting','processing')").get().n;
     if (active >= Math.max(1, config.zzshuConcurrency)) return { ok: false, reason: "通道处理量已满，请稍后再试" };
     const card = this.selectCandidate(allowedHifupayIds, allowManual);
     if (!card) return { ok: false, reason: "暂无可用支付卡，兑换卡密未消耗" };
@@ -269,7 +320,7 @@ export class ZzshuStore {
   order(id) { return this.db.prepare(`SELECT o.*,c.last_four AS lastFour,v.batch_id AS batchId,v.source AS voucherSource,c.source AS paymentSource
     FROM orders o JOIN payment_cards c ON c.id=o.card_id JOIN vouchers v ON v.id=o.voucher_id WHERE o.id=?`).get(id); }
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
-  listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.upstream_order_no AS upstreamOrderNo,
+  listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
     o.review_reason AS reviewReason,o.cancellation,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,c.last_four AS lastFour,
     v.code_hash AS voucherHash,v.code_cipher AS voucherCipher,o.created_at AS createdAt,o.updated_at AS updatedAt
     FROM orders o JOIN payment_cards c ON c.id=o.card_id JOIN vouchers v ON v.id=o.voucher_id ORDER BY o.created_at DESC`).all(); }
@@ -292,7 +343,9 @@ export class ZzshuStore {
         const reason = row.status === "submitting"
           ? "服务中断于创建请求期间；上游是否已创建未知，禁止自动重发"
           : "服务中断于提交前；占用保留待管理员核查，禁止自动重发";
-        this.db.prepare("UPDATE orders SET status='needs_review',review_reason=?,updated_at=? WHERE id=? AND status=?")
+        const cardId = this.db.prepare("SELECT card_id AS id FROM orders WHERE id=?").get(row.id)?.id;
+        this.db.prepare("UPDATE payment_cards SET frozen_count=frozen_count+1 WHERE id=?").run(cardId);
+        this.db.prepare("UPDATE orders SET status='needs_review',use_resolution='frozen',review_reason=?,updated_at=? WHERE id=? AND status=?")
           .run(reason,new Date().toISOString(),row.id,row.status);
         this.audit(row.id,"interrupted_recovery",reason);
       }
@@ -315,8 +368,17 @@ export class ZzshuStore {
     this.db.prepare("UPDATE orders SET status='processing',upstream_order_no=?,upstream_card_key=?,updated_at=? WHERE id=? AND status IN ('submitting','needs_review')")
       .run(orderNo,cardKey,new Date().toISOString(),id);
   }
-  review(id, reason) { this.db.prepare("UPDATE orders SET status='needs_review',review_reason=?,updated_at=? WHERE id=? AND status NOT IN ('success','failed')")
-    .run(reason,new Date().toISOString(),id); }
+  review(id, reason) { return this.transaction(() => {
+    const order = this.order(id);
+    if (!order || ['success','failed'].includes(order.status)) return false;
+    if (order.status !== 'needs_review') {
+      this.db.prepare("UPDATE payment_cards SET frozen_count=frozen_count+1 WHERE id=?").run(order.card_id);
+      this.db.prepare("UPDATE orders SET use_resolution='frozen' WHERE id=?").run(id);
+    }
+    this.db.prepare("UPDATE orders SET status='needs_review',review_reason=?,updated_at=? WHERE id=?")
+      .run(reason,new Date().toISOString(),id);
+    return true;
+  }); }
   abortBeforeSubmit(id, reason) {
     return this.transaction(() => {
       const order=this.order(id);
@@ -332,8 +394,9 @@ export class ZzshuStore {
       const order = this.order(id);
       if (!order || order.status !== "submitting" || order.upstream_order_no || order.upstream_card_key) return false;
       const at = new Date().toISOString();
-      this.db.prepare("UPDATE orders SET status='failed',review_reason=?,updated_at=? WHERE id=? AND status='submitting'")
+      this.db.prepare("UPDATE orders SET status='failed',use_resolution='frozen',review_reason=?,updated_at=? WHERE id=? AND status='submitting'")
         .run(reason,at,id);
+      this.db.prepare("UPDATE payment_cards SET frozen_count=frozen_count+1 WHERE id=?").run(order.card_id);
       this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL WHERE id=? AND order_id=?")
         .run(order.voucher_id,id);
       this.audit(id,"upstream_rejected_before_create",reason);
@@ -347,17 +410,30 @@ export class ZzshuStore {
         if (order?.status === "success" && cancellation === "cancelled") this.db.prepare("UPDATE orders SET cancellation='cancelled',updated_at=? WHERE id=?").run(new Date().toISOString(),id);
         return false;
       }
+      if (order.use_resolution === 'frozen') this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
       if (state === "success") {
         this.db.prepare("UPDATE payment_cards SET success_count=success_count+1,failures=0 WHERE id=?").run(order.card_id);
         this.db.prepare("UPDATE vouchers SET status='used' WHERE id=?").run(order.voucher_id);
       } else if (state === "failed") {
+        this.db.prepare("UPDATE payment_cards SET frozen_count=frozen_count+1 WHERE id=?").run(order.card_id);
         this.db.prepare("UPDATE payment_cards SET failures=failures+1,last_failure='上游明确未支付' WHERE id=?").run(order.card_id);
-        this.db.prepare("UPDATE payment_cards SET paused=1 WHERE id=? AND failures>=?").run(order.card_id,Math.max(1,config.zzshuFailureThreshold));
         this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL WHERE id=? AND order_id=?")
           .run(order.voucher_id,id);
       }
-      this.db.prepare("UPDATE orders SET status=?,cancellation=?,review_reason='',updated_at=? WHERE id=?")
-        .run(state,state === "success" ? cancellation : "not_started",new Date().toISOString(),id);
+      this.db.prepare("UPDATE orders SET status=?,use_resolution=?,cancellation=?,review_reason='',updated_at=? WHERE id=?")
+        .run(state,state === "success" ? "consumed" : "frozen",state === "success" ? cancellation : "not_started",new Date().toISOString(),id);
+      return true;
+    });
+  }
+  resolveFrozenUse(id, outcome, reason) {
+    if (!['release','consume'].includes(outcome) || String(reason || '').trim().length < 8) return false;
+    return this.transaction(() => {
+      const order = this.order(id);
+      if (!order || order.status !== 'failed' || order.use_resolution !== 'frozen') return false;
+      this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
+      if (outcome === 'consume') this.db.prepare("UPDATE payment_cards SET success_count=success_count+1 WHERE id=?").run(order.card_id);
+      this.db.prepare("UPDATE orders SET use_resolution=?,updated_at=? WHERE id=?").run(outcome === 'consume' ? 'consumed' : 'released',new Date().toISOString(),id);
+      this.audit(id,'frozen_use_'+outcome,String(reason).trim());
       return true;
     });
   }

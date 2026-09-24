@@ -156,7 +156,7 @@ test("failed reconciliation attempts move behind other pending orders", () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("unknown is held; manual resolution is audited and pauses repeated failed cards", () => {
+test("unknown result freezes one use while remaining card uses stay available", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(),"zzshu-test-"));
   try {
     const s = new ZzshuStore(path.join(dir,"test.sqlite"));
@@ -164,14 +164,18 @@ test("unknown is held; manual resolution is audited and pauses repeated failed c
     const vouchers=s.createVouchers(2,"test",3,()=>"cipher");
     const first=s.reserve(vouchers[0].code,"first@example.test","first");
     s.markSubmitting(first.orderId); s.review(first.orderId,"响应丢失");
-    assert.equal(s.reserve(vouchers[1].code,"second@example.test","second").ok,false);
+    const second=s.reserve(vouchers[1].code,"second@example.test","second");
+    assert.equal(second.ok,true);
+    assert.equal(s.listCards()[0].frozenUses,1);
     assert.equal(s.manualResolve(first.orderId,"unpaid","checked payment ledger"),true);
     assert.equal(s.manualResolve(first.orderId,"unpaid","checked payment ledger"),false);
     assert.equal(s.order(first.orderId).status,"failed");
     assert.equal(s.voucher(vouchers[0].code).status,"unused");
     assert.equal(s.listCards()[0].successfulAccounts.length,0);
-    assert.equal(s.reserve(vouchers[1].code,"second@example.test","second").ok,true);
-    assert.equal(s.db.prepare("SELECT count(*) AS n FROM audit").get().n,1);
+    assert.equal(s.order(second.orderId).status,"reserved");
+    assert.equal(s.resolveFrozenUse(first.orderId,"release","checked payment ledger"),true);
+    assert.equal(s.listCards()[0].frozenUses,0);
+    assert.equal(s.db.prepare("SELECT count(*) AS n FROM audit").get().n,2);
   } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 });
 
@@ -190,7 +194,7 @@ test("restart turns interrupted reservations into review without resubmitting or
     assert.equal(restarted.order(reservation.orderId).status,"needs_review");
     assert.match(restarted.order(reservation.orderId).review_reason,/禁止自动重发/);
     assert.equal(restarted.reconciliationIds(10).includes(reservation.orderId),false);
-    assert.equal(restarted.reserve(codes[1].code,"second@example.test","account-2").ok,false);
+    assert.equal(restarted.reserve(codes[1].code,"second@example.test","account-2").ok,true);
     assert.equal(restarted.voucher(codes[0].code).status,"reserved");
     assert.equal(restarted.recoverInterrupted(30000),0);
     assert.equal(restarted.db.prepare("SELECT count(*) AS n FROM audit WHERE action='interrupted_recovery'").get().n,1);

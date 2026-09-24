@@ -10,15 +10,17 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-test("stale hifupay reservations are released only after two explicit unpaid confirmations and an unchanged live balance", async t => {
+test("stale hifupay reservations freeze one use after two explicit unpaid confirmations", async t => {
   const balances = new Map([
     ["7870", 18.73],
     ["8907", 22.5],
     ["9000", 25],
     ["9100", 30],
     ["9200", 31],
-    ["9300", 40],
-    ["9400", 45]
+    ["9300", 32],
+    ["9400", 45],
+    ["9500", 29],
+    ["9600", 28]
   ]);
   const upstream = http.createServer((req, res) => {
     if (req.method === "POST" && req.url === "/api/hfp/login") {
@@ -77,6 +79,7 @@ test("stale hifupay reservations are released only after two explicit unpaid con
     }
   });
   process.env.DATA_FILE = path.join(tempDir, "orders.json");
+  process.env.ZZSHU_DB_FILE = path.join(tempDir, "zzshu.sqlite");
   process.env.HIFUPAY_BASE_URL = `http://127.0.0.1:${upstream.address().port}`;
   process.env.HIFUPAY_API_KEY = "test-key";
   process.env.HIFUPAY_FAILURE_CONFIRM_SECONDS = "60";
@@ -139,15 +142,15 @@ test("stale hifupay reservations are released only after two explicit unpaid con
 
   store.updateOrder(unpaidOrderId, { hifupayUnpaidLastConfirmedAt: new Date(Date.now() - 61_000).toISOString() });
   const confirmed = await rechargeService.queryTaskStatus({ orderId: unpaidOrderId });
-  assert.equal(confirmed.data.status, "failed");
+  assert.equal(confirmed.data.status, "needs_review");
   unpaidOrder = store.getOrder(unpaidOrderId);
-  assert.equal(unpaidOrder.hifupaySafetyStatus, "released_unpaid");
-  assert.ok(unpaidOrder.hifupayReservationReleasedAt);
-  assert.equal(store.inspectHifupayReservation("7870", unpaidOrderId).ok, false);
+  assert.equal(unpaidOrder.hifupaySafetyStatus, "await_admin_unpaid");
+  assert.equal(store.listHifupayCards().find(card => card.id === "7870").frozenCount, 1);
+  assert.equal(store.inspectHifupayReservation("7870", unpaidOrderId).ok, true);
 
   const idempotent = await rechargeService.queryTaskStatus({ orderId: unpaidOrderId });
-  assert.equal(idempotent.data.status, "failed");
-  assert.equal(store.getOrder(unpaidOrderId).hifupaySafetyStatus, "released_unpaid");
+  assert.equal(idempotent.data.status, "needs_review");
+  assert.equal(store.getOrder(unpaidOrderId).hifupaySafetyStatus, "await_admin_unpaid");
 
   balances.set("7870", 10);
   store.syncHifupayCards(remoteCards());
@@ -185,12 +188,12 @@ test("stale hifupay reservations are released only after two explicit unpaid con
     rechargeService.queryTaskStatus({ orderId: concurrentOrderId }),
     rechargeService.queryTaskStatus({ orderId: concurrentOrderId })
   ]);
-  assert.equal(store.getOrder(concurrentOrderId).status, "failed");
-  assert.equal(store.getOrder(concurrentOrderId).hifupaySafetyStatus, "released_unpaid");
-  assert.equal(store.inspectHifupayReservation("9200", concurrentOrderId).ok, false);
+  assert.equal(store.getOrder(concurrentOrderId).status, "needs_review");
+  assert.equal(store.getOrder(concurrentOrderId).hifupaySafetyStatus, "await_admin_unpaid");
+  assert.equal(store.inspectHifupayReservation("9200", concurrentOrderId).ok, true);
 
-  const processingOrderId = createReservedOrder("task-processing", "9200");
-  const recentOrderId = createReservedOrder("task-processing", "9300", { stale: false });
+  const processingOrderId = createReservedOrder("task-processing", "9600");
+  const recentOrderId = createReservedOrder("task-processing", "9500", { stale: false });
   const manualOrderId = createReservedOrder("task-ambiguous", "9400", { strictCard: false });
   const manualCardId = store.getOrder(manualOrderId).hifupayCardId;
   await rechargeService.queryTaskStatus({ orderId: manualOrderId });

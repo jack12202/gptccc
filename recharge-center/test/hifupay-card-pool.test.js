@@ -4,11 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-test("hifupay card pool uses live balance and selects the lowest sufficient card", async t => {
+test("hifupay card pool uses configured order, remaining uses and live balance", async t => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-pool-test-"));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const { JsonStore } = await import("../src/store.js");
-  const store = new JsonStore(path.join(tempDir, "orders.json"));
+  const { ZzshuStore } = await import("../src/zzshu-store.js");
+  const store = new JsonStore(path.join(tempDir, "orders.json"),new ZzshuStore(path.join(tempDir,"usage.sqlite")));
   store.syncHifupayCards([
     { id: "7172", lastFour: "4113", status: "active", balance: 50 },
     { id: "7667", lastFour: "6737", status: "active", balance: 66 }
@@ -56,7 +57,7 @@ test("hifupay card pool uses live balance and selects the lowest sufficient card
   assert.equal(enough.ok, true);
   assert.equal(enough.hifupayCardId, "7667");
 
-  // 足额卡片同时可用时，优先余额较少的卡，而不是固定优先配置卡。
+  // 两张卡都足额时，管理员明确指定的卡优先。
   store.clearHifupayReservation("7667", "plus-enough");
   store.syncHifupayCards([
     { id: "7172", lastFour: "4113", status: "active", balance: 18 },
@@ -64,14 +65,15 @@ test("hifupay card pool uses live balance and selects the lowest sufficient card
   ]);
   const lowerBalanceFirst = store.reserveHifupayCard({ orderId: "plus-lower-first", plan: "plus", identity: { email: "user7@example.com" }, estimatedChargeUsd: 16, preferredCardId: "7667" });
   assert.equal(lowerBalanceFirst.ok, true);
-  assert.equal(lowerBalanceFirst.hifupayCardId, "7172");
+  assert.equal(lowerBalanceFirst.hifupayCardId, "7667");
 });
 
 test("a card omitted by an upstream refresh never keeps a stale selectable balance", async t => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-missing-card-test-"));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const { JsonStore } = await import("../src/store.js");
-  const store = new JsonStore(path.join(tempDir, "orders.json"));
+  const { ZzshuStore } = await import("../src/zzshu-store.js");
+  const store = new JsonStore(path.join(tempDir, "orders.json"),new ZzshuStore(path.join(tempDir,"usage.sqlite")));
   store.syncHifupayCards([
     { id: "7823", lastFour: "3013", status: "active", balance: 0.01 },
     { id: "other", lastFour: "9999", status: "active", balance: 40 }
@@ -99,8 +101,10 @@ test("Plus selection excludes Pro-protected and over-66-dollar cards until manua
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-protection-test-"));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const { JsonStore } = await import("../src/store.js");
+  const { ZzshuStore } = await import("../src/zzshu-store.js");
   const dataFile = path.join(tempDir, "orders.json");
-  const store = new JsonStore(dataFile);
+  const usageStore = new ZzshuStore(path.join(tempDir,"usage.sqlite"));
+  const store = new JsonStore(dataFile,usageStore);
   store.syncHifupayCards([
     { id: "pro-150", lastFour: "0150", status: "active", balance: 150 },
     { id: "pro-130", lastFour: "0130", status: "active", balance: 130 },
@@ -136,7 +140,7 @@ test("Plus selection excludes Pro-protected and over-66-dollar cards until manua
   assert.equal(selected.hifupayCardId, "plus-66", "priority and enable must not bypass Pro protection");
   assert.equal(store.validateHifupayCardForSubmission({ cardId: "plus-66", orderId: "plus-safe", plan: "plus", estimatedChargeUsd: 16 }).ok, true);
 
-  const reloaded = new JsonStore(dataFile);
+  const reloaded = new JsonStore(dataFile,usageStore);
   assert.equal(reloaded.listHifupayCards().find(card => card.id === "plus-40").proProtected, true, "protection survives a restart");
   reloaded.clearHifupayReservation("plus-66", "plus-safe");
   reloaded.setHifupayCardEnabled("plus-66", false);
@@ -165,7 +169,8 @@ test("final submission validation fails closed when protection changes", async t
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-hifupay-final-check-test-"));
   t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
   const { JsonStore } = await import("../src/store.js");
-  const store = new JsonStore(path.join(tempDir, "orders.json"));
+  const { ZzshuStore } = await import("../src/zzshu-store.js");
+  const store = new JsonStore(path.join(tempDir, "orders.json"),new ZzshuStore(path.join(tempDir,"usage.sqlite")));
   store.syncHifupayCards([{ id: "card-1", lastFour: "0001", status: "active", balance: 40 }]);
   const reservation = store.reserveHifupayCard({
     orderId: "order-1",

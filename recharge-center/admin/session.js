@@ -29,15 +29,15 @@
   };
   document.addEventListener("DOMContentLoaded", () => {
     const path = location.pathname.replace(/\/$/, "") || "/admin";
-    const section = path === "/admin" ? "总览"
+    const section = path === "/admin" ? "工作台"
       : ["/admin/recoveries", "/admin/pro-orders"].includes(path) ? "充值订单"
-      : path.startsWith("/admin/cards") ? "产品与卡密"
+      : path.startsWith("/admin/cards") ? "卡密管理"
       : ["/admin/hifupay/cards", "/admin/zzshu"].includes(path) ? "支付卡池"
-      : "路由与通道";
+      : "协议设置";
     const bar = document.createElement("header");
     bar.setAttribute("aria-label", "GPTC 后台导航");
     bar.style.cssText = "position:fixed;z-index:1000;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:10px max(16px,calc((100vw - 1320px)/2));background:#ffffffee;border-bottom:1px solid #dbe4ee;box-shadow:0 4px 18px #0f172a0d;font:14px system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#475569;backdrop-filter:blur(8px)";
-    const links = [["总览", "/admin"], ["充值订单", "/admin/recoveries"], ["产品与卡密", "/admin/cards"], ["支付卡池", "/admin/hifupay/cards"], ["路由与通道", "/admin/provider"]];
+    const links = [["工作台", "/admin"], ["卡密管理", "/admin/cards"], ["充值订单", "/admin/recoveries"], ["支付卡池", "/admin/hifupay/cards"], ["协议设置", "/admin#protocol-settings"]];
     const nav = document.createElement("nav");
     nav.setAttribute("aria-label", "后台一级导航");
     nav.style.cssText = "display:flex;align-items:center;flex-wrap:wrap;gap:6px";

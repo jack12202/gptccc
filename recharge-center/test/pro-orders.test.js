@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { JsonStore } from "../src/store.js";
+import { ZzshuStore } from "../src/zzshu-store.js";
 import { createProService } from "../src/pro-orders.js";
 import { encryptSecretText } from "../src/utils.js";
 import { config } from "../src/config.js";
@@ -12,7 +13,8 @@ function fixture(t, options = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-pro-test-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, "orders.json");
-  const store = new JsonStore(file);
+  const usageStore = new ZzshuStore(path.join(dir, "usage.sqlite"));
+  const store = new JsonStore(file, usageStore);
   store.syncHifupayCards([{ id: "fixed", lastFour: "1234", status: "active", balance: 500 },
     { id: "backup", lastFour: "9999", status: "active", balance: 50 }]);
   const calls = [];
@@ -27,7 +29,7 @@ function fixture(t, options = {}) {
       session: { userEmail: email, tokenHash: "hashed", authDataCiphertext: encryptSecretText('{"accessToken":"fake"}', key, "recharge-auth-data"),
         rawSecretCiphertext: encryptSecretText('{"accessToken":"fake"}', key, "recharge-secret-json") } });
   };
-  return { store, service, calls, code, submit, file };
+  return { store, usageStore, service, calls, code, submit, file };
 }
 
 test("Pro 20x and default Pro 5x stay manual, encrypted and idempotent", async t => {
@@ -52,6 +54,17 @@ test("Pro 20x and default Pro 5x stay manual, encrypted and idempotent", async t
   await x.service.drain();
   assert.equal(x.calls.length, 0);
   assert.equal(x.store.listProOrders().length, 2);
+});
+
+test("manual Pro order can select a payment card without submitting a recharge", async t => {
+  const x = fixture(t);
+  const order = x.submit(x.code("pro_x20")).order;
+  assert.equal(x.service.selectCard(order.id, "fixed").ok, true);
+  assert.equal(x.service.detail(order.id).hifupayCardId, "fixed");
+  assert.equal(x.calls.length, 0);
+  assert.equal(x.service.selectCard(order.id, "missing").status, 409);
+  assert.equal(x.service.action(order.id, "mark-success").ok, true);
+  assert.equal(x.service.selectCard(order.id, "backup").status, 409);
 });
 
 test("operator 93 plus 7 rule requires at least 100 USD before automatic order", t => {
@@ -102,7 +115,7 @@ test("timeout and restart retain reservation, require explicit no-charge attesta
   assert.equal(x.store.getOrder(order.id).status, "needs_review");
   assert.equal(x.store.listHifupayCards().find(c => c.id === "fixed").inFlightCount, 1);
   assert.equal(x.service.action(order.id, "mark-success").status, 409);
-  const restarted = createProService({ store: new JsonStore(x.file), adapter: { ...{} } });
+  const restarted = createProService({ store: new JsonStore(x.file, x.usageStore), adapter: { ...{} } });
   restarted.recoverOnStart();
   assert.equal(x.store.getOrder(order.id).status, "needs_review");
   assert.equal((await x.service.confirmNoCharge(order.id)).status, 409);
