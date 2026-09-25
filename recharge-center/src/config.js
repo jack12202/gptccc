@@ -45,7 +45,6 @@ export const config = {
   hifupayBalanceToleranceUsd: Number(process.env.HIFUPAY_BALANCE_TOLERANCE_USD || 0.5),
   hifupayProductId: Number(process.env.HIFUPAY_PRODUCT_ID || 3),
   zzshuBaseUrl: process.env.ZZSHU_BASE_URL || "https://card.zzshu.pro",
-  zzshuRelayToken: process.env.ZZSHU_RELAY_TOKEN || "",
   // A deployment secret remains supported. The admin-managed secret is kept in
   // a separate encrypted runtime file and is resolved by zzshu-credential-store.
   zzshuApiKey: process.env.ZZSHU_API_KEY || "",

@@ -7,7 +7,6 @@ const PANEL_PASS = process.env.PANEL_PASS;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const HIFUPAY_API_KEY = process.env.HIFUPAY_API_KEY;
 const RECOVERY_ENCRYPTION_KEY = process.env.RECOVERY_ENCRYPTION_KEY;
-const ZZSHU_RELAY_TOKEN = process.env.ZZSHU_RELAY_TOKEN;
 const ADMIN_ALERT_WEBHOOK_URL = process.env.ADMIN_ALERT_WEBHOOK_URL || "";
 const ADMIN_ALERT_WEBHOOK_TYPE = process.env.ADMIN_ALERT_WEBHOOK_TYPE || "generic";
 const PANEL_TARGET_DIR = process.env.PANEL_TARGET_DIR || "";
@@ -26,7 +25,6 @@ for (const [name, value] of Object.entries({
     throw new Error(`Missing required environment variable: ${name}`);
   }
 }
-if (!ZZSHU_RELAY_TOKEN) throw new Error('Missing required environment variable: ZZSHU_RELAY_TOKEN');
 
 class PanelClient {
   constructor() {
@@ -221,7 +219,6 @@ function buildDeployScript() {
   const adminToken = envFileValue(ADMIN_TOKEN);
   const hifupayApiKey = envFileValue(HIFUPAY_API_KEY);
   const recoveryEncryptionKey = envFileValue(RECOVERY_ENCRYPTION_KEY);
-  const zzshuRelayToken = envFileValue(ZZSHU_RELAY_TOKEN);
   const adminAlertWebhookUrl = envFileValue(ADMIN_ALERT_WEBHOOK_URL);
   const adminAlertWebhookType = envFileValue(ADMIN_ALERT_WEBHOOK_TYPE);
   const staticTargetDir = shellQuote(PANEL_TARGET_DIR);
@@ -273,8 +270,6 @@ HIFUPAY_API_KEY=${hifupayApiKey}
 RECOVERY_ENCRYPTION_KEY=${recoveryEncryptionKey}
 ZZSHU_ENABLED=true
 ZZSHU_TEST_MODE=false
-ZZSHU_BASE_URL=https://gptc-zzs-connectivity-probe.zjk12202.workers.dev
-ZZSHU_RELAY_TOKEN=${zzshuRelayToken}
 ADMIN_ALERT_WEBHOOK_URL=${adminAlertWebhookUrl}
 ADMIN_ALERT_WEBHOOK_TYPE=${adminAlertWebhookType}
 PUBLIC_BASE_URL=https://www.gptc.cc

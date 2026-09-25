@@ -4,7 +4,6 @@ import path from "node:path";
 import https from "node:https";
 import { config } from "./config.js";
 import { decryptSecretText, encryptSecretText } from "./utils.js";
-import { zzshuRequestHeaders } from "./zzshu-relay.js";
 
 const MAX_KEY_LENGTH = 512;
 
@@ -75,7 +74,7 @@ export class ZzshuCredentialStore {
     try {
       response = await this.fetchImpl(new URL("/api/v1/third-party/user", upstreamBase(this.baseUrl())), {
         method: "GET",
-        headers: zzshuRequestHeaders({ "X-API-Key": key, ...extraHeaders }),
+        headers: { "X-API-Key": key, ...extraHeaders },
         signal: AbortSignal.timeout(Math.max(1000, Number(this.timeoutMs()) || 15000))
       });
     } catch {
@@ -107,7 +106,7 @@ export class ZzshuCredentialStore {
     return new Promise(resolve => {
       const request = https.request(url, {
         method: "GET", family, timeout: Math.max(1000, Number(this.timeoutMs()) || 15000),
-        headers: zzshuRequestHeaders({ "X-API-Key": "GPTC-PROBE-INVALID-KEY", Accept: "application/json" })
+        headers: { "X-API-Key": "GPTC-PROBE-INVALID-KEY", Accept: "application/json" }
       }, response => {
         let raw = "";
         response.on("data", chunk => { if (raw.length < 4096) raw += chunk.toString("utf8").slice(0, 4096 - raw.length); });
