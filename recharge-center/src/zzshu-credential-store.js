@@ -83,8 +83,11 @@ export class ZzshuCredentialStore {
     try { body = await response.json(); } catch { body = null; }
     if (!response.ok || body?.code !== 0) {
       const code = Number.isInteger(body?.code) ? body.code : null;
-      return { ok: false, status: 400,
-        message: `ZZS 未接受此 API Key（上游 HTTP ${response.status || "?"}，code ${code ?? "?"}）。请核对后台保存的 Key。`,
+      const upstreamUnavailable = Number(response.status) >= 500;
+      return { ok: false, status: upstreamUnavailable ? 502 : 400,
+        message: upstreamUnavailable
+          ? `ZZS 上游网关暂时不可用（HTTP ${response.status}）；不能据此判定 API Key 无效，请保留原 Key 并稍后重试。`
+          : `ZZS 未接受此 API Key（上游 HTTP ${response.status || "?"}，code ${code ?? "?"}）。请核对后台保存的 Key。`,
         upstreamHttpStatus: response.status || null, upstreamCode: code };
     }
     const points = Number(body?.data?.points);

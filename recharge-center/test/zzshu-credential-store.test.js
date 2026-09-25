@@ -69,6 +69,20 @@ test("invalid ZZS key is never persisted and only the verification endpoint is c
   assert.equal((await store.verifySaved()).status, 503);
 });
 
+test("ZZS HTTP 520 is reported as gateway trouble, not an invalid Key", async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-gateway-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const store = new ZzshuCredentialStore({
+    file: path.join(directory, "key.json"), encryptionKey: () => "fixture-encryption-key",
+    environmentKey: () => "fixture-key", baseUrl: () => "https://zzshu.example.test", timeoutMs: () => 15000,
+    fetchImpl: async () => ({ ok: false, status: 520, json: async () => { throw new Error("HTML gateway page"); } })
+  });
+  const result = await store.verifySaved();
+  assert.equal(result.ok, false);
+  assert.match(result.message, /上游网关暂时不可用.*HTTP 520/);
+  assert.doesNotMatch(result.message, /未接受此 API Key/);
+});
+
 test("ZZS deployment Key can be replaced from admin and remains active after restart", async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-override-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
