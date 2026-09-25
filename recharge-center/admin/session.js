@@ -18,7 +18,12 @@
       login();
       throw new Error("登录已过期，正在前往登录页。");
     }
-    const data = await response.json();
+    let data;
+    try { data = await response.json(); } catch { /* A gateway can return an HTML error page. */ }
+    if (!data || typeof data !== "object") {
+      const ray = String(response.headers?.get?.("cf-ray") || "").slice(0, 80);
+      throw new Error(`本站接口返回非 JSON 响应（HTTP ${response.status}）${ray ? `，CF Ray ${ray}` : ""}。请稍后重试；不要据此判断上游 API Key 无效。`);
+    }
     if (!response.ok || !data.success) throw new Error(data.message || "操作失败，请稍后重试。");
     return data.data;
   }

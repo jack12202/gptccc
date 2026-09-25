@@ -75,12 +75,30 @@ test("ZZS HTTP 520 is reported as gateway trouble, not an invalid Key", async t 
   const store = new ZzshuCredentialStore({
     file: path.join(directory, "key.json"), encryptionKey: () => "fixture-encryption-key",
     environmentKey: () => "fixture-key", baseUrl: () => "https://zzshu.example.test", timeoutMs: () => 15000,
-    fetchImpl: async () => ({ ok: false, status: 520, json: async () => { throw new Error("HTML gateway page"); } })
+    fetchImpl: async () => ({ ok: false, status: 520,
+      headers: { get: name => name === "cf-ray" ? "fixture-ray-SJC" : null },
+      json: async () => { throw new Error("HTML gateway page"); } })
   });
   const result = await store.verifySaved();
   assert.equal(result.ok, false);
-  assert.match(result.message, /上游网关暂时不可用.*HTTP 520/);
+  assert.equal(result.status, 502);
+  assert.match(result.message, /非 JSON 响应.*HTTP 520.*fixture-ray-SJC/);
   assert.doesNotMatch(result.message, /未接受此 API Key/);
+  assert.equal(result.upstreamRay, "fixture-ray-SJC");
+});
+
+test("ZZS HTML challenge with HTTP 200 does not invalidate a saved Key", async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-html-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const store = new ZzshuCredentialStore({
+    file: path.join(directory, "key.json"), encryptionKey: () => "fixture-encryption-key",
+    environmentKey: () => "fixture-key", baseUrl: () => "https://zzshu.example.test", timeoutMs: () => 15000,
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError("Unexpected token '<'"); } })
+  });
+  const result = await store.verifySaved();
+  assert.equal(result.status, 502);
+  assert.match(result.message, /非 JSON 响应.*HTTP 200/);
+  assert.equal(store.key(), "fixture-key");
 });
 
 test("ZZS deployment Key can be replaced from admin and remains active after restart", async t => {

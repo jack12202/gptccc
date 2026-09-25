@@ -82,6 +82,12 @@ export class ZzshuCredentialStore {
     }
     let body;
     try { body = await response.json(); } catch { body = null; }
+    const upstreamRay = String(response.headers?.get?.("cf-ray") || "").slice(0, 80);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return { ok: false, status: 502,
+        message: `ZZS 返回非 JSON 响应（HTTP ${response.status || "?"}）${upstreamRay ? `，CF Ray ${upstreamRay}` : ""}；无法据此判断 API Key 是否有效，请保留原 Key。`,
+        upstreamHttpStatus: response.status || null, upstreamCode: null, upstreamRay };
+    }
     if (!response.ok || body?.code !== 0) {
       const code = Number.isInteger(body?.code) ? body.code : null;
       const upstreamUnavailable = Number(response.status) >= 500;
@@ -90,7 +96,7 @@ export class ZzshuCredentialStore {
           ? `ZZS 上游网关暂时不可用（HTTP ${response.status}）；不能据此判定 API Key 无效，请保留原 Key 并稍后重试。`
           : `ZZS 未接受此 API Key（上游 HTTP ${response.status || "?"}，code ${code ?? "?"}）。请核对后台保存的 Key。`,
         upstreamHttpStatus: response.status || null, upstreamCode: code,
-        upstreamRay: response.headers?.get?.("cf-ray") || "" };
+        upstreamRay };
     }
     const points = Number(body?.data?.points);
     return { ok: true, points: Number.isFinite(points) ? points : null };
