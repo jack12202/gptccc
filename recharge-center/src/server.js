@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import net from "node:net";
+import dns from "node:dns/promises";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
 import { createAdminAuth } from "./admin-auth.js";
@@ -58,7 +60,7 @@ function serveAdminOverview(res) {
 <article class="api-card" data-channel="hifupay"><h2>嗨付 API</h2><div class="status-line" id="hifupayState">读取中…</div><div class="form"><input id="hifupayKey" type="password" autocomplete="new-password" placeholder="填写新的嗨付 API Key"><button id="saveHifupay">验证并保存</button></div><div class="actions"><button id="checkHifupay">检测连接</button></div><div class="message" id="hifupayMessage"></div></article>
 <article class="api-card" data-channel="zzshu"><h2>ZZS API</h2><div class="status-line" id="zzshuState">读取中…</div><div class="form"><input id="zzshuKey" type="password" autocomplete="new-password" placeholder="填写新的 ZZS API Key"><button id="saveZzshu">验证并保存</button></div><p class="muted">“检测连接”只检查后台已保存的 Key；输入框中的内容需先验证并保存才会生效。本站旧订单直接从服务器读取；更换 Key 后，未完成的旧订单保留待核查，不会用新 Key 自动查单。</p><div class="actions"><button id="checkZzshu">检测连接</button><button id="probeZzshu">诊断上游连通性</button></div><div class="message" id="zzshuMessage"></div></article>
 </div></section>
-<section class="panel"><h2>ZZS 专用代理出口</h2><p>填写 MiyaIP 具体节点的 HTTP(S) 或 SOCKS5 URI，不是订阅链接。仅 ZZS API 请求使用此出口；代理地址加密保存在服务器，页面不回显。保存前会用无效测试 Key 检查出口，再验证后台已保存的 ZZS Key；不会创建订单。</p><div class="status-line" id="zzshuProxyState">读取中…</div><div class="form"><input id="zzshuProxyUrl" type="password" autocomplete="new-password" placeholder="socks5://用户名:密码@节点主机:端口"><button id="saveZzshuProxy">验证并保存出口</button></div><div class="message" id="zzshuProxyMessage"></div></section>
+<section class="panel"><h2>ZZS 专用代理出口</h2><p>填写 MiyaIP 具体节点的 HTTP(S) 或 SOCKS5 URI，不是订阅链接。仅 ZZS API 请求使用此出口；代理地址加密保存在服务器，页面不回显。保存前会用无效测试 Key 检查出口，再验证后台已保存的 ZZS Key；不会创建订单。</p><div class="status-line" id="zzshuProxyState">读取中…</div><div class="form"><input id="zzshuProxyUrl" type="password" autocomplete="new-password" placeholder="socks5://用户名:密码@节点主机:端口"><button id="saveZzshuProxy">验证并保存出口</button></div><div class="actions"><button id="checkZzshuProxyTcp">只检查节点端口</button></div><p class="muted">节点端口诊断只向本站后台发送主机和端口，不发送代理密码或 ZZS Key，也不保存出口。</p><div class="message" id="zzshuProxyMessage"></div></section>
 <section class="panel" id="zzshu-query"><h2>ZZS 开通记录</h2><p>使用后台已保存的 ZZS Key 只读查询上游记录，不提交充值，也不修改本站订单。可与<a href="/admin/recoveries">本站充值订单</a>中的账号、时间和上游订单号核对。</p><div class="actions"><button id="queryZzshuUsage">查询上游记录</button><a class="link" href="https://card.zzshu.pro/query" target="_blank" rel="noopener noreferrer">打开 ZZS 查询页</a></div><div class="message" id="zzshuUsageMessage"></div><div id="zzshuUsageResults"></div><div class="actions"><button id="zzshuUsagePrevious" disabled>上一页</button><button id="zzshuUsageNext" disabled>下一页</button></div></section>
 <section class="panel" id="protocol-settings"><h2>Plus 通道选择</h2><p>勾选的协议用于尚未首次提交的通用 Plus 卡密。已提交的卡密及订单继续使用原协议；Pro 订单在<a href="/admin/pro-orders">Pro 履约工作台</a>查看。</p><div class="choices"><button data-provider="h">嗨付</button><button data-provider="zzshu">ZZS</button></div><div class="message" id="providerMessage"></div><p class="muted">其他网站入口设置仍在<a href="/admin/provider">路由设置</a>中。</p></section>
 <script>
@@ -95,6 +97,7 @@ document.getElementById("checkHifupay").onclick=()=>check("hifupay","/api/admin/
 document.getElementById("checkZzshu").onclick=()=>check("zzshu","/api/admin/zzshu/credential/check");
 document.getElementById("probeZzshu").onclick=async()=>{try{const d=await api("/api/admin/zzshu/credential/probe");message("zzshuMessage",d.networkReachable?"上游接口可达：测试 Key 按预期被拒绝（HTTP "+d.httpStatus+"，code "+d.code+"）。":"上游接口异常：标准 HTTP "+(d.httpStatus||"?")+"，IPv4 "+(d.ipv4?.status||"?")+"，IPv6 "+(d.ipv6?.status||"?")+"。"+(d.upstreamRay?" CF Ray "+d.upstreamRay:""),!d.networkReachable)}catch(e){message("zzshuMessage",e.message,true)}};
 document.getElementById("saveZzshuProxy").onclick=async()=>{const input=document.getElementById("zzshuProxyUrl"),button=document.getElementById("saveZzshuProxy");if(!input.value){message("zzshuProxyMessage","请填写具体节点 URI。",true);return}button.disabled=true;message("zzshuProxyMessage","正在检查代理出口和已保存的 ZZS Key…");try{await api("/api/admin/zzshu/proxy/verify-and-save",{method:"POST",body:JSON.stringify({proxyUrl:input.value})});input.value="";message("zzshuProxyMessage","出口和 ZZS Key 验证通过，已加密保存。后续 ZZS API 请求将使用该出口。");await loadZzshuProxy()}catch(e){message("zzshuProxyMessage",e.message,true)}finally{button.disabled=false}};
+document.getElementById("checkZzshuProxyTcp").onclick=async()=>{const input=document.getElementById("zzshuProxyUrl");let url;try{url=new URL(input.value);if(!url.hostname||!url.port)throw Error()}catch{message("zzshuProxyMessage","请先填写具体节点 URI，以便提取主机和端口。",true);return}const button=document.getElementById("checkZzshuProxyTcp");button.disabled=true;message("zzshuProxyMessage","正在从服务器检查节点端口…");try{const d=await api("/api/admin/zzshu/proxy/tcp-check",{method:"POST",body:JSON.stringify({host:url.hostname,port:Number(url.port)})});message("zzshuProxyMessage",d.reachable?"服务器可以连接节点端口；接下来检查代理认证和 ZZS API。":"服务器无法连接节点端口；请检查节点的服务器 IP 白名单或出站网络。",!d.reachable)}catch(e){message("zzshuProxyMessage",e.message,true)}finally{button.disabled=false}};
 document.querySelectorAll("[data-provider]").forEach(b=>b.onclick=async()=>{try{const d=await api("/api/admin/plus-provider",{method:"POST",body:JSON.stringify({provider:b.dataset.provider})});message("providerMessage","新 Plus 卡密已切换到 "+(d.plusProvider==="zzshu"?"ZZS":"嗨付"));await loadProvider()}catch(e){message("providerMessage",e.message,true)}});
 loadAll();loadZzshuProxy();
 </script></main></body></html>`;
@@ -1669,6 +1672,30 @@ export const server = http.createServer(async (req, res) => {
       try {
         let data;
         if (req.method === "GET" && endpoint === "credential") data = zzshuCredentialStore.status();
+        else if (req.method === "POST" && endpoint === "proxy/tcp-check") {
+          const host = typeof body.host === "string" ? body.host.trim() : "";
+          const port = Number(body.port);
+          if (!/^[a-z0-9.-]{1,253}$/i.test(host) || !Number.isInteger(port) || port < 1 || port > 65535 ||
+            host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") ||
+            /^127\.|^10\.|^192\.168\.|^169\.254\.|^0\.|^172\.(1[6-9]|2\d|3[01])\./.test(host)) {
+            sendJson(res,400,{success:false,message:"节点主机或端口格式无效。"});return;
+          }
+          let addresses;
+          try { addresses = await dns.lookup(host, { all: true }); }
+          catch { data = { reachable: false }; addresses = []; }
+          const publicAddress = addresses.find(item => item.family === 4 &&
+            !/^(0|10|127|169\.254|192\.168)\./.test(item.address) &&
+            !/^172\.(1[6-9]|2\d|3[01])\./.test(item.address));
+          if (!publicAddress) { data = { reachable: false }; }
+          else data = await new Promise(resolve => {
+            const socket = net.connect({ host: publicAddress.address, port });
+            const finish = reachable => { socket.destroy(); resolve({ reachable }); };
+            socket.setTimeout(4000);
+            socket.once("connect", () => finish(true));
+            socket.once("timeout", () => finish(false));
+            socket.once("error", () => finish(false));
+          });
+        }
         else if (req.method === "GET" && endpoint === "proxy") data = zzshuProxyStore.status();
         else if (req.method === "POST" && endpoint === "proxy/verify-and-save") {
           if (credentialRotationInProgress || activeRechargeConfirmations > 0) {
