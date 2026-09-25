@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { zzshuCredentialStore } from "../zzshu-credential-store.js";
+import { zzshuFetch } from "../zzshu-proxy.js";
 
 // Deliberately allowlist responses: the upstream status includes PAN and Session JSON.
 async function request(path, payload) {
@@ -7,7 +8,7 @@ async function request(path, payload) {
   if (!config.zzshuEnabled || !apiKey) throw new Error("自动充值通道尚未启用");
   const base = new URL(config.zzshuBaseUrl);
   if (base.protocol !== "https:" && base.hostname !== "127.0.0.1" && base.hostname !== "localhost") throw new Error("上游必须使用 HTTPS");
-  const response = await fetch(new URL(path, base), {
+  const response = await zzshuFetch(new URL(path, base), {
     method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
     body: JSON.stringify(payload), signal: AbortSignal.timeout(config.zzshuTimeoutMs)
   });
@@ -24,7 +25,7 @@ export const zzshuAdapter = {
     const base = new URL(config.zzshuBaseUrl);
     if (base.protocol !== "https:" && !["127.0.0.1", "localhost"].includes(base.hostname))
       return { ok: false, status: 503, code: null };
-    const response = await fetch(new URL("/api/v1/third-party/orders/history", base), {
+    const response = await zzshuFetch(new URL("/api/v1/third-party/orders/history", base), {
       method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
       body: JSON.stringify({ page, page_size: 20 }),
       signal: AbortSignal.timeout(config.zzshuTimeoutMs)

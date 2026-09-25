@@ -284,6 +284,11 @@ chmod 600 "$ENV_FILE"
 
 if command -v docker >/dev/null 2>&1; then
   echo "[gptc] starting backend with Docker"
+  docker run --rm \\
+    -v "$APP_DIR/recharge-center":/app \\
+    -w /app \\
+    node:22-alpine \\
+    npm ci --omit=dev --no-audit --no-fund
   docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
   docker run -d \\
     --name "$CONTAINER_NAME" \\
@@ -298,6 +303,7 @@ if command -v docker >/dev/null 2>&1; then
     node src/server.js
 else
   echo "[gptc] starting backend with host Node"
+  (cd "$APP_DIR/recharge-center" && npm ci --omit=dev --no-audit --no-fund)
   pkill -f "gptc-recharge-center.*src/server.js" >/dev/null 2>&1 || true
   set -a
   . "$ENV_FILE"

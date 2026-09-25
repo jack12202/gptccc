@@ -4,6 +4,7 @@ import path from "node:path";
 import https from "node:https";
 import { config } from "./config.js";
 import { decryptSecretText, encryptSecretText } from "./utils.js";
+import { zzshuFetch } from "./zzshu-proxy.js";
 
 const MAX_KEY_LENGTH = 512;
 
@@ -22,7 +23,7 @@ function upstreamBase(value) {
 }
 
 export class ZzshuCredentialStore {
-  constructor({ file, encryptionKey, environmentKey, baseUrl, timeoutMs, fetchImpl = globalThis.fetch }) {
+  constructor({ file, encryptionKey, environmentKey, baseUrl, timeoutMs, fetchImpl = zzshuFetch }) {
     this.file = file;
     this.encryptionKey = encryptionKey;
     this.environmentKey = environmentKey;
@@ -67,7 +68,7 @@ export class ZzshuCredentialStore {
     };
   }
 
-  async verify(apiKey, extraHeaders = {}) {
+  async verify(apiKey, extraHeaders = {}, proxyOverride) {
     const key = normalizeKey(apiKey);
     if (!key) return { ok: false, status: 400, message: "API Key 格式不正确。" };
     let response;
@@ -76,7 +77,7 @@ export class ZzshuCredentialStore {
         method: "GET",
         headers: { "X-API-Key": key, ...extraHeaders },
         signal: AbortSignal.timeout(Math.max(1000, Number(this.timeoutMs()) || 15000))
-      });
+      }, proxyOverride);
     } catch {
       return { ok: false, status: 502, message: "无法连接 ZZS 验证 API，请稍后重试。" };
     }

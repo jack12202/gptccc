@@ -49,6 +49,7 @@ export const config = {
   // a separate encrypted runtime file and is resolved by zzshu-credential-store.
   zzshuApiKey: process.env.ZZSHU_API_KEY || "",
   zzshuSecretFile: process.env.ZZSHU_SECRET_FILE || path.join(path.dirname(dataFile), "zzshu-api-key.json"),
+  zzshuProxyFile: process.env.ZZSHU_PROXY_FILE || path.join(path.dirname(dataFile), "zzshu-proxy.json"),
   zzshuEnabled: process.env.ZZSHU_ENABLED === "true",
   zzshuTestMode: process.env.ZZSHU_TEST_MODE === "true",
   zzshuTestVoucherHash: process.env.ZZSHU_TEST_VOUCHER_HASH || "",
