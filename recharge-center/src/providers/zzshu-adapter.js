@@ -1,5 +1,6 @@
 import { config } from "../config.js";
 import { zzshuCredentialStore } from "../zzshu-credential-store.js";
+import { zzshuRequestHeaders } from "../zzshu-relay.js";
 
 // Deliberately allowlist responses: the upstream status includes PAN and Session JSON.
 async function request(path, payload) {
@@ -8,7 +9,7 @@ async function request(path, payload) {
   const base = new URL(config.zzshuBaseUrl);
   if (base.protocol !== "https:" && base.hostname !== "127.0.0.1" && base.hostname !== "localhost") throw new Error("上游必须使用 HTTPS");
   const response = await fetch(new URL(path, base), {
-    method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+    method: "POST", headers: zzshuRequestHeaders({ "Content-Type": "application/json", "X-API-Key": apiKey }),
     body: JSON.stringify(payload), signal: AbortSignal.timeout(config.zzshuTimeoutMs)
   });
   let body;
@@ -25,7 +26,7 @@ export const zzshuAdapter = {
     if (base.protocol !== "https:" && !["127.0.0.1", "localhost"].includes(base.hostname))
       return { ok: false, status: 503, code: null };
     const response = await fetch(new URL("/api/v1/third-party/orders/history", base), {
-      method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      method: "POST", headers: zzshuRequestHeaders({ "Content-Type": "application/json", "X-API-Key": apiKey }),
       body: JSON.stringify({ page, page_size: 20 }),
       signal: AbortSignal.timeout(config.zzshuTimeoutMs)
     });
