@@ -55,7 +55,7 @@ function serveAdminOverview(res) {
 <section class="panel"><h1>充值工作台</h1><p>从这里进入四项日常管理。客户的登录、获取 JSON、提交卡密和自助充值流程保持现状。</p><div class="nav"><a class="link" href="/admin/cards">卡密管理</a><a class="link" href="/admin/recoveries">充值订单</a><a class="link" href="/admin/hifupay/cards">支付卡池</a><a class="link" href="/admin#protocol-settings">协议设置</a></div><p class="muted">卡密管理可按来源查卡和关联订单；充值订单可查 Plus、Pro 记录及已留存的 JSON；支付卡池保留现有嗨付和 ZZS 卡片管理。</p></section>
 <section class="panel"><div class="grid">
 <article class="api-card" data-channel="hifupay"><h2>嗨付 API</h2><div class="status-line" id="hifupayState">读取中…</div><div class="form"><input id="hifupayKey" type="password" autocomplete="new-password" placeholder="填写新的嗨付 API Key"><button id="saveHifupay">验证并保存</button></div><div class="actions"><button id="checkHifupay">检测连接</button></div><div class="message" id="hifupayMessage"></div></article>
-<article class="api-card" data-channel="zzshu"><h2>ZZS API</h2><div class="status-line" id="zzshuState">读取中…</div><div class="form"><input id="zzshuKey" type="password" autocomplete="new-password" placeholder="填写新的 ZZS API Key"><button id="saveZzshu">验证并保存</button></div><p class="muted">“检测连接”只检查后台已保存的 Key；输入框中的内容需先验证并保存才会生效。旧订单必须使用创建时的原 Key 查询。</p><div class="actions"><button id="checkZzshu">检测连接</button><button id="probeZzshu">诊断上游连通性</button></div><div class="message" id="zzshuMessage"></div></article>
+<article class="api-card" data-channel="zzshu"><h2>ZZS API</h2><div class="status-line" id="zzshuState">读取中…</div><div class="form"><input id="zzshuKey" type="password" autocomplete="new-password" placeholder="填写新的 ZZS API Key"><button id="saveZzshu">验证并保存</button></div><p class="muted">“检测连接”只检查后台已保存的 Key；输入框中的内容需先验证并保存才会生效。本站旧订单直接从服务器读取；更换 Key 后，未完成的旧订单保留待核查，不会用新 Key 自动查单。</p><div class="actions"><button id="checkZzshu">检测连接</button><button id="probeZzshu">诊断上游连通性</button></div><div class="message" id="zzshuMessage"></div></article>
 </div></section>
 <section class="panel" id="zzshu-query"><h2>ZZS 开通记录</h2><p>使用后台已保存的 ZZS Key 只读查询上游记录，不提交充值，也不修改本站订单。可与<a href="/admin/recoveries">本站充值订单</a>中的账号、时间和上游订单号核对。</p><div class="actions"><button id="queryZzshuUsage">查询上游记录</button><a class="link" href="https://card.zzshu.pro/query" target="_blank" rel="noopener noreferrer">打开 ZZS 查询页</a></div><div class="message" id="zzshuUsageMessage"></div><div id="zzshuUsageResults"></div><div class="actions"><button id="zzshuUsagePrevious" disabled>上一页</button><button id="zzshuUsageNext" disabled>下一页</button></div></section>
 <section class="panel" id="protocol-settings"><h2>Plus 通道选择</h2><p>勾选的协议用于尚未首次提交的通用 Plus 卡密。已提交的卡密及订单继续使用原协议；Pro 订单在<a href="/admin/pro-orders">Pro 履约工作台</a>查看。</p><div class="choices"><button data-provider="h">嗨付</button><button data-provider="zzshu">ZZS</button></div><div class="message" id="providerMessage"></div><p class="muted">其他网站入口设置仍在<a href="/admin/provider">路由设置</a>中。</p></section>
@@ -67,7 +67,7 @@ async function loadCredential(channel,path){
 }
 async function save(channel,path){
   const input=document.getElementById(channel+"Key"), key=input.value.trim(); if(!key){message(channel+"Message","请填写 API Key。",true);return}
-  const button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu"),replace=button.dataset.replace==="1";if(replace&&!confirm(channel==="zzshu"?"ZZS 旧订单只能用创建时的原 Key 查询。存在未完成订单时系统会拒绝更换。确认继续？":"新 API 验证成功后将替换当前 API。未完成订单存在时系统会拒绝更换。确认继续？"))return;
+  const button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu"),replace=button.dataset.replace==="1";if(replace&&!confirm(channel==="zzshu"?"更换后，旧订单仍保存在本站；未完成的旧订单将停止自动查单，进入待核查。确认更换？":"新 API 验证成功后将替换当前 API。未完成订单存在时系统会拒绝更换。确认继续？"))return;
   try{await api(path,{method:"POST",body:JSON.stringify({apiKey:key,replace})});input.value="";message(channel+"Message",replace?"新 API 验证成功，已完成更换。":"验证成功，已保存。");await loadAll()}catch(e){message(channel+"Message",e.message,true)}
 }
 async function check(channel,path){const state=document.getElementById(channel+"State");try{const d=await api(path);state.textContent="连接正常 · "+new Date().toLocaleString("zh-CN",{hour12:false});state.className="status-line good";message(channel+"Message","连接正常"+(d.points==null?"":" · 积分 "+d.points))}catch(e){state.textContent="连接检测失败";state.className="status-line bad";message(channel+"Message",e.message,true)}}
@@ -1082,7 +1082,7 @@ function serveRecoveryAdmin(res) {
     function renderRecoveryActions(item) {
       return ''
         + (item.provider === 'zzshu' ? '<a class="back-link" href="/admin#zzshu-query">查询 ZZS 开通记录</a>' : '')
-        + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : item.provider === "zzshu" && item.hasUpstreamQueryKey && ["processing", "needs_review"].includes(item.status) ? '<button type="button" data-action="refresh-zzshu" data-order-id="' + escapeHtml(item.id) + '">安全补查</button>' : !isPro(item) && item.provider !== "zzshu" && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
+        + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : item.provider === "zzshu" && item.autoQuery && item.hasUpstreamQueryKey && ["processing", "needs_review"].includes(item.status) ? '<button type="button" data-action="refresh-zzshu" data-order-id="' + escapeHtml(item.id) + '">安全补查</button>' : !isPro(item) && item.provider !== "zzshu" && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
         + (item.provider === 'zzshu' && (item.status === 'needs_review' || item.status === 'processing' && item.hasUpstreamQueryKey) ? '<button class="secondary" type="button" data-action="resolve-zzshu-success" data-order-id="' + escapeHtml(item.id) + '">核实成功</button><button class="secondary" type="button" data-action="resolve-zzshu-unpaid" data-order-id="' + escapeHtml(item.id) + '">核实未支付</button>' : '')
         + (item.provider === 'zzshu' && item.status === 'failed' && item.useResolution === 'frozen' ? '<button class="secondary" type="button" data-action="release-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">释放冻结次数</button><button class="secondary" type="button" data-action="consume-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">记为已消耗</button>' : '')
         + (item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<button class="secondary" type="button" data-action="confirm-zzshu-cancellation" data-order-id="' + escapeHtml(item.id) + '">核实续费已关闭</button>' : '')
@@ -1688,13 +1688,11 @@ export const server = http.createServer(async (req, res) => {
           }
           credentialRotationInProgress = true;
           try {
-            const summary = zzshuService.store.orderSummary();
-            if (body.replace === true && summary.processing + summary.needsReview > 0) {
-              sendJson(res,409,{success:false,message:"ZZS 旧订单需使用原 Key 查询；仍有处理中或待核查订单，暂不能更换。"});return;
-            }
+            zzshuService.store.ensureQueryKey(zzshuCredentialStore.key());
             const result = await zzshuCredentialStore.verifyAndSave(body.apiKey, { replace: body.replace === true });
             if (!result.ok) { sendJson(res, result.status, { success: false, message: result.message }); return; }
-            data = { configured: true, points: result.points ?? null, channelEnabled: config.zzshuEnabled };
+            const oldOrdersAwaitingReview = zzshuService.store.ensureQueryKey(zzshuCredentialStore.key());
+            data = { configured: true, points: result.points ?? null, channelEnabled: config.zzshuEnabled, oldOrdersAwaitingReview };
           } finally { credentialRotationInProgress = false; }
         }
         else if (req.method === "GET" && endpoint === "usage") {

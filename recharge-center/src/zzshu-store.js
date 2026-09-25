@@ -65,6 +65,8 @@ export class ZzshuStore {
       this.db.exec("ALTER TABLE orders ADD COLUMN session_cipher TEXT");
     if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === "use_resolution"))
       this.db.exec("ALTER TABLE orders ADD COLUMN use_resolution TEXT NOT NULL DEFAULT ''");
+    if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === "auto_query"))
+      this.db.exec("ALTER TABLE orders ADD COLUMN auto_query INTEGER NOT NULL DEFAULT 1");
     for (const [name, definition] of Object.entries({
       last_check_at: "TEXT NOT NULL DEFAULT ''",
       last_check_result: "TEXT NOT NULL DEFAULT ''",
@@ -330,7 +332,7 @@ export class ZzshuStore {
     FROM orders o JOIN payment_cards c ON c.id=o.card_id JOIN vouchers v ON v.id=o.voucher_id WHERE o.id=?`).get(id); }
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
   listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
-    o.review_reason AS reviewReason,o.cancellation,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,
+    o.review_reason AS reviewReason,o.cancellation,o.auto_query AS autoQuery,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,
     o.last_check_at AS lastCheckAt,o.last_check_result AS lastCheckResult,
     o.last_check_http_status AS lastCheckHttpStatus,o.last_check_code AS lastCheckCode,c.last_four AS lastFour,
     v.code_hash AS voucherHash,v.code_cipher AS voucherCipher,v.source AS voucherSource,o.created_at AS createdAt,o.updated_at AS updatedAt
@@ -364,9 +366,31 @@ export class ZzshuStore {
     });
   }
   reconciliationIds(limit) {
-    return this.db.prepare(`SELECT id FROM orders WHERE upstream_card_key IS NOT NULL AND
+    return this.db.prepare(`SELECT id FROM orders WHERE auto_query=1 AND upstream_card_key IS NOT NULL AND
       (status IN ('processing','needs_review') OR (status='success' AND cancellation!='cancelled'))
       ORDER BY updated_at ASC,id LIMIT ?`).all(limit).map(row=>row.id);
+  }
+  ensureQueryKey(apiKey) {
+    const fingerprint = crypto.createHash("sha256").update(apiKey || "").digest("hex");
+    return this.transaction(() => {
+      const previous = this.db.prepare("SELECT value FROM runtime_state WHERE key='zzshu_query_key_fingerprint'").get()?.value;
+      if (previous === fingerprint) return 0;
+      let frozen = 0;
+      if (previous) {
+        const pending = this.db.prepare("SELECT id,card_id,status FROM orders WHERE auto_query=1 AND status IN ('reserved','submitting','processing','needs_review')").all();
+        const at = new Date().toISOString();
+        for (const row of pending) {
+          if (row.status !== "needs_review") this.db.prepare("UPDATE payment_cards SET frozen_count=frozen_count+1 WHERE id=?").run(row.card_id);
+          this.db.prepare("UPDATE orders SET status='needs_review',use_resolution='frozen',review_reason=?,auto_query=0,updated_at=? WHERE id=?")
+            .run("创建订单使用的 ZZS API Key 已更换；本站保留原记录，请核对上游结果后人工处理",at,row.id);
+          this.audit(row.id,"query_key_rotated","旧订单停止使用新 Key 自动查单");
+          frozen++;
+        }
+        this.db.prepare("UPDATE orders SET auto_query=0 WHERE auto_query=1 AND status='success'").run();
+      }
+      this.db.prepare("INSERT INTO runtime_state(key,value) VALUES('zzshu_query_key_fingerprint',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(fingerprint);
+      return frozen;
+    });
   }
   markChecked(id, successful = false, detail = {}) {
     const at = new Date().toISOString();

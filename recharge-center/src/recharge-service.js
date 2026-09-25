@@ -733,6 +733,7 @@ export const rechargeService = {
         subscriptionActionDetectedAt: "", subscriptionActionHandledAt: "",
         needsAttention: item.status === "needs_review" || item.status === "success" && item.cancellation !== "cancelled",
         hasUpstreamQueryKey: Boolean(item.hasUpstreamQueryKey),
+        autoQuery: Boolean(item.autoQuery),
         lastCheckAt: item.lastCheckAt || "", lastCheckResult: item.lastCheckResult || "",
         lastCheckHttpStatus: item.lastCheckHttpStatus, lastCheckCode: item.lastCheckCode,
         createdAt: item.createdAt, updatedAt: item.updatedAt,

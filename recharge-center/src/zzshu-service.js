@@ -321,10 +321,11 @@ export const zzshuService = {
     }
   },
   async refresh(id) {
+    store.ensureQueryKey(zzshuCredentialStore.key());
     const order = store.order(id);
     if (!order) return { ok: false, status: 404, message: "订单不存在" };
     this.syncUnifiedOrder(id);
-    if (!order.upstream_card_key || order.status === "failed" || order.status === "success" && order.cancellation === "cancelled")
+    if (!order.auto_query || !order.upstream_card_key || order.status === "failed" || order.status === "success" && order.cancellation === "cancelled")
       return { ok: true, status: 200, data: safeOrder(order) };
     try {
       const result = await zzshuAdapter.status(order.upstream_card_key);
@@ -348,6 +349,7 @@ export const zzshuService = {
     return { ok: true, status: 200, data: safeOrder(store.order(id)) };
   },
   async reconcile() {
+    store.ensureQueryKey(zzshuCredentialStore.key());
     store.recoverInterrupted(Math.max(30000,config.zzshuTimeoutMs * 2));
     if (!unifiedRecovered) {
       if (config.recoveryEncryptionKey) {

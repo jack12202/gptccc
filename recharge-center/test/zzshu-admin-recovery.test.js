@@ -47,9 +47,16 @@ test("admin can resolve an unknown ZZS order once and separately confirm renewal
   assert.equal(record.hasUpstreamQueryKey, false);
   assert.match(record.processingNote, /创建响应丢失/);
   const { zzshuCredentialStore } = await import("../src/zzshu-credential-store.js");
+  const originalVerify = zzshuCredentialStore.verify;
+  t.after(() => { zzshuCredentialStore.verify = originalVerify; });
+  zzshuCredentialStore.verify = async () => ({ ok: true, points: 25 });
   const rotated = await post("/api/admin/zzshu/credential/verify-and-save", { apiKey: "fixture-new-key", replace: true });
-  assert.equal(rotated.status, 409);
+  assert.equal(rotated.status, 200);
   assert.equal(store.order(order.orderId).status, "needs_review");
+  assert.equal(store.order(order.orderId).auto_query, 0);
+  assert.equal(store.reconciliationIds(10).includes(order.orderId), false);
+  const localOrders = await fetch(base + "/api/admin/zzshu/orders", { headers: { Cookie: cookie } }).then(response => response.json());
+  assert.equal(localOrders.data.some(item => item.id === order.orderId), true);
   const pendingCards = await fetch(base + "/api/admin/zzshu/cards", { headers: { Cookie: cookie } }).then(response => response.json());
   assert.equal(pendingCards.data[0].successfulAccounts.length, 0);
   assert.equal(pendingCards.data[0].pendingAccount.email, "fixture@example.test");
@@ -73,8 +80,6 @@ test("admin can resolve an unknown ZZS order once and separately confirm renewal
   assert.equal(store.listCards().length, 0);
   assert.equal(store.order(order.orderId).status, "success");
 
-  const originalVerify = zzshuCredentialStore.verify;
-  t.after(() => { zzshuCredentialStore.verify = originalVerify; });
   let beginVerify;
   const verifying = new Promise(resolve => { beginVerify = resolve; });
   let finishVerify;
@@ -82,7 +87,7 @@ test("admin can resolve an unknown ZZS order once and separately confirm renewal
     beginVerify();
     return new Promise(resolve => { finishVerify = resolve; });
   };
-  const replacing = post("/api/admin/zzshu/credential/verify-and-save", { apiKey: "fixture-replacement-key" });
+  const replacing = post("/api/admin/zzshu/credential/verify-and-save", { apiKey: "fixture-replacement-key", replace: true });
   await verifying;
   const duringReplacement = await post("/api/recharge/confirm", { cardInfo: voucher.code });
   assert.equal(duringReplacement.status, 503);
@@ -108,4 +113,34 @@ test("processing ZZS order can be closed only with a recorded upstream task and 
   assert.equal(store.order(order.orderId).status, "success");
   assert.equal(store.voucher(voucher.code).status, "used");
   assert.equal(store.listCards()[0].successCount, 1);
+});
+
+test("replacing the ZZS query key keeps old orders local and stops their upstream polling across restart", async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-zzshu-key-rotation-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const { ZzshuStore } = await import("../src/zzshu-store.js");
+  const { parsePaymentCards } = await import("../src/zzshu-cards.js");
+  const file = path.join(dir, "orders.sqlite");
+  const store = new ZzshuStore(file);
+  store.addPaymentCard(parsePaymentCards("4242424242424242,12/40,123")[0],
+    { credentialRef: "old-card", source: "fixture", note: "", enabled: true, maxSuccess: 2 });
+  const [voucher] = store.createVouchers(1, "fixture", 3, () => "fixture-cipher");
+  const order = store.reserve(voucher.code, "old@example.test", "old-account");
+  store.markSubmitting(order.orderId);
+  store.created(order.orderId, "old-task", "old-query-token");
+  store.ensureQueryKey("old-key");
+  assert.deepEqual(store.reconciliationIds(10), [order.orderId]);
+  assert.equal(store.ensureQueryKey("new-key"), 1);
+  assert.equal(store.ensureQueryKey("new-key"), 0);
+  assert.equal(store.order(order.orderId).status, "needs_review");
+  assert.equal(store.order(order.orderId).auto_query, 0);
+  assert.equal(store.listCards()[0].frozenUses, 1);
+  assert.deepEqual(store.reconciliationIds(10), []);
+  store.db.close();
+  const reopened = new ZzshuStore(file);
+  t.after(() => reopened.db.close());
+  assert.equal(reopened.order(order.orderId).auto_query, 0);
+  assert.equal(reopened.listOrders()[0].email, "old@example.test");
+  assert.equal(reopened.listCards()[0].frozenUses, 1);
+  assert.deepEqual(reopened.reconciliationIds(10), []);
 });
