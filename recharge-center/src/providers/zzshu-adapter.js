@@ -24,9 +24,9 @@ export const zzshuAdapter = {
     const base = new URL(config.zzshuBaseUrl);
     if (base.protocol !== "https:" && !["127.0.0.1", "localhost"].includes(base.hostname))
       return { ok: false, status: 503, code: null };
-    const response = await fetch(new URL("/api/public/api-usage", base), {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ api_key: apiKey, page, page_size: 20 }),
+    const response = await fetch(new URL("/api/v1/third-party/orders/history", base), {
+      method: "POST", headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body: JSON.stringify({ page, page_size: 20 }),
       signal: AbortSignal.timeout(config.zzshuTimeoutMs)
     });
     let body;

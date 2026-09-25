@@ -64,6 +64,7 @@ test("invalid ZZS key is never persisted and only the verification endpoint is c
   });
   const result = await store.verifyAndSave("wrong-fixture-key");
   assert.equal(result.ok, false);
+  assert.match(result.message, /HTTP \?，code 40107/);
   assert.equal(fs.existsSync(file), false);
   assert.equal((await store.verifySaved()).status, 503);
 });

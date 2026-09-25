@@ -8,9 +8,10 @@ test("ZZS usage queries the read-only upstream route and exposes only allowed fi
   const { zzshuAdapter } = await import("../src/providers/zzshu-adapter.js");
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
-    assert.equal(String(url), "https://zzshu.example.test/api/public/api-usage");
+    assert.equal(String(url), "https://zzshu.example.test/api/v1/third-party/orders/history");
     assert.equal(options.method, "POST");
-    assert.deepEqual(JSON.parse(options.body), { api_key: "fixture-key", page: 2, page_size: 20 });
+    assert.equal(options.headers["X-API-Key"], "fixture-key");
+    assert.deepEqual(JSON.parse(options.body), { page: 2, page_size: 20 });
     return { ok: true, status: 200, json: async () => ({ code: 0, data: {
       page: 2, total: 21, remaining: 3, items: [{ task_no: "33559", created_at: "2026-09-25 14:03:15",
         email: "fixture@example.test", plan_type: "plus", status: "success", renewal_cancelled: false,

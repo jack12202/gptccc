@@ -81,7 +81,12 @@ export class ZzshuCredentialStore {
     }
     let body;
     try { body = await response.json(); } catch { body = null; }
-    if (!response.ok || body?.code !== 0) return { ok: false, status: 400, message: "ZZS 未接受此 API Key，请核对后重试。" };
+    if (!response.ok || body?.code !== 0) {
+      const code = Number.isInteger(body?.code) ? body.code : null;
+      return { ok: false, status: 400,
+        message: `ZZS 未接受此 API Key（上游 HTTP ${response.status || "?"}，code ${code ?? "?"}）。请核对后台保存的 Key。`,
+        upstreamHttpStatus: response.status || null, upstreamCode: code };
+    }
     const points = Number(body?.data?.points);
     return { ok: true, points: Number.isFinite(points) ? points : null };
   }

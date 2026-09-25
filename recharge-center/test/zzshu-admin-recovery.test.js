@@ -47,15 +47,9 @@ test("admin can resolve an unknown ZZS order once and separately confirm renewal
   assert.equal(record.hasUpstreamQueryKey, false);
   assert.match(record.processingNote, /创建响应丢失/);
   const { zzshuCredentialStore } = await import("../src/zzshu-credential-store.js");
-  const originalVerifyAndSave = zzshuCredentialStore.verifyAndSave;
-  zzshuCredentialStore.verifyAndSave = async (_key, options) => {
-    assert.equal(options.replace, true);
-    return { ok: true, points: 7 };
-  };
   const rotated = await post("/api/admin/zzshu/credential/verify-and-save", { apiKey: "fixture-new-key", replace: true });
-  assert.equal(rotated.status, 200);
+  assert.equal(rotated.status, 409);
   assert.equal(store.order(order.orderId).status, "needs_review");
-  zzshuCredentialStore.verifyAndSave = originalVerifyAndSave;
   const pendingCards = await fetch(base + "/api/admin/zzshu/cards", { headers: { Cookie: cookie } }).then(response => response.json());
   assert.equal(pendingCards.data[0].successfulAccounts.length, 0);
   assert.equal(pendingCards.data[0].pendingAccount.email, "fixture@example.test");
