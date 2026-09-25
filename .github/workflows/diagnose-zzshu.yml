@@ -1,0 +1,23 @@
+name: Read-only ZZS network diagnosis
+on:
+  push:
+    branches: [diagnose/zzshu-connectivity-20260925]
+    paths: ['scripts/diagnose-zzshu-connection.mjs', 'scripts/zzshu-network-probe.mjs', '.github/workflows/diagnose-zzshu.yml']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read-only server connection probes
+        env:
+          PANEL_BASE: ${{ secrets.PANEL_BASE }}
+          PANEL_ENTRANCE: ${{ secrets.PANEL_ENTRANCE }}
+          PANEL_USER: ${{ secrets.PANEL_USER }}
+          PANEL_PASS: ${{ secrets.PANEL_PASS }}
+        run: node scripts/diagnose-zzshu-connection.mjs
