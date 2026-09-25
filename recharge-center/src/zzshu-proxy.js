@@ -67,8 +67,23 @@ export async function zzshuFetch(url, options = {}, proxyOverride) {
   const target = new URL(url);
   if (target.protocol !== "https:") throw new Error("代理模式下 ZZS 上游必须使用 HTTPS");
   const proxy = new URL(proxyUrl);
-  const agent = proxy.protocol.startsWith("socks") ? new SocksProxyAgent(proxy) : new HttpsProxyAgent(proxy);
+  const timeoutMs = Math.max(1000, Math.min(Number(config.zzshuTimeoutMs) || 15000, 8000));
+  const agent = proxy.protocol.startsWith("socks") ? new SocksProxyAgent(proxy, { timeout: timeoutMs }) : new HttpsProxyAgent(proxy, { timeout: timeoutMs });
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let timer;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort", onAbort);
+      callback(value);
+    };
+    const onAbort = () => {
+      request.destroy();
+      agent.destroy();
+      finish(reject, options.signal.reason || new Error("ZZS 代理请求已取消"));
+    };
     const request = https.request(target, { method: options.method || "GET", headers: options.headers,
       agent, signal: options.signal }, response => {
       const chunks = [];
@@ -83,10 +98,18 @@ export async function zzshuFetch(url, options = {}, proxyOverride) {
         for (const [name, value] of Object.entries(response.headers)) {
           if (value !== undefined) headers.set(name, Array.isArray(value) ? value.join(", ") : value);
         }
-        resolve(new Response(Buffer.concat(chunks), { status: response.statusCode, headers }));
+        finish(resolve, new Response(Buffer.concat(chunks), { status: response.statusCode, headers }));
       });
+      response.on("error", error => finish(reject, error));
     });
-    request.on("error", reject);
+    request.on("error", error => finish(reject, error));
+    options.signal?.addEventListener("abort", onAbort, { once: true });
+    timer = setTimeout(() => {
+      request.destroy();
+      agent.destroy();
+      finish(reject, new Error("ZZS 代理连接超时"));
+    }, timeoutMs);
+    if (options.signal?.aborted) { onAbort(); return; }
     request.end(options.body);
   });
 }

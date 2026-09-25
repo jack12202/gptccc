@@ -43,3 +43,18 @@ test("ZZS proxy transport uses CONNECT and never bypasses a failed configured pr
     assert.equal(requests, 1);
   } finally { await new Promise(resolve => proxy.close(resolve)); }
 });
+
+test("an unresponsive proxy is aborted without retrying or falling back", async () => {
+  const proxy = http.createServer();
+  let requests = 0;
+  const sockets = new Set();
+  proxy.on("connect", (_request, socket) => { requests++; sockets.add(socket); socket.on("error", () => {}); socket.on("close", () => sockets.delete(socket)); });
+  await new Promise(resolve => proxy.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = proxy.address();
+    await assert.rejects(zzshuFetch("https://card.zzshu.pro/api/v1/third-party/user", {
+      signal: AbortSignal.timeout(150)
+    }, `http://127.0.0.1:${address.port}`));
+    assert.equal(requests, 1);
+  } finally { for (const socket of sockets) socket.destroy(); await new Promise(resolve => proxy.close(resolve)); }
+});
