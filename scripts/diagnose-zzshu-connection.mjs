@@ -193,6 +193,21 @@ date -u '+diagnostic_time=%Y-%m-%dT%H:%M:%SZ'
 docker ps --format 'container={{.Names}} image={{.Image}} ports={{.Ports}}'
 ip -6 route show default 2>/dev/null || true
 ss -lnpt 2>/dev/null | head -25 || true
+python3 - <<'GPTC_NETWORK_CONFIG'
+import os,json
+for pid in os.listdir('/proc'):
+  if not pid.isdigit(): continue
+  try:
+    if not open('/proc/'+pid+'/comm').read().startswith('xray'): continue
+    args=open('/proc/'+pid+'/cmdline','rb').read().decode().split(chr(0))
+    for i,arg in enumerate(args[:-1]):
+      if arg not in ['-config','--config','-c']: continue
+      filename=args[i+1]
+      if not os.path.isabs(filename): filename=os.path.join(os.readlink('/proc/'+pid+'/cwd'),filename)
+      cfg=json.load(open(filename))
+      print(json.dumps({'label':'network-config','inbounds':[{'protocol':x.get('protocol'),'listen':x.get('listen'),'port':x.get('port'),'tag':x.get('tag')} for x in cfg.get('inbounds',[])], 'outbounds':[{'protocol':x.get('protocol'),'tag':x.get('tag')} for x in cfg.get('outbounds',[])], 'rules':[{'outboundTag':x.get('outboundTag'),'inboundTag':x.get('inboundTag'),'domain':x.get('domain')} for x in cfg.get('routing',{}).get('rules',[])]}))
+  except Exception as e: print('network-config-error='+type(e).__name__)
+GPTC_NETWORK_CONFIG
 docker exec -i -w /app gptc-recharge-center node --input-type=module <<'GPTC_READONLY_NODE'
 ${probe}
 GPTC_READONLY_NODE
