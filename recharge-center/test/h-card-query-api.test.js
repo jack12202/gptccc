@@ -66,11 +66,15 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   const generatorPage = await fetch(`${baseUrl}/admin/cards`, { headers: adminHeaders });
   assert.equal(generatorPage.status, 200);
   const generatorHtml = await generatorPage.text();
-  assert.doesNotMatch(generatorHtml, /batchSummary|batchMeta|批次<\/strong>/);
+  assert.match(generatorHtml, /openGeneratedBatch/);
+  assert.match(generatorHtml, /未提交的卡密跟随首页的 Plus 通道设置/);
   const libraryPage = await fetch(`${baseUrl}/admin/cards/library`, { headers: adminHeaders });
   assert.equal(libraryPage.status, 200);
   const libraryHtml = await libraryPage.text();
-  assert.doesNotMatch(libraryHtml, /batchFilter|>批次<\/th>/);
+  assert.match(libraryHtml, /id="batchFilter"/);
+  assert.match(libraryHtml, /id="downloadBatchLinks"/);
+  assert.deepEqual(store.listHCards(100, true, false).filter(card => card.batchId === cards[0].batchId).map(card => card.sequence), [6, 5, 4, 3, 2, 1]);
+  assert.ok(store.listHCards(100, true, false).every(card => card.batchSize === 6));
 
   async function post(urlPath, body, { ip = "127.0.0.1", token = "" } = {}) {
     const response = await fetch(`${baseUrl}${urlPath}`, {

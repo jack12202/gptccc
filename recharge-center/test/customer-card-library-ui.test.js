@@ -40,7 +40,11 @@ test('customer card library searches partial codes and copies the successful ord
       classList:{toggle(){}}, addEventListener(name,handler){this[name]=handler}});
     return nodes.get(id);
   };
-  const calls = [], clipboard = [];
+  const calls = [], clipboard = [], downloads = [];
+  class FixtureUrl extends URL {
+    static createObjectURL(blob) { downloads.push(blob); return 'blob:fixture'; }
+    static revokeObjectURL() {}
+  }
   const api = async url => {
     calls.push(url);
     if (url.startsWith('/api/admin/h-cards?')) return {cards};
@@ -48,10 +52,10 @@ test('customer card library searches partial codes and copies the successful ord
     if (url.includes('/api/admin/recoveries/')) return {secretJsonText:'{"fixture":true}'};
     throw Error('unexpected URL');
   };
-  const context = vm.createContext({document:{getElementById:element,querySelectorAll:()=>[]},
-    window:{adminApi:api,location:{origin:'https://www.gptc.cc'},setTimeout(){}},
+  const context = vm.createContext({document:{getElementById:element,querySelectorAll:()=>[],createElement:()=>({click(){}})},
+    window:{adminApi:api,location:{origin:'https://www.gptc.cc',search:''},setTimeout(){}},
     navigator:{clipboard:{writeText:async value=>clipboard.push(value)}},
-    URL, Blob, TextEncoder, Uint8Array, console, confirm:()=>true});
+    URL:FixtureUrl, URLSearchParams, Blob, TextEncoder, Uint8Array, console, confirm:()=>true});
   vm.runInContext(script,context);
   await vm.runInContext('loadLibrary()',context);
   assert.equal(calls.filter(url=>url === '/api/admin/recharge-records').length,2);
@@ -134,4 +138,31 @@ test('customer card library searches partial codes and copies the successful ord
   vm.runInContext('allRecords.push({id:"processing-zzshu",provider:"zzshu",status:"processing",hasUpstreamQueryKey:true})',orderContext);
   vm.runInContext('expandedRecoveryIds.add("processing-zzshu")',orderContext);
   assert.match(vm.runInContext('renderRows([allRecords.at(-1)])',orderContext),/data-action="resolve-zzshu-success"/);
+  cards[0].batchId='batch-one'; cards[0].sequence=1; cards[0].batchSize=3; cards[0].source='微信';
+  cards[1].batchId='batch-one'; cards[1].sequence=2; cards[1].batchSize=3; cards[1].source='微信';
+  const archived = 'HPLUS' + 'D'.repeat(28) + '5678';
+  cards.push({id:'card-d',code:archived,plan:'plus',status:'used',source:'微信',batchId:'batch-one',sequence:3,batchSize:3,
+    archivedAt:'2026-09-25T12:00:00Z',hasSubmission:true,createdAt:'2026-09-23T00:00:00Z'});
+  await vm.runInContext('loadLibrary()',context);
+  assert.equal(element('libraryCount').textContent,'1 / 3 张');
+  element('batchFilter').value='batch-one';
+  element('batchFilter').change();
+  assert.equal(element('libraryCount').textContent,'3 / 3 张');
+  assert.match(element('libraryCards').innerHTML,/已归档/);
+  assert.match(element('batchSummary').textContent,/本批原有 3 张，现存 3 张/);
+  await element('copyBatchCodes').onclick();
+  assert.equal(clipboard.at(-1),[first,second,archived].join('\n'));
+  await element('copyBatchLinks').onclick();
+  assert.equal(clipboard.at(-1),[first,second,archived].map(code=>`https://www.gptc.cc/activate/?provider=h&card=${code}`).join('\n'));
+  element('downloadBatchLinks').onclick();
+  assert.equal(downloads.length,1);
+  const zipText = new TextDecoder().decode(await downloads[0].arrayBuffer());
+  assert.equal((zipText.match(/\.txt/g)||[]).length,6);
+  assert.equal((zipText.match(/https:\/\/www\.gptc\.cc\/activate\//g)||[]).length,3);
+  cards.pop();
+  await vm.runInContext('loadLibrary()',context);
+  assert.match(element('batchSummary').textContent,/本批原有 3 张，现存 2 张/);
+  element('downloadBatchLinks').onclick();
+  assert.equal(downloads.length,1);
+  assert.match(element('statusBox').textContent,/无法完整重导/);
 });

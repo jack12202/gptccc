@@ -352,7 +352,7 @@ function serveHCardAdmin(res) {
   <main>
     <section>
       <h1>产品与卡密 · 生成卡密</h1>
-      <p>Plus 卡密可在嗨付和 ZZS 之间切换；首次提交后固定使用当时的通道。Pro 卡密按原流程处理。<a href="/admin#protocol-settings">设置 Plus 通道</a></p>
+      <p>Plus 卡密生成时不绑定协议。未提交的卡密跟随首页的 Plus 通道设置；首次提交后固定使用该通道。Pro 卡密按原流程处理。<a href="/admin#protocol-settings">设置 Plus 通道</a></p>
 
       <div class="form">
         <label>卡密套餐<select id="plan"><option value="plus">Plus</option><option value="pro_x5">Pro 5x</option><option value="pro_x20">Pro 20x</option></select></label>
@@ -360,9 +360,9 @@ function serveHCardAdmin(res) {
         <label>销售渠道<select id="source"><option>卡网</option><option>微信</option><option>代理</option><option>漫飞公司</option><option value="custom">其他</option></select><input id="customSource" type="text" maxlength="40" placeholder="例如：代理张三、某公司团购" hidden></label>
         <button id="generate" type="button">生成卡密</button>
       </div>
-      <div class="status" id="statusBox">选择数量和来源后生成。</div>
+      <div class="status" id="statusBox">卡网：批量复制链接上传，再按相同顺序复制卡密入表。微信：下载每张卡一个 TXT 的链接 ZIP，再按相同顺序复制卡密入表。TXT 只含充值链接。</div>
       <div class="page-actions"><a class="action-link" href="/admin/cards/library">卡密库</a><a class="action-link" href="/admin/cards/batch">批量查询</a></div>
-      <div class="output-actions" id="outputActions"><button class="secondary" id="copyCodes">复制全部卡密</button><button class="secondary" id="copyLinks">复制全部链接</button><button class="secondary" id="downloadLinkZip">下载链接 ZIP</button></div>
+      <div class="output-actions" id="outputActions"><button class="secondary" id="copyCodes">复制全部纯卡密（入表）</button><button class="secondary" id="copyLinks">复制全部充值链接（卡网）</button><button class="secondary" id="downloadLinkZip">下载每张一个 TXT（微信）</button><a class="action-link" id="openGeneratedBatch" href="/admin/cards/library" style="display:none">在卡密库找回本批</a></div>
       <div class="generated" id="generated"></div>
     </section>
   </main>
@@ -476,7 +476,11 @@ function serveHCardAdmin(res) {
         generatedCards = data.cards;
         generated.innerHTML = data.cards.map((card, index) => '<div class="card"><div class="card-head"><span>第 ' + (card.sequence || index + 1) + ' 张 · ' + escapeHtml(card.source || source) + ' · ' + escapeHtml(plan) + '</span><span class="state">未使用</span></div><code>' + escapeHtml(card.code) + '</code><a href="' + escapeHtml(card.link) + '" target="_blank" rel="noreferrer">' + escapeHtml(card.link) + '</a></div>').join("");
         document.getElementById("outputActions").style.display = "flex";
-        setStatus("已生成 " + data.cards.length + " 张卡密。请立即复制或下载保存。");
+        const batchId = data.cards[0]?.batchId || "";
+        const batchLink = document.getElementById("openGeneratedBatch");
+        batchLink.href = "/admin/cards/library" + (batchId ? "?batch=" + encodeURIComponent(batchId) : "");
+        batchLink.style.display = batchId ? "inline-flex" : "none";
+        setStatus("已生成 " + data.cards.length + " 张卡密。纯卡密、充值链接和 TXT 按相同顺序排列；关闭页面后可从卡密库按批次重新导出。");
       } catch (error) { setStatus(error.message, true); }
     });
   </script>
@@ -518,6 +522,7 @@ function serveHCardLibraryAdmin(res) {
     input, select { width: 100%; min-height: 44px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0 12px; font: inherit; background:#fff; }
     .toolbar { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
     .bulk-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; padding:12px; background:#f8fafc; border-radius:10px; }
+    .batch-actions { display:none; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px; padding:12px; border:1px solid #99f6e4; border-radius:10px; background:#ecfdf5; }
     .check { width:18px; min-height:18px; }
     .status { margin-top: 16px; padding: 12px; border-radius: 10px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; line-height: 1.6; white-space: pre-wrap; }
     .status.error { background: #fff1f2; border-color: #fda4af; color: #9f1239; }
@@ -545,7 +550,8 @@ function serveHCardLibraryAdmin(res) {
       <div class="status" id="statusBox">正在加载卡密…</div>
     </section>
     <section>
-      <div class="toolbar"><label>搜索<input id="cardSearch" type="search" placeholder="卡密片段、后四位、邮箱或充值链接"></label><label>套餐<select id="planFilter"><option value="">全部套餐</option><option value="plus">Plus</option><option value="pro_x5">Pro 5x</option><option value="pro_x20">Pro 20x</option></select></label><label>来源<select id="sourceFilter"><option value="">全部来源</option></select></label><label>状态<select id="cardStatusFilter"><option value="">全部状态</option><option value="unused">未使用</option><option value="locked">已锁定</option><option value="used">已使用</option><option value="disabled">已禁用</option><option value="archived">已归档</option></select></label><label>生成日期<input id="dateFilter" type="date"></label><label style="display:flex;grid-auto-flow:column;align-items:center;justify-content:start"><input id="showArchived" type="checkbox" class="check">显示归档</label><span class="count" id="libraryCount">-</span></div>
+      <div class="toolbar"><label>生成批次<select id="batchFilter"><option value="">全部批次</option></select></label><label>搜索<input id="cardSearch" type="search" placeholder="卡密片段、后四位、邮箱或充值链接"></label><label>套餐<select id="planFilter"><option value="">全部套餐</option><option value="plus">Plus</option><option value="pro_x5">Pro 5x</option><option value="pro_x20">Pro 20x</option></select></label><label>来源<select id="sourceFilter"><option value="">全部来源</option></select></label><label>状态<select id="cardStatusFilter"><option value="">全部状态</option><option value="unused">未使用</option><option value="locked">已锁定</option><option value="used">已使用</option><option value="disabled">已禁用</option><option value="archived">已归档</option></select></label><label>生成日期<input id="dateFilter" type="date"></label><label style="display:flex;grid-auto-flow:column;align-items:center;justify-content:start"><input id="showArchived" type="checkbox" class="check">显示归档</label><span class="count" id="libraryCount">-</span></div>
+      <div class="batch-actions" id="batchActions"><strong id="batchSummary"></strong><span class="hint">包含已使用及归档卡；导出整批，不受搜索和状态筛选影响。请勿重新发放已使用卡。</span><button class="secondary" id="copyBatchCodes">复制本批纯卡密</button><button class="secondary" id="copyBatchLinks">复制本批充值链接</button><button class="secondary" id="downloadBatchLinks">下载本批 TXT ZIP</button></div>
       <div class="bulk-actions"><button class="secondary" id="selectAll">全选当前结果</button><button class="secondary" id="invertSelection">反选</button><button class="secondary" id="copySelectedCodes">复制选中卡密</button><button class="secondary" id="copySelectedLinks">复制选中链接</button><button class="secondary" id="downloadSelectedZip">下载选中 ZIP</button><button class="secondary" id="downloadSelectedLinkZip">下载链接 ZIP</button><button data-bulk-action="disable">批量禁用</button><button class="secondary" data-bulk-action="enable">批量启用</button><button class="secondary" data-bulk-action="archive">批量归档</button><button class="danger" data-bulk-action="delete">批量删除</button><strong id="selectedCount">已选 0 张</strong></div>
       <div class="table-wrap">
         <table>
@@ -589,7 +595,27 @@ function serveHCardLibraryAdmin(res) {
     let allCards = [];
     let filteredCards = [];
     let ordersByCardId = new Map();
+    let initialBatchId = new URLSearchParams(window.location.search || "").get("batch") || "";
     const selectedCards = new Set();
+
+    function batchCards() {
+      const id = document.getElementById("batchFilter").value;
+      if (!id) return [];
+      return allCards.filter(card => card.batchId === id).sort((a, b) => {
+        const first = Number(a.sequence) || allCards.length - allCards.indexOf(a);
+        const second = Number(b.sequence) || allCards.length - allCards.indexOf(b);
+        return first - second;
+      });
+    }
+    function updateBatchSummary() {
+      const rows = batchCards();
+      const panel = document.getElementById("batchActions");
+      panel.style.display = rows.length ? "flex" : "none";
+      if (!rows.length) return;
+      const unused = rows.filter(card => !card.archivedAt && card.status === "unused" && !card.hasSubmission).length;
+      const original = Number(rows[0].batchSize) || rows.length;
+      document.getElementById("batchSummary").textContent = (rows[0].source || "未分类") + " · " + formatDate(rows[0].createdAt) + " · 本批原有 " + original + " 张，现存 " + rows.length + " 张，未使用 " + unused + " 张" + (original > rows.length ? "；有 " + (original - rows.length) + " 张已删除，无法完整重导" : "");
+    }
 
     function ordersForCard(card) { return ordersByCardId.get(card.id) || []; }
     function preferredOrder(card) {
@@ -647,6 +673,7 @@ function serveHCardLibraryAdmin(res) {
     }
 
     function applyFilter() {
+      const batchId = document.getElementById("batchFilter").value;
       const keyword = searchKeyword(document.getElementById("cardSearch").value);
       const source = document.getElementById("sourceFilter").value;
       const status = document.getElementById("cardStatusFilter").value;
@@ -657,10 +684,14 @@ function serveHCardLibraryAdmin(res) {
         const matchesKeyword = !keyword || [card.code, card.cardMask, card.boundEmail, card.boundAccountId,
           ...ordersForCard(card).flatMap(order => [order.userEmail, order.id])]
           .some(value => String(value || "").toLowerCase().includes(keyword));
-        return matchesKeyword && (!plan || (card.plan || "plus") === plan) && (!source || card.source === source) && (!status || effectiveStatus === status) && (!date || String(card.createdAt || "").slice(0, 10) === date);
+        return (!batchId || card.batchId === batchId) && (batchId || document.getElementById("showArchived").checked || !card.archivedAt)
+          && matchesKeyword && (!plan || (card.plan || "plus") === plan) && (!source || card.source === source) && (!status || effectiveStatus === status) && (!date || String(card.createdAt || "").slice(0, 10) === date);
       });
+      if (batchId) filteredCards.sort((a, b) => (Number(a.sequence) || allCards.length - allCards.indexOf(a)) - (Number(b.sequence) || allCards.length - allCards.indexOf(b)));
       document.getElementById("libraryCards").innerHTML = renderRows(filteredCards);
-      document.getElementById("libraryCount").textContent = filteredCards.length + " / " + allCards.length + " 张";
+      const visibleTotal = batchId ? batchCards().length : allCards.filter(card => document.getElementById("showArchived").checked || !card.archivedAt).length;
+      document.getElementById("libraryCount").textContent = filteredCards.length + " / " + visibleTotal + " 张";
+      updateBatchSummary();
       const visibleSelected = filteredCards.filter(card => selectedCards.has(card.id)).length;
       document.getElementById("selectedCount").textContent = "已选 " + visibleSelected + " 张";
       document.getElementById("selectPage").checked = filteredCards.length > 0 && filteredCards.every(card => selectedCards.has(card.id));
@@ -668,8 +699,7 @@ function serveHCardLibraryAdmin(res) {
 
     async function loadLibrary() {
       try {
-        const includeArchived = document.getElementById("showArchived").checked ? "&archived=1" : "";
-        const data = await api("/api/admin/h-cards?all=1&reveal=1" + includeArchived);
+        const data = await api("/api/admin/h-cards?all=1&reveal=1&archived=1");
         let history = { records: [] };
         let historyUnavailable = false;
         try { history = await api("/api/admin/recharge-records"); }
@@ -690,6 +720,17 @@ function serveHCardLibraryAdmin(res) {
         const sources = [...new Set(allCards.map(card => card.source || "未分类"))].sort();
         sourceFilter.innerHTML = '<option value="">全部来源</option>' + sources.map(source => '<option value="' + escapeHtml(source) + '">' + escapeHtml(source) + '</option>').join("");
         sourceFilter.value = selectedSource;
+        const batchFilter = document.getElementById("batchFilter");
+        const selectedBatch = batchFilter.value || initialBatchId;
+        const batches = new Map();
+        for (const card of allCards) if (card.batchId) {
+          const batch = batches.get(card.batchId) || { source: card.source || "未分类", createdAt: card.createdAt, count: 0 };
+          batch.count += 1;
+          batches.set(card.batchId, batch);
+        }
+        batchFilter.innerHTML = '<option value="">全部批次</option>' + [...batches.entries()].map(([id, batch]) => '<option value="' + escapeHtml(id) + '">' + escapeHtml((batch.source || "未分类") + " · " + formatDate(batch.createdAt) + " · " + batch.count + " 张") + '</option>').join("");
+        batchFilter.value = batches.has(selectedBatch) ? selectedBatch : "";
+        initialBatchId = "";
         applyFilter();
         setStatus(historyUnavailable ? "已加载卡密，订单记录暂不可用，请稍后刷新。" : "已加载全部卡密。", historyUnavailable);
       } catch (error) { setStatus(error.message, true); }
@@ -701,11 +742,16 @@ function serveHCardLibraryAdmin(res) {
       applyFilter();
     }
     document.getElementById("cardSearch").addEventListener("input", clearSelectionAndFilter);
+    document.getElementById("batchFilter").addEventListener("change", () => {
+      selectedCards.clear();
+      for (const id of ["cardSearch", "planFilter", "sourceFilter", "cardStatusFilter", "dateFilter"]) document.getElementById(id).value = "";
+      applyFilter();
+    });
     document.getElementById("sourceFilter").addEventListener("change", clearSelectionAndFilter);
     document.getElementById("cardStatusFilter").addEventListener("change", clearSelectionAndFilter);
     document.getElementById("planFilter").addEventListener("change", clearSelectionAndFilter);
     document.getElementById("dateFilter").addEventListener("change", clearSelectionAndFilter);
-    document.getElementById("showArchived").addEventListener("change", loadLibrary);
+    document.getElementById("showArchived").addEventListener("change", clearSelectionAndFilter);
     document.getElementById("libraryCards").addEventListener("change", event => {
       const checkbox = event.target.closest(".row-check");
       if (!checkbox) return;
@@ -765,6 +811,34 @@ function serveHCardLibraryAdmin(res) {
       const end = concatBytes([new Uint8Array([80, 75, 5, 6, 0, 0, 0, 0]), u16(files.length), u16(files.length), u32(central.length), u32(offset), u16(0)]);
       return new Blob([concatBytes([...localParts, central, end])], { type: "application/zip" });
     }
+    function completeBatch() {
+      const rows = batchCards();
+      if (!rows.length) { setStatus("请先选择生成批次。", true); return []; }
+      if (Number(rows[0].batchSize) > rows.length) { setStatus("本批有卡密已永久删除，无法完整重导。", true); return []; }
+      if (rows.some(card => !card.code)) { setStatus("本批有卡密已被删除或无法读取，不能完整导出。", true); return []; }
+      return rows;
+    }
+    async function copyBatch(type) {
+      const rows = completeBatch();
+      if (!rows.length) return;
+      try {
+        await navigator.clipboard.writeText(rows.map(card => type === "links" ? cardLink(card) : card.code).join("\\n"));
+        setStatus("已按原始顺序复制本批 " + rows.length + " 张" + (type === "links" ? "充值链接。" : "纯卡密。"));
+      } catch { setStatus("复制本批内容失败。", true); }
+    }
+    function downloadBatchLinks() {
+      const rows = completeBatch();
+      if (!rows.length) return;
+      const files = rows.map((card, index) => ({
+        name: String(card.sequence || index + 1).padStart(3, "0") + "-" + card.code.slice(-4) + ".txt",
+        text: cardLink(card) + "\\n"
+      }));
+      downloadBlob(zipFiles(files), "链接批次-" + rows[0].batchId + ".zip");
+      setStatus("已下载本批 " + rows.length + " 个 TXT，每个文件只含一条充值链接。请核对已使用卡状态后再发放。");
+    }
+    document.getElementById("copyBatchCodes").onclick = () => copyBatch("codes");
+    document.getElementById("copyBatchLinks").onclick = () => copyBatch("links");
+    document.getElementById("downloadBatchLinks").onclick = downloadBatchLinks;
     async function copySelected(type) {
       const rows = selectedCardRows();
       if (!rows.length) return setStatus("请先勾选有完整卡密的记录。", true);
