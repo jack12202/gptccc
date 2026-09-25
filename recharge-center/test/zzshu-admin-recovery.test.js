@@ -86,3 +86,23 @@ test("admin can resolve an unknown ZZS order once and separately confirm renewal
   finishVerify({ ok: true, points: 0 });
   assert.equal((await replacing).status, 200);
 });
+
+test("processing ZZS order can be closed only with a recorded upstream task and evidence", async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-zzshu-processing-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const { ZzshuStore } = await import("../src/zzshu-store.js");
+  const { parsePaymentCards } = await import("../src/zzshu-cards.js");
+  const store = new ZzshuStore(path.join(dir, "orders.sqlite"));
+  store.addPaymentCard(parsePaymentCards("4242424242424242,12/40,123")[0],
+    { credentialRef: "fixture-ref", source: "fixture", note: "", enabled: true, maxSuccess: 1 });
+  const [voucher] = store.createVouchers(1, "fixture", 3, () => "fixture-cipher");
+  const order = store.reserve(voucher.code, "paid@example.test", "account-2");
+  store.markSubmitting(order.orderId);
+  assert.equal(store.manualResolve(order.orderId, "success", "上游订单已付款，账号已开通"), false);
+  store.created(order.orderId, "upstream-2", "query-2");
+  assert.equal(store.manualResolve(order.orderId, "success", "证据不足"), false);
+  assert.equal(store.manualResolve(order.orderId, "success", "上游订单已付款，账号已开通"), true);
+  assert.equal(store.order(order.orderId).status, "success");
+  assert.equal(store.voucher(voucher.code).status, "used");
+  assert.equal(store.listCards()[0].successCount, 1);
+});

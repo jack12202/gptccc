@@ -441,7 +441,7 @@ export class ZzshuStore {
   manualResolve(id, outcome, reason) {
     if (!reason || reason.length < 8) return false;
     const order = this.order(id);
-    if (!order || order.status !== "needs_review") return false;
+    if (!order || order.status !== "needs_review" && !(order.status === "processing" && order.upstream_card_key)) return false;
     this.audit(id,`manual_${outcome}`,reason);
     if (outcome === "success") return this.settle(id,"success","unconfirmed");
     if (outcome === "unpaid") return this.settle(id,"failed");

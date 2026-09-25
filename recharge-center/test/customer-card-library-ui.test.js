@@ -87,7 +87,9 @@ test('customer card library searches partial codes and copies the successful ord
     return orderNodes.get(id);
   };
   const orderContext = vm.createContext({document:{getElementById:orderElement},URLSearchParams,console,navigator:{clipboard:{writeText:async value=>clipboard.push(value)}},
-    window:{location:{search:'?cardId=card-a'},history:{replaceState(){}},setInterval(){},adminApi:async()=>({records})}});
+    window:{location:{search:'?cardId=card-a'},history:{replaceState(){}},setInterval(){},adminApi:async url=>url==='/api/admin/h-cards/query'
+      ? {results:[{status:'unused',statusLabel:'未使用',boundAccount:'alice@example.test / account-1',hasOrder:false,submittedAt:'2026-09-24T12:00:00Z'}]}
+      : {records}}});
   vm.runInContext(orderScript,orderContext);
   await vm.runInContext('loadRecoveries()',orderContext);
   assert.equal(orderElement('recoveryCount').textContent,'2 / 3 条');
@@ -123,4 +125,13 @@ test('customer card library searches partial codes and copies the successful ord
   orderElement('recordSearch').value='2628a750-ef4f-4cd3-a417-6626e9ab4f80';
   vm.runInContext('applyRecordFilters()',orderContext);
   assert.equal(orderElement('recoveryCount').textContent,'1 / 3 条');
+  orderElement('recordSearch').value=`https://www.gptc.cc/activate/?provider=h&card=${first}`;
+  await vm.runInContext('lookupCardBinding()',orderContext);
+  assert.match(orderElement('cardLookup').textContent,/alice@example.test \/ account-1/);
+  assert.match(orderElement('cardLookup').textContent,/尚未生成订单/);
+  vm.runInContext('applyRecordFilters()',orderContext);
+  assert.equal(orderElement('recoveryCount').textContent,'2 / 3 条');
+  vm.runInContext('allRecords.push({id:"processing-zzshu",provider:"zzshu",status:"processing",hasUpstreamQueryKey:true})',orderContext);
+  vm.runInContext('expandedRecoveryIds.add("processing-zzshu")',orderContext);
+  assert.match(vm.runInContext('renderRows([allRecords.at(-1)])',orderContext),/data-action="resolve-zzshu-success"/);
 });

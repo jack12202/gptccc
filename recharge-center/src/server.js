@@ -934,6 +934,7 @@ function serveRecoveryAdmin(res) {
       <div id="cardOrderFilter" class="hint" style="display:none;margin-top:14px">正在查看指定客户卡密的全部订单 <button class="secondary" id="clearCardOrderFilter" type="button">查看全部订单</button></div>
       <div class="quick-filters" id="recordQuickFilters"><button class="secondary" id="filterAll" data-filter="">全部订单</button><button class="secondary" id="filterAttention" data-filter="attention">需要处理</button><button class="secondary" id="filterSuccess" data-filter="success">充值成功</button></div>
       <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="邮箱、UUID、卡密、销售渠道或支付卡尾号"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需要跟进</option><option value="manual_queued">待人工</option><option value="manual_processing">人工处理中</option><option value="needs_info">需补资料</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>充值协议<select id="providerFilter"><option value="">全部协议</option></select></label><label>销售渠道<select id="salesChannelFilter"><option value="">全部渠道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
+      <div class="status" id="cardLookup" style="display:none"></div>
       <p class="hint">人工充值完成后再点击“确认充值成功”；该按钮只更新本站订单和卡密状态，不会再次调用充值通道。自动任务“待确认”时请先核实原任务，不要直接补充充值。</p>
       <div class="table-wrap">
         <table><colgroup><col style="width:25%"><col style="width:22%"><col style="width:9%"><col style="width:17%"><col style="width:12%"><col style="width:15%"></colgroup>
@@ -991,7 +992,7 @@ function serveRecoveryAdmin(res) {
     function renderRecoveryActions(item) {
       return ''
         + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : item.provider === "zzshu" && item.hasUpstreamQueryKey && ["processing", "needs_review"].includes(item.status) ? '<button type="button" data-action="refresh-zzshu" data-order-id="' + escapeHtml(item.id) + '">安全补查</button>' : !isPro(item) && item.provider !== "zzshu" && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
-        + (item.provider === 'zzshu' && item.status === 'needs_review' ? '<button class="secondary" type="button" data-action="resolve-zzshu-success" data-order-id="' + escapeHtml(item.id) + '">核实成功</button><button class="secondary" type="button" data-action="resolve-zzshu-unpaid" data-order-id="' + escapeHtml(item.id) + '">核实未支付</button>' : '')
+        + (item.provider === 'zzshu' && (item.status === 'needs_review' || item.status === 'processing' && item.hasUpstreamQueryKey) ? '<button class="secondary" type="button" data-action="resolve-zzshu-success" data-order-id="' + escapeHtml(item.id) + '">核实成功</button><button class="secondary" type="button" data-action="resolve-zzshu-unpaid" data-order-id="' + escapeHtml(item.id) + '">核实未支付</button>' : '')
         + (item.provider === 'zzshu' && item.status === 'failed' && item.useResolution === 'frozen' ? '<button class="secondary" type="button" data-action="release-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">释放冻结次数</button><button class="secondary" type="button" data-action="consume-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">记为已消耗</button>' : '')
         + (item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<button class="secondary" type="button" data-action="confirm-zzshu-cancellation" data-order-id="' + escapeHtml(item.id) + '">核实续费已关闭</button>' : '')
         + (item.needsAttention && item.provider !== 'zzshu' ? '<button type="button" data-action="mark-subscription-handled" data-order-id="' + escapeHtml(item.id) + '">标记已处理</button>' : '')
@@ -1013,11 +1014,30 @@ function serveRecoveryAdmin(res) {
           + '<td><span class="state-badge ' + badge + '">' + escapeHtml(statusLabel(item.status)) + '</span><div class="muted status-note">' + escapeHtml(note) + '</div></td>'
           + '<td><time>' + escapeHtml(date).split(' ').map((part, index) => index ? '<span class="muted">' + part + '</span>' : part).join('<br>') + '</time></td>'
           + '<td class="action-cell"><div class="row-actions">' + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情') + '</button></div></td></tr>'
-          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div></div><div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
+          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div></div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再填写核查依据人工结案。</p>' : '') + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
       }).join("");
     }
+    async function lookupCardBinding() {
+      const input = document.getElementById("recordSearch").value.trim().toUpperCase().match(/HPLUS[0-9A-F]{32}/)?.[0] || "";
+      const box = document.getElementById("cardLookup");
+      if (!/^HPLUS[0-9A-F]{32}$/.test(input)) { box.style.display = "none"; box.textContent = ""; return; }
+      box.style.display = "block";
+      box.textContent = "正在查询卡密绑定…";
+      try {
+        const data = await api("/api/admin/h-cards/query", { method: "POST", body: JSON.stringify({ inputs: [input] }) });
+        if (!document.getElementById("recordSearch").value.toUpperCase().includes(input)) return;
+        const card = data.results?.[0];
+        box.textContent = card?.status === "not_found" ? "本站未找到这张卡密。"
+          : card?.status === "invalid" ? "卡密格式不正确。"
+            : "卡密状态：" + (card?.statusLabel || card?.status || "未知") + " · 绑定账号：" + (card?.boundAccount || "尚未绑定")
+              + " · 充值订单：" + (card?.hasOrder ? "已有订单" : "尚未生成订单")
+              + (card?.hasOrder ? "" : "。提交前校验失败也会保留首次账号绑定；请使用原账号重试。")
+              + (card?.submittedAt ? " · 首次绑定：" + formatDate(card.submittedAt) : "");
+      } catch (error) { box.textContent = "卡密绑定查询失败：" + error.message; }
+    }
     function applyRecordFilters() {
-      const keyword = document.getElementById("recordSearch").value.trim().toLowerCase();
+      const rawKeyword = document.getElementById("recordSearch").value.trim().toLowerCase();
+      const keyword = rawKeyword.match(/hplus[0-9a-f]{32}/)?.[0] || rawKeyword;
       const status = document.getElementById("statusFilter").value;
       const provider = document.getElementById("providerFilter").value;
       const salesChannel = document.getElementById("salesChannelFilter").value;
@@ -1116,6 +1136,7 @@ function serveRecoveryAdmin(res) {
       document.getElementById("cardOrderFilter").style.display = "none";
       currentPage = 1; applyRecordFilters();
     });
+    document.getElementById("recordSearch").addEventListener("input", lookupCardBinding);
     for (const [id, eventName] of [["recordSearch", "input"], ["statusFilter", "change"], ["providerFilter", "change"], ["salesChannelFilter", "change"]]) {
       document.getElementById(id).addEventListener(eventName, () => { currentPage = 1; applyRecordFilters(); });
     }
@@ -1588,7 +1609,7 @@ export const server = http.createServer(async (req, res) => {
         else if (req.method === "POST" && /^cards\/[^/]+$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.updateCard(id,body)){sendJson(res,400,{success:false,message:"卡片不存在或次数上限无效"});return;} data={ok:true}; }
         else if (req.method === "POST" && /^cards\/[^/]+\/retire$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]), result=zzshuService.store.retireManualCard(id); if(!result.ok){sendJson(res,409,{success:false,message:result.reason});return;} data={ok:true}; }
         else if (req.method === "POST" && /^orders\/[^/]+\/refresh$/.test(endpoint)) { const result=await zzshuService.refresh(decodeURIComponent(endpoint.split("/")[1])); data=result.data; }
-        else if (req.method === "POST" && /^orders\/[^/]+\/resolve$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!["success","unpaid"].includes(body.outcome)||!zzshuService.store.manualResolve(id,body.outcome,String(body.reason||""))){sendJson(res,409,{success:false,message:"仅待确认订单可凭至少 8 字核查依据人工结案"});return;} zzshuService.syncUnifiedOrder(id); data={ok:true}; }
+        else if (req.method === "POST" && /^orders\/[^/]+\/resolve$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!["success","unpaid"].includes(body.outcome)||!zzshuService.store.manualResolve(id,body.outcome,String(body.reason||""))){sendJson(res,409,{success:false,message:"仅已创建上游任务的处理中或待确认订单可凭至少 8 字核查依据人工结案"});return;} zzshuService.syncUnifiedOrder(id); data={ok:true}; }
         else if (req.method === "POST" && /^orders\/[^/]+\/frozen-use$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.resolveFrozenUse(id,body.outcome,body.reason)){sendJson(res,409,{success:false,message:"仅冻结中的支付次数可凭至少 8 字核查依据处理"});return;} data={ok:true}; }
         else if (req.method === "POST" && /^orders\/[^/]+\/confirm-cancellation$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.confirmCancellation(id,String(body.reason||""))){sendJson(res,409,{success:false,message:"仅成功订单可凭至少 8 字核查依据确认续费关闭"});return;} data={ok:true}; }
         else { sendJson(res,404,{success:false,message:"Not found"}); return; }

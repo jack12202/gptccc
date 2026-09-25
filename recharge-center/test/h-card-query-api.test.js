@@ -15,6 +15,7 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   const { JsonStore } = await import(`../src/store.js?query-api=${Date.now()}`);
   const store = new JsonStore(dataFile);
   const cards = store.createHCards({ count: 6, source: "接口测试", productId: 3 });
+  assert.equal(store.bindHCardAccount(cards[0].code, { email: "bound@example.com", accountId: "account-bound" }).ok, true);
 
   store.updateHCard(cards[1].id, { status: "locked" });
 
@@ -148,6 +149,8 @@ test("h card query APIs are read-only, authenticated where required, and rate li
   }, { token: "query-test-admin-token" });
   assert.equal(mixed.response.status, 200);
   assert.deepEqual(mixed.payload.data.results.map(item => item.status), ["unused", "failed", "not_found", "processing"]);
+  assert.equal(mixed.payload.data.results[0].hasOrder, false);
+  assert.equal(mixed.payload.data.results[0].boundAccount, "bound@example.com / account-bound");
   assert.equal(mixed.payload.data.results[1].failureReason, "支付未成功");
   assert.equal(mixed.payload.data.results[1].code, cards[4].code);
   assert.equal(JSON.stringify(mixed.payload).includes(failedOrder.id), false);

@@ -541,6 +541,7 @@ export const rechargeService = {
         code: record.code,
         status: record.status,
         statusLabel: H_CARD_STATUS_LABELS[record.status],
+        hasOrder: record.hasOrder,
         boundAccount: [record.boundEmail, record.boundAccountId].filter(Boolean).join(" / "),
         source: record.source,
         batchId: record.batchId,
