@@ -1677,15 +1677,18 @@ export const server = http.createServer(async (req, res) => {
           const proxyUrl = normalizeZzshuProxy(body.proxyUrl);
           if (!proxyUrl) { sendJson(res,400,{success:false,message:"代理地址格式不正确；请填写具体 HTTP(S) 或 SOCKS5 节点 URI。"});return; }
           if (!zzshuProxyStore.status().storageReady) { sendJson(res,503,{success:false,message:"代理配置加密存储不可用。"});return; }
+          const key = zzshuCredentialStore.key();
+          if (!key) { sendJson(res,503,{success:false,message:"请先配置 ZZS API Key；原出口未修改。"});return; }
           credentialRotationInProgress = true;
           try {
-            const probe = await zzshuCredentialStore.verify("GPTC-PROBE-INVALID-KEY", { Accept: "application/json" }, proxyUrl);
+            // Keep the entire read-only check within the site's gateway timeout.
+            const [probe, verified] = await Promise.all([
+              zzshuCredentialStore.verify("GPTC-PROBE-INVALID-KEY", { Accept: "application/json" }, proxyUrl),
+              zzshuCredentialStore.verify(key, {}, proxyUrl)
+            ]);
             if (probe.upstreamHttpStatus !== 401 || probe.upstreamCode !== 40107) {
-              sendJson(res,502,{success:false,message:"代理出口未收到 ZZS 预期响应（HTTP " + (probe.upstreamHttpStatus || "?") + "，code " + (probe.upstreamCode ?? "?") + "）；原出口未修改。"});return;
+              sendJson(res,502,{success:false,message:"代理出口未收到 ZZS 预期响应（HTTP " + (probe.upstreamHttpStatus || "?") + "，code " + (probe.upstreamCode ?? "?") + "）；可能是服务器无法连接该节点，原出口未修改。"});return;
             }
-            const key = zzshuCredentialStore.key();
-            if (!key) { sendJson(res,503,{success:false,message:"请先配置 ZZS API Key；原出口未修改。"});return; }
-            const verified = await zzshuCredentialStore.verify(key, {}, proxyUrl);
             if (!verified.ok) { sendJson(res,verified.status,{success:false,message:"代理出口可达，但已保存的 ZZS Key 验证未通过；原出口未修改。"});return; }
             const saved = zzshuProxyStore.save(proxyUrl);
             if (!saved.ok) { sendJson(res,saved.status,{success:false,message:saved.message});return; }
