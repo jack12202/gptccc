@@ -149,16 +149,19 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
   assert.equal((await credentialStatus.json()).data.configured, false);
   const { zzshuCredentialStore } = await import("../src/zzshu-credential-store.js");
   const originalProbeVerify = zzshuCredentialStore.verify;
+  const originalProbeFamily = zzshuCredentialStore.probeFamily;
   zzshuCredentialStore.verify = async key => {
     assert.equal(key, "GPTC-PROBE-INVALID-KEY");
     return { ok: false, upstreamHttpStatus: 401, upstreamCode: 40107 };
   };
+  zzshuCredentialStore.probeFamily = async family => ({ status: 401, code: 40107, ray: `fixture-${family}` });
   try {
     const probe = await fetch(base + "/api/admin/zzshu/credential/probe", { headers: { Cookie: cookie } });
     assert.equal(probe.status, 200);
     assert.deepEqual((await probe.json()).data, { networkReachable: true, httpStatus: 401, code: 40107,
-      browserNetworkReachable: true, browserHttpStatus: 401, browserCode: 40107, upstreamRay: "" });
-  } finally { zzshuCredentialStore.verify = originalProbeVerify; }
+      browserNetworkReachable: true, browserHttpStatus: 401, browserCode: 40107, upstreamRay: "",
+      ipv4: { status: 401, code: 40107, ray: "fixture-4" }, ipv6: { status: 401, code: 40107, ray: "fixture-6" } });
+  } finally { zzshuCredentialStore.verify = originalProbeVerify; zzshuCredentialStore.probeFamily = originalProbeFamily; }
   const { zzshuAdapter } = await import("../src/providers/zzshu-adapter.js");
   const originalUsage = zzshuAdapter.usage;
   zzshuAdapter.usage = async page => ({ ok: true, status: 200, data: { page, total: 1, remaining: 2, items: [] } });

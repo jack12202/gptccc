@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import https from "node:https";
 import { config } from "./config.js";
 import { decryptSecretText, encryptSecretText } from "./utils.js";
 
@@ -98,6 +99,28 @@ export class ZzshuCredentialStore {
   async verifySaved() {
     const key = this.key();
     return key ? this.verify(key) : { ok: false, status: 503, message: "尚未配置 ZZS API Key。" };
+  }
+
+  async probeFamily(family) {
+    const url = new URL("/api/v1/third-party/user", upstreamBase(this.baseUrl()));
+    return new Promise(resolve => {
+      const request = https.request(url, {
+        method: "GET", family, timeout: Math.max(1000, Number(this.timeoutMs()) || 15000),
+        headers: { "X-API-Key": "GPTC-PROBE-INVALID-KEY", Accept: "application/json" }
+      }, response => {
+        let raw = "";
+        response.on("data", chunk => { if (raw.length < 4096) raw += chunk.toString("utf8").slice(0, 4096 - raw.length); });
+        response.on("end", () => {
+          let body;
+          try { body = JSON.parse(raw); } catch { body = null; }
+          resolve({ status: response.statusCode || null, code: Number.isInteger(body?.code) ? body.code : null,
+            ray: String(response.headers["cf-ray"] || "").slice(0, 80) });
+        });
+      });
+      request.on("timeout", () => request.destroy(new Error("timeout")));
+      request.on("error", () => resolve({ status: null, code: null, ray: "" }));
+      request.end();
+    });
   }
 
   save(apiKey, { replace = false } = {}) {
