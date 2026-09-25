@@ -27,6 +27,11 @@ let addresses=[];
 try {addresses=await dns.resolve4('card.zzshu.pro');console.log(JSON.stringify({label:'dns',ipv4:addresses,ipv6:await dns.resolve6('card.zzshu.pro')}));} catch(e) {console.log(JSON.stringify({label:'dns',error:e.code}));}
 await probe('public-home','/');
 await probe('dummy-default','/api/v1/third-party/user',{headers:{'X-API-Key':dummy}});
+try {
+  const relay = await fetch('https://gptc-zzs-connectivity-probe.zjk12202.workers.dev/probe', {signal:AbortSignal.timeout(20000)});
+  const result = await relay.json();
+  console.log(JSON.stringify({label:'worker-relay-dummy',httpStatus:relay.status,upstreamStatus:result.status,upstreamCode:result.code,upstreamRay:result.ray,error:result.error}));
+} catch (error) { console.log(JSON.stringify({label:'worker-relay-dummy',error:error.name,code:error.cause?.code})); }
 await probe('dummy-browser','/api/v1/third-party/user',{headers:{'X-API-Key':dummy,Accept:'application/json','User-Agent':'Mozilla/5.0'}});
 for (const address of addresses.slice(0,2)) {
   await new Promise(resolve=>{
