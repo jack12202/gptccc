@@ -66,14 +66,14 @@ export class ZzshuCredentialStore {
     };
   }
 
-  async verify(apiKey) {
+  async verify(apiKey, extraHeaders = {}) {
     const key = normalizeKey(apiKey);
     if (!key) return { ok: false, status: 400, message: "API Key 格式不正确。" };
     let response;
     try {
       response = await this.fetchImpl(new URL("/api/v1/third-party/user", upstreamBase(this.baseUrl())), {
         method: "GET",
-        headers: { "X-API-Key": key },
+        headers: { "X-API-Key": key, ...extraHeaders },
         signal: AbortSignal.timeout(Math.max(1000, Number(this.timeoutMs()) || 15000))
       });
     } catch {
@@ -88,7 +88,8 @@ export class ZzshuCredentialStore {
         message: upstreamUnavailable
           ? `ZZS 上游网关暂时不可用（HTTP ${response.status}）；不能据此判定 API Key 无效，请保留原 Key 并稍后重试。`
           : `ZZS 未接受此 API Key（上游 HTTP ${response.status || "?"}，code ${code ?? "?"}）。请核对后台保存的 Key。`,
-        upstreamHttpStatus: response.status || null, upstreamCode: code };
+        upstreamHttpStatus: response.status || null, upstreamCode: code,
+        upstreamRay: response.headers?.get?.("cf-ray") || "" };
     }
     const points = Number(body?.data?.points);
     return { ok: true, points: Number.isFinite(points) ? points : null };

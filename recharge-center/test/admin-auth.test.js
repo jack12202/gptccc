@@ -156,7 +156,8 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
   try {
     const probe = await fetch(base + "/api/admin/zzshu/credential/probe", { headers: { Cookie: cookie } });
     assert.equal(probe.status, 200);
-    assert.deepEqual((await probe.json()).data, { networkReachable: true, httpStatus: 401, code: 40107 });
+    assert.deepEqual((await probe.json()).data, { networkReachable: true, httpStatus: 401, code: 40107,
+      browserNetworkReachable: true, browserHttpStatus: 401, browserCode: 40107, upstreamRay: "" });
   } finally { zzshuCredentialStore.verify = originalProbeVerify; }
   const { zzshuAdapter } = await import("../src/providers/zzshu-adapter.js");
   const originalUsage = zzshuAdapter.usage;

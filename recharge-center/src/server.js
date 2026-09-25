@@ -90,7 +90,7 @@ document.getElementById("saveHifupay").onclick=()=>save("hifupay","/api/admin/hi
 document.getElementById("saveZzshu").onclick=()=>save("zzshu","/api/admin/zzshu/credential/verify-and-save");
 document.getElementById("checkHifupay").onclick=()=>check("hifupay","/api/admin/hifupay/credential/check");
 document.getElementById("checkZzshu").onclick=()=>check("zzshu","/api/admin/zzshu/credential/check");
-document.getElementById("probeZzshu").onclick=async()=>{try{const d=await api("/api/admin/zzshu/credential/probe");message("zzshuMessage",d.networkReachable?"上游接口可达：测试 Key 按预期被拒绝（HTTP "+d.httpStatus+"，code "+d.code+"）。":"上游接口未正常应答（HTTP "+(d.httpStatus||"?")+"，code "+(d.code??"?")+"），与真实 Key 无关。",!d.networkReachable)}catch(e){message("zzshuMessage",e.message,true)}};
+document.getElementById("probeZzshu").onclick=async()=>{try{const d=await api("/api/admin/zzshu/credential/probe");message("zzshuMessage",d.networkReachable?"上游接口可达：测试 Key 按预期被拒绝（HTTP "+d.httpStatus+"，code "+d.code+"）。":d.browserNetworkReachable?"标准请求异常（HTTP "+(d.httpStatus||"?")+"），浏览器请求头可达（HTTP "+d.browserHttpStatus+"）。":"上游接口未正常应答（HTTP "+(d.httpStatus||"?")+"；浏览器请求头 HTTP "+(d.browserHttpStatus||"?")+"），与真实 Key 无关。"+(d.upstreamRay?" CF Ray "+d.upstreamRay:""),!d.networkReachable&&!d.browserNetworkReachable)}catch(e){message("zzshuMessage",e.message,true)}};
 document.querySelectorAll("[data-provider]").forEach(b=>b.onclick=async()=>{try{const d=await api("/api/admin/plus-provider",{method:"POST",body:JSON.stringify({provider:b.dataset.provider})});message("providerMessage","新 Plus 卡密已切换到 "+(d.plusProvider==="zzshu"?"ZZS":"嗨付"));await loadProvider()}catch(e){message("providerMessage",e.message,true)}});
 loadAll();
 </script></main></body></html>`;
@@ -1672,8 +1672,14 @@ export const server = http.createServer(async (req, res) => {
         }
         else if (req.method === "GET" && endpoint === "credential/probe") {
           const result = await zzshuCredentialStore.verify("GPTC-PROBE-INVALID-KEY");
+          const browserResult = await zzshuCredentialStore.verify("GPTC-PROBE-INVALID-KEY", {
+            "User-Agent": "Mozilla/5.0 (compatible; GPTC-ZZS-Connectivity/1.0)", "Accept": "application/json"
+          });
           data = { networkReachable: result.upstreamHttpStatus === 401 && result.upstreamCode === 40107,
-            httpStatus: result.upstreamHttpStatus || null, code: result.upstreamCode ?? null };
+            httpStatus: result.upstreamHttpStatus || null, code: result.upstreamCode ?? null,
+            browserNetworkReachable: browserResult.upstreamHttpStatus === 401 && browserResult.upstreamCode === 40107,
+            browserHttpStatus: browserResult.upstreamHttpStatus || null, browserCode: browserResult.upstreamCode ?? null,
+            upstreamRay: String(result.upstreamRay || "").slice(0, 80) };
         }
         else if (req.method === "POST" && endpoint === "credential/verify-and-save") {
           if (credentialRotationInProgress || activeRechargeConfirmations > 0) {
