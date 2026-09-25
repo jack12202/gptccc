@@ -15,6 +15,10 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   process.env.RECOVERY_ENCRYPTION_KEY = "fixture-secret";
   const { rechargeService } = await import("../src/recharge-service.js");
   const { zzshuService } = await import("../src/zzshu-service.js");
+  const { zzshuCredentialStore } = await import("../src/zzshu-credential-store.js");
+  const originalPreflight = zzshuCredentialStore.verifySaved;
+  zzshuCredentialStore.verifySaved = async () => ({ ok: true, points: 9 });
+  t.after(() => { zzshuCredentialStore.verifySaved = originalPreflight; });
   const { JsonStore } = await import("../src/store.js");
   const local = new JsonStore(process.env.DATA_FILE);
   const old = local.createHCards({ count: 1 })[0];

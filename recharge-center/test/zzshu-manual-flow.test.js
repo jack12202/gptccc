@@ -13,6 +13,10 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   process.env.ZZSHU_API_KEY = "fixture-api-key";
   process.env.RECOVERY_ENCRYPTION_KEY = "fixture-encryption-key";
   const { zzshuService: service } = await import("../src/zzshu-service.js");
+  const { zzshuCredentialStore } = await import("../src/zzshu-credential-store.js");
+  const originalPreflight = zzshuCredentialStore.verifySaved;
+  zzshuCredentialStore.verifySaved = async () => ({ ok: true, points: 9 });
+  t.after(() => { zzshuCredentialStore.verifySaved = originalPreflight; });
   const { rechargeService } = await import("../src/recharge-service.js");
   const { ZzshuStore } = await import("../src/zzshu-store.js");
   const { config } = await import("../src/config.js");

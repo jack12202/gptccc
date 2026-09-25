@@ -242,6 +242,16 @@ export const zzshuService = {
       if (!binding.ok) return reject(409, binding.message, "账号绑定不匹配");
     }
     if (!config.zzshuEnabled || !zzshuCredentialStore.key()) return reject(503, "通道尚未启用，兑换权益未消耗", "通道或 API 凭据未就绪");
+    const priorOrderId = store.voucher(code)?.orderId;
+    if (priorOrderId) {
+      const priorOrder = store.order(priorOrderId);
+      if (priorOrder) return { ok: true, status: 200, data: safeOrder(priorOrder) };
+    }
+    let upstreamReady;
+    try { upstreamReady = await zzshuCredentialStore.verifySaved(); }
+    catch { upstreamReady = { ok: false }; }
+    if (!upstreamReady.ok)
+      return reject(503, "ZZS 上游连接异常，本次尚未提交，卡密权益保留；请稍后再试", "上游账号预检失败，未预留支付卡或创建订单");
     let allowedHifupayIds=null;
     if (hifupayStore.listHifupayCards().length) {
       try {

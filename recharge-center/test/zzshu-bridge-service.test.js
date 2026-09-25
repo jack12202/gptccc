@@ -18,6 +18,10 @@ test("assigned Hifupay card feeds Zzshu direct just-in-time; no sensitive persis
   config.zzshuBaseUrl="https://zzshu.example.test";
   const {JsonStore}=await import("../src/store.js");
   const {zzshuService}=await import("../src/zzshu-service.js");
+  const {zzshuCredentialStore}=await import("../src/zzshu-credential-store.js");
+  const originalPreflight=zzshuCredentialStore.verifySaved;
+  zzshuCredentialStore.verifySaved=async()=>({ok:true,points:9});
+  t.after(()=>{zzshuCredentialStore.verifySaved=originalPreflight});
   const h=new JsonStore(process.env.DATA_FILE);
   h.syncHifupayCards([1,2,3,4].map(n=>({id:`card-${n}`,lastFour:n===3?"4242":`900${n}`,status:n===4?"unavailable":"active",balance:n===4?.01:40,
     plusUsers:n===2?[{email:"historical@example.test",accountId:"historical-account"}]:[]})));

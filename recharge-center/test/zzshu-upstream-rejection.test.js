@@ -13,6 +13,10 @@ test("documented pre-create rejection releases voucher; cardholder verification 
   process.env.ZZSHU_API_KEY = "fixture-key";
   process.env.RECOVERY_ENCRYPTION_KEY = "fixture-encryption-key";
   const { zzshuService: service } = await import("../src/zzshu-service.js");
+  const { zzshuCredentialStore } = await import("../src/zzshu-credential-store.js");
+  const originalPreflight = zzshuCredentialStore.verifySaved;
+  zzshuCredentialStore.verifySaved = async () => ({ ok: true, points: 9 });
+  t.after(() => { zzshuCredentialStore.verifySaved = originalPreflight; });
   const { config } = await import("../src/config.js");
   config.zzshuBaseUrl = "https://fixture.example.test";
   const pan = "4242424242424242";
