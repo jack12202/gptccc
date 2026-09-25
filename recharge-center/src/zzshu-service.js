@@ -318,18 +318,22 @@ export const zzshuService = {
       return { ok: true, status: 200, data: safeOrder(order) };
     try {
       const result = await zzshuAdapter.status(order.upstream_card_key);
-      if (!result.ok || result.data.cardKey !== order.upstream_card_key || result.data.orderNo !== order.upstream_order_no || result.data.planType !== "plus") {
-        if (result.ok) store.review(id, "上游查单返回与原订单不匹配，请人工核查");
-        store.markChecked(id, false);
-        return { ok: true, status: 200, data: safeOrder(order) };
+      if (!result.ok || !result.data) {
+        store.markChecked(id, false, { result: [401, 403].includes(result.status) || [40106, 40107, 40306].includes(Number(result.code)) ? "api_rejected" : "upstream_error", httpStatus: result.status, code: result.code });
+        return { ok: true, status: 200, data: safeOrder(store.order(id)) };
+      }
+      if (result.data.cardKey !== order.upstream_card_key || result.data.orderNo !== order.upstream_order_no || result.data.planType !== "plus") {
+        store.review(id, "上游查单返回与原订单不匹配，请人工核查");
+        store.markChecked(id, false, { result: "order_mismatch", httpStatus: result.status });
+        return { ok: true, status: 200, data: safeOrder(store.order(id)) };
       }
       const data = result.data;
       if (data.status === "success" && data.paid) store.settle(id,"success",data.cancellation);
       else if (data.status === "unpaid" && data.unpaid && !data.paid) store.settle(id,"failed");
       else if (data.status === "verification_required") store.review(id,"支付需要银行卡持有人验证");
       else if (["needs_review","unknown"].includes(data.status)) store.review(id,`上游状态需核查：${data.upstreamStatus || "unknown"}`);
-      store.markChecked(id, true);
-    } catch { store.markChecked(id, false); }
+      store.markChecked(id, true, { result: data.paid ? "paid" : data.unpaid ? "unpaid" : data.status, httpStatus: result.status });
+    } catch { store.markChecked(id, false, { result: "network_error" }); }
     this.syncUnifiedOrder(id);
     return { ok: true, status: 200, data: safeOrder(store.order(id)) };
   },

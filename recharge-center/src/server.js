@@ -9,6 +9,7 @@ const adminAuth = createAdminAuth({ password: config.adminToken, file: path.join
 import { rechargeService } from "./recharge-service.js";
 import { proService } from "./pro-orders.js";
 import { zzshuService } from "./zzshu-service.js";
+import { zzshuAdapter } from "./providers/zzshu-adapter.js";
 import { zzshuCredentialStore } from "./zzshu-credential-store.js";
 import { hifupayCredentialStore } from "./hifupay-credential-store.js";
 import { readJsonBody, sendJson } from "./utils.js";
@@ -56,6 +57,7 @@ function serveAdminOverview(res) {
 <article class="api-card" data-channel="hifupay"><h2>嗨付 API</h2><div class="status-line" id="hifupayState">读取中…</div><div class="form"><input id="hifupayKey" type="password" autocomplete="new-password" placeholder="填写新的嗨付 API Key"><button id="saveHifupay">验证并保存</button></div><div class="actions"><button id="checkHifupay">检测连接</button></div><div class="message" id="hifupayMessage"></div></article>
 <article class="api-card" data-channel="zzshu"><h2>ZZS API</h2><div class="status-line" id="zzshuState">读取中…</div><div class="form"><input id="zzshuKey" type="password" autocomplete="new-password" placeholder="填写新的 ZZS API Key"><button id="saveZzshu">验证并保存</button></div><div class="actions"><button id="checkZzshu">检测连接</button></div><div class="message" id="zzshuMessage"></div></article>
 </div></section>
+<section class="panel" id="zzshu-query"><h2>ZZS 开通记录</h2><p>使用后台已保存的 ZZS Key 只读查询上游记录，不提交充值，也不修改本站订单。可与<a href="/admin/recoveries">本站充值订单</a>中的账号、时间和上游订单号核对。</p><div class="actions"><button id="queryZzshuUsage">查询上游记录</button><a class="link" href="https://card.zzshu.pro/query" target="_blank" rel="noopener noreferrer">打开 ZZS 查询页</a></div><div class="message" id="zzshuUsageMessage"></div><div id="zzshuUsageResults"></div><div class="actions"><button id="zzshuUsagePrevious" disabled>上一页</button><button id="zzshuUsageNext" disabled>下一页</button></div></section>
 <section class="panel" id="protocol-settings"><h2>Plus 通道选择</h2><p>勾选的协议用于尚未首次提交的通用 Plus 卡密。已提交的卡密及订单继续使用原协议；Pro 订单在<a href="/admin/pro-orders">Pro 履约工作台</a>查看。</p><div class="choices"><button data-provider="h">嗨付</button><button data-provider="zzshu">ZZS</button></div><div class="message" id="providerMessage"></div><p class="muted">其他网站入口设置仍在<a href="/admin/provider">路由设置</a>中。</p></section>
 <script>
 const api=window.adminApi;
@@ -65,12 +67,25 @@ async function loadCredential(channel,path){
 }
 async function save(channel,path){
   const input=document.getElementById(channel+"Key"), key=input.value.trim(); if(!key){message(channel+"Message","请填写 API Key。",true);return}
-  const button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu"),replace=button.dataset.replace==="1";if(replace&&!confirm("新 API 验证成功后将替换当前 API。未完成订单存在时系统会拒绝更换。确认继续？"))return;
+  const button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu"),replace=button.dataset.replace==="1";if(replace&&!confirm(channel==="zzshu"?"新 ZZS API 验证成功后将替换当前 API，未完成订单仍按原订单号查单，不会重新充值。确认继续？":"新 API 验证成功后将替换当前 API。未完成订单存在时系统会拒绝更换。确认继续？"))return;
   try{await api(path,{method:"POST",body:JSON.stringify({apiKey:key,replace})});input.value="";message(channel+"Message",replace?"新 API 验证成功，已完成更换。":"验证成功，已保存。");await loadAll()}catch(e){message(channel+"Message",e.message,true)}
 }
 async function check(channel,path){const state=document.getElementById(channel+"State");try{const d=await api(path);state.textContent="连接正常 · "+new Date().toLocaleString("zh-CN",{hour12:false});state.className="status-line good";message(channel+"Message","连接正常"+(d.points==null?"":" · 积分 "+d.points))}catch(e){state.textContent="连接检测失败";state.className="status-line bad";message(channel+"Message",e.message,true)}}
 async function loadProvider(){try{const d=await api("/api/admin/recharge-dashboard");document.querySelectorAll("[data-provider]").forEach(b=>b.classList.toggle("active",b.dataset.provider===d.plusProvider))}catch(e){message("providerMessage",e.message,true)}}
+let zzshuUsagePage=1;
+async function loadZzshuUsage(page){
+  const button=document.getElementById("queryZzshuUsage");button.disabled=true;message("zzshuUsageMessage","正在查询…");
+  try{const d=await api("/api/admin/zzshu/usage?page="+page);zzshuUsagePage=d.page||page;const box=document.getElementById("zzshuUsageResults");box.replaceChildren();
+    const summary=document.createElement("p");summary.textContent="上游记录 "+d.total+" 条 · 剩余点数 "+d.remaining+" · 第 "+zzshuUsagePage+" 页";box.append(summary);
+    for(const item of d.items||[]){const row=document.createElement("p");row.textContent=[item.createdAt,item.email,item.planType,"开通："+item.status,"续费："+item.cancellation,"扣点："+item.points,"任务："+item.taskNo].join(" · ");box.append(row)}
+    if(!d.items?.length){const empty=document.createElement("p");empty.textContent="本页暂无记录";box.append(empty)}
+    document.getElementById("zzshuUsagePrevious").disabled=zzshuUsagePage<=1;document.getElementById("zzshuUsageNext").disabled=zzshuUsagePage*20>=d.total;message("zzshuUsageMessage","");
+  }catch(e){message("zzshuUsageMessage",e.message,true)}finally{button.disabled=false}
+}
 async function loadAll(){await Promise.all([loadCredential("hifupay","/api/admin/hifupay/credential"),loadCredential("zzshu","/api/admin/zzshu/credential"),loadProvider()])}
+document.getElementById("queryZzshuUsage").onclick=()=>loadZzshuUsage(1);
+document.getElementById("zzshuUsagePrevious").onclick=()=>loadZzshuUsage(zzshuUsagePage-1);
+document.getElementById("zzshuUsageNext").onclick=()=>loadZzshuUsage(zzshuUsagePage+1);
 document.getElementById("saveHifupay").onclick=()=>save("hifupay","/api/admin/hifupay/credential/verify-and-save");
 document.getElementById("saveZzshu").onclick=()=>save("zzshu","/api/admin/zzshu/credential/verify-and-save");
 document.getElementById("checkHifupay").onclick=()=>check("hifupay","/api/admin/hifupay/credential/check");
@@ -1065,6 +1080,7 @@ function serveRecoveryAdmin(res) {
     }
     function renderRecoveryActions(item) {
       return ''
+        + (item.provider === 'zzshu' ? '<a class="back-link" href="/admin#zzshu-query">查询 ZZS 开通记录</a>' : '')
         + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : item.provider === "zzshu" && item.hasUpstreamQueryKey && ["processing", "needs_review"].includes(item.status) ? '<button type="button" data-action="refresh-zzshu" data-order-id="' + escapeHtml(item.id) + '">安全补查</button>' : !isPro(item) && item.provider !== "zzshu" && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
         + (item.provider === 'zzshu' && (item.status === 'needs_review' || item.status === 'processing' && item.hasUpstreamQueryKey) ? '<button class="secondary" type="button" data-action="resolve-zzshu-success" data-order-id="' + escapeHtml(item.id) + '">核实成功</button><button class="secondary" type="button" data-action="resolve-zzshu-unpaid" data-order-id="' + escapeHtml(item.id) + '">核实未支付</button>' : '')
         + (item.provider === 'zzshu' && item.status === 'failed' && item.useResolution === 'frozen' ? '<button class="secondary" type="button" data-action="release-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">释放冻结次数</button><button class="secondary" type="button" data-action="consume-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">记为已消耗</button>' : '')
@@ -1088,7 +1104,7 @@ function serveRecoveryAdmin(res) {
           + '<td><span class="state-badge ' + badge + '">' + escapeHtml(statusLabel(item.status)) + '</span><div class="muted status-note">' + escapeHtml(note) + '</div></td>'
           + '<td><time>' + escapeHtml(date).split(' ').map((part, index) => index ? '<span class="muted">' + part + '</span>' : part).join('<br>') + '</time></td>'
           + '<td class="action-cell"><div class="row-actions">' + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情') + '</button></div></td></tr>'
-          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div></div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再填写核查依据人工结案。</p>' : '') + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
+          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div>' + (item.provider === 'zzshu' ? '<div><span class="detail-label">ZZS 上游订单号</span><div class="mono">' + escapeHtml(item.upstreamTaskId || "尚未取得") + '</div></div><div><span class="detail-label">最近查单</span><div>' + escapeHtml(item.lastCheckAt ? formatDate(item.lastCheckAt) + ' · ' + ({paid:'已确认付款',unpaid:'明确未付',processing:'处理中',needs_review:'结果待核查',verification_required:'需要持卡人验证',unknown:'未知结果',api_rejected:'API 凭据被拒绝',upstream_error:'上游接口错误',invalid_response:'响应格式异常',order_mismatch:'订单信息不匹配',network_error:'连接失败或超时'})[item.lastCheckResult] + (item.lastCheckHttpStatus ? ' · HTTP ' + item.lastCheckHttpStatus : '') + (item.lastCheckCode !== null && item.lastCheckCode !== undefined ? ' · code ' + item.lastCheckCode : '') : '尚无查单记录') + '</div></div>' : '') + '</div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再填写核查依据人工结案。</p>' : '') + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
       }).join("");
     }
     async function lookupCardBinding() {
@@ -1659,14 +1675,17 @@ export const server = http.createServer(async (req, res) => {
           }
           credentialRotationInProgress = true;
           try {
-            const summary = zzshuService.store.orderSummary();
-            if (body.replace === true && summary.processing + summary.needsReview > 0) {
-              sendJson(res,409,{success:false,message:"ZZS 仍有处理中或待核查订单，完成后才能更换 API Key。"});return;
-            }
             const result = await zzshuCredentialStore.verifyAndSave(body.apiKey, { replace: body.replace === true });
             if (!result.ok) { sendJson(res, result.status, { success: false, message: result.message }); return; }
             data = { configured: true, points: result.points ?? null, channelEnabled: config.zzshuEnabled };
           } finally { credentialRotationInProgress = false; }
+        }
+        else if (req.method === "GET" && endpoint === "usage") {
+          const page = Number(url.searchParams.get("page") || 1);
+          if (!Number.isInteger(page) || page < 1 || page > 1000) { sendJson(res,400,{success:false,message:"页码无效"});return; }
+          const result = await zzshuAdapter.usage(page);
+          if (!result.ok) { sendJson(res,502,{success:false,message:`ZZS 上游查询失败（HTTP ${result.status || "?"}，code ${result.code ?? "?"}）`});return; }
+          data = result.data;
         }
         else if (req.method === "GET" && endpoint === "import-status") data = zzshuService.importStatus();
         else if (req.method === "GET" && endpoint === "diagnostics") data = zzshuService.diagnostics();

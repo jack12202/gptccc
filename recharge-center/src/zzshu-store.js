@@ -65,6 +65,15 @@ export class ZzshuStore {
       this.db.exec("ALTER TABLE orders ADD COLUMN session_cipher TEXT");
     if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === "use_resolution"))
       this.db.exec("ALTER TABLE orders ADD COLUMN use_resolution TEXT NOT NULL DEFAULT ''");
+    for (const [name, definition] of Object.entries({
+      last_check_at: "TEXT NOT NULL DEFAULT ''",
+      last_check_result: "TEXT NOT NULL DEFAULT ''",
+      last_check_http_status: "INTEGER",
+      last_check_code: "INTEGER"
+    })) {
+      if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === name))
+        this.db.exec(`ALTER TABLE orders ADD COLUMN ${name} ${definition}`);
+    }
     this.db.exec("DROP INDEX IF EXISTS zzshu_card_active");
     this.db.exec("CREATE UNIQUE INDEX zzshu_card_active ON orders(card_id) WHERE status IN ('reserved','submitting','processing')");
     this.db.exec("INSERT OR IGNORE INTO h_card_claims(hifupay_id,order_id) SELECT hifupay_id,h_order_id FROM card_roles WHERE h_order_id IS NOT NULL");
@@ -321,7 +330,9 @@ export class ZzshuStore {
     FROM orders o JOIN payment_cards c ON c.id=o.card_id JOIN vouchers v ON v.id=o.voucher_id WHERE o.id=?`).get(id); }
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
   listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
-    o.review_reason AS reviewReason,o.cancellation,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,c.last_four AS lastFour,
+    o.review_reason AS reviewReason,o.cancellation,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,
+    o.last_check_at AS lastCheckAt,o.last_check_result AS lastCheckResult,
+    o.last_check_http_status AS lastCheckHttpStatus,o.last_check_code AS lastCheckCode,c.last_four AS lastFour,
     v.code_hash AS voucherHash,v.code_cipher AS voucherCipher,v.source AS voucherSource,o.created_at AS createdAt,o.updated_at AS updatedAt
     FROM orders o JOIN payment_cards c ON c.id=o.card_id JOIN vouchers v ON v.id=o.voucher_id ORDER BY o.created_at DESC`).all(); }
   orderSummary() {
@@ -357,9 +368,14 @@ export class ZzshuStore {
       (status IN ('processing','needs_review') OR (status='success' AND cancellation!='cancelled'))
       ORDER BY updated_at ASC,id LIMIT ?`).all(limit).map(row=>row.id);
   }
-  markChecked(id, successful = false) {
+  markChecked(id, successful = false, detail = {}) {
     const at = new Date().toISOString();
-    this.db.prepare("UPDATE orders SET updated_at=? WHERE id=? AND status IN ('processing','needs_review','success')").run(at,id);
+    const allowed = new Set(["paid", "unpaid", "processing", "needs_review", "verification_required", "unknown", "api_rejected", "upstream_error", "invalid_response", "order_mismatch", "network_error"]);
+    const result = allowed.has(detail.result) ? detail.result : successful ? "unknown" : "upstream_error";
+    const httpStatus = Number.isInteger(detail.httpStatus) && detail.httpStatus >= 100 && detail.httpStatus <= 599 ? detail.httpStatus : null;
+    const code = Number.isInteger(detail.code) ? detail.code : null;
+    this.db.prepare("UPDATE orders SET updated_at=?,last_check_at=?,last_check_result=?,last_check_http_status=?,last_check_code=? WHERE id=?")
+      .run(at,at,result,httpStatus,code,id);
     this.db.prepare("INSERT INTO runtime_state(key,value) VALUES('last_sync_attempt_at',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(at);
     if (successful) this.db.prepare("INSERT INTO runtime_state(key,value) VALUES('last_successful_sync_at',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(at);
   }

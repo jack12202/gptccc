@@ -140,11 +140,21 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
   assert.match(productionVerifier, /hasChannelCredentialInputs/);
   assert.match(productionVerifier, /unified payment-card page/);
   assert.equal((await fetch(base + "/api/admin/zzshu/credential")).status, 401);
+  assert.equal((await fetch(base + "/api/admin/zzshu/usage?page=1")).status, 401);
   assert.equal((await fetch(base + "/api/admin/hifupay/credential")).status, 401);
   assert.equal((await fetch(base + "/api/admin/recharge-dashboard")).status, 401);
   const credentialStatus = await fetch(base + "/api/admin/zzshu/credential", { headers: { Cookie: cookie } });
   assert.equal(credentialStatus.status, 200);
   assert.equal((await credentialStatus.json()).data.configured, false);
+  const { zzshuAdapter } = await import("../src/providers/zzshu-adapter.js");
+  const originalUsage = zzshuAdapter.usage;
+  zzshuAdapter.usage = async page => ({ ok: true, status: 200, data: { page, total: 1, remaining: 2, items: [] } });
+  try {
+    const usage = await fetch(base + "/api/admin/zzshu/usage?page=2", { headers: { Cookie: cookie } });
+    assert.equal(usage.status, 200);
+    assert.equal((await usage.json()).data.page, 2);
+    assert.equal((await fetch(base + "/api/admin/zzshu/usage?page=0", { headers: { Cookie: cookie } })).status, 400);
+  } finally { zzshuAdapter.usage = originalUsage; }
   const rejectedCredential = await fetch(base + "/api/admin/zzshu/credential/verify-and-save", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "fixture-key" }) });
   assert.equal(rejectedCredential.status, 403);
   const rejectedHifupayCredential = await fetch(base + "/api/admin/hifupay/credential/verify-and-save", { method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: "fixture-key" }) });

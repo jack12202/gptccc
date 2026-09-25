@@ -733,6 +733,8 @@ export const rechargeService = {
         subscriptionActionDetectedAt: "", subscriptionActionHandledAt: "",
         needsAttention: item.status === "needs_review" || item.status === "success" && item.cancellation !== "cancelled",
         hasUpstreamQueryKey: Boolean(item.hasUpstreamQueryKey),
+        lastCheckAt: item.lastCheckAt || "", lastCheckResult: item.lastCheckResult || "",
+        lastCheckHttpStatus: item.lastCheckHttpStatus, lastCheckCode: item.lastCheckCode,
         createdAt: item.createdAt, updatedAt: item.updatedAt,
         hasSecret: Boolean(zzshuService.store.sessionCipher(item.id)), hasOriginalJson: Boolean(zzshuService.store.sessionCipher(item.id)), hCardCodeAvailable: false
       };

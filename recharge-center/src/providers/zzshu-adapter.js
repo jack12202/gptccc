@@ -18,6 +18,37 @@ async function request(path, payload) {
 
 export const zzshuAdapter = {
   key: "zzshu", label: "ZZS",
+  async usage(page = 1) {
+    const apiKey = zzshuCredentialStore.key();
+    if (!apiKey) return { ok: false, status: 503, code: null };
+    const base = new URL(config.zzshuBaseUrl);
+    if (base.protocol !== "https:" && !["127.0.0.1", "localhost"].includes(base.hostname))
+      return { ok: false, status: 503, code: null };
+    const response = await fetch(new URL("/api/public/api-usage", base), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: apiKey, page, page_size: 20 }),
+      signal: AbortSignal.timeout(config.zzshuTimeoutMs)
+    });
+    let body;
+    try { body = await response.json(); } catch { return { ok: false, status: response.status, code: null }; }
+    if (!response.ok || body?.code !== 0 || !body.data || !Array.isArray(body.data.items))
+      return { ok: false, status: response.status, code: Number.isInteger(body?.code) ? body.code : null };
+    return { ok: true, status: response.status, data: {
+      page: Number(body.data.page) || page,
+      total: Number(body.data.total) || 0,
+      remaining: Number(body.data.remaining) || 0,
+      items: body.data.items.slice(0, 20).map(item => ({
+        taskNo: String(item.task_no || "").slice(0, 80),
+        createdAt: String(item.created_at || "").slice(0, 40),
+        email: String(item.email || "").slice(0, 200),
+        planType: String(item.plan_type || "").slice(0, 40),
+        status: String(item.status || "").slice(0, 40),
+        cancellation: item.renewal_cancelled === true || item.renewal_cancelled === 1 || /已取消自动续费/.test(String(item.result_message || "")) ? "cancelled" :
+          /取消续费未完成/.test(String(item.result_message || "")) ? "failed" : "unconfirmed",
+        points: Number(item.cdk_cost) || 0
+      }))
+    } };
+  },
   async create({ token, payment }) {
     return request("/api/v1/third-party/orders/direct", {
       orderType: "direct", planType: "plus", token,
