@@ -140,12 +140,24 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
   assert.match(productionVerifier, /hasChannelCredentialInputs/);
   assert.match(productionVerifier, /unified payment-card page/);
   assert.equal((await fetch(base + "/api/admin/zzshu/credential")).status, 401);
+  assert.equal((await fetch(base + "/api/admin/zzshu/credential/probe")).status, 401);
   assert.equal((await fetch(base + "/api/admin/zzshu/usage?page=1")).status, 401);
   assert.equal((await fetch(base + "/api/admin/hifupay/credential")).status, 401);
   assert.equal((await fetch(base + "/api/admin/recharge-dashboard")).status, 401);
   const credentialStatus = await fetch(base + "/api/admin/zzshu/credential", { headers: { Cookie: cookie } });
   assert.equal(credentialStatus.status, 200);
   assert.equal((await credentialStatus.json()).data.configured, false);
+  const { zzshuCredentialStore } = await import("../src/zzshu-credential-store.js");
+  const originalProbeVerify = zzshuCredentialStore.verify;
+  zzshuCredentialStore.verify = async key => {
+    assert.equal(key, "GPTC-PROBE-INVALID-KEY");
+    return { ok: false, upstreamHttpStatus: 401, upstreamCode: 40107 };
+  };
+  try {
+    const probe = await fetch(base + "/api/admin/zzshu/credential/probe", { headers: { Cookie: cookie } });
+    assert.equal(probe.status, 200);
+    assert.deepEqual((await probe.json()).data, { networkReachable: true, httpStatus: 401, code: 40107 });
+  } finally { zzshuCredentialStore.verify = originalProbeVerify; }
   const { zzshuAdapter } = await import("../src/providers/zzshu-adapter.js");
   const originalUsage = zzshuAdapter.usage;
   zzshuAdapter.usage = async page => ({ ok: true, status: 200, data: { page, total: 1, remaining: 2, items: [] } });
