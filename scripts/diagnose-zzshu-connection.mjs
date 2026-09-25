@@ -190,6 +190,9 @@ async function main() {
   const script = `#!/bin/sh
 set -eu
 date -u '+diagnostic_time=%Y-%m-%dT%H:%M:%SZ'
+docker ps --format 'container={{.Names}} image={{.Image}} ports={{.Ports}}'
+ip -6 route show default 2>/dev/null || true
+ss -lnt 2>/dev/null | head -25 || true
 docker exec -i -w /app gptc-recharge-center node --input-type=module <<'GPTC_READONLY_NODE'
 ${probe}
 GPTC_READONLY_NODE
