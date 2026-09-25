@@ -33,6 +33,7 @@ jobs:
 
       - name: Test recharge providers
         run: |
+          npm ci --prefix ./recharge-center --no-audit --no-fund
           node --test ./recharge-center/test/*.test.js
 
       - name: Deploy homepage and blog to 1Panel
