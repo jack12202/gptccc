@@ -23,6 +23,11 @@ console.log(JSON.stringify({label:'runtime',node:process.version,baseUrl:config.
   enabled:config.zzshuEnabled,keySource:zzshuCredentialStore.status().source,
   keyDigest:crypto.createHash('sha256').update(zzshuCredentialStore.key()).digest('hex').slice(0,12),
   proxyVariables:Object.keys(process.env).filter(k=>/^(https?_proxy|all_proxy|no_proxy|node_use_env_proxy)$/i.test(k))}));
+const configuredConnection = await zzshuCredentialStore.verifySaved();
+console.log(JSON.stringify({label:'configured-connection',ok:configuredConnection.ok,
+  status:configuredConnection.status || null,points:configuredConnection.points ?? null,
+  upstreamHttpStatus:configuredConnection.upstreamHttpStatus || null,
+  upstreamCode:configuredConnection.upstreamCode ?? null}));
 let addresses=[];
 try {addresses=await dns.resolve4('card.zzshu.pro');console.log(JSON.stringify({label:'dns',ipv4:addresses,ipv6:await dns.resolve6('card.zzshu.pro')}));} catch(e) {console.log(JSON.stringify({label:'dns',error:e.code}));}
 await probe('public-home','/');
