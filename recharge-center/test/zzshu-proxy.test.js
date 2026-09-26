@@ -15,15 +15,36 @@ test("ZZS proxy URI is constrained and stored only as ciphertext", () => {
   assert.equal(normalizeZzshuProxy("http://proxy.local:8080"), "http://proxy.local:8080/");
   const file = path.join(directory, "proxy.json");
   const store = new ZzshuProxyStore({ file, encryptionKey: () => "test-only-encryption-key" });
-  assert.deepEqual(store.status(), { configured: false, storageReady: true });
+  assert.deepEqual(store.status(), { configured: false, mode: "direct_ipv4", usingProxy: false, storageReady: true });
   assert.equal(store.save("socks5://user:pass@127.0.0.1:1080").ok, true);
   assert.equal(store.url(), "socks5h://user:pass@127.0.0.1:1080");
+  assert.equal(store.status().usingProxy, true);
+  assert.equal(store.setMode("direct_ipv4").ok, true);
+  assert.equal(store.status().mode, "direct_ipv4");
+  assert.equal(store.status().usingProxy, false);
+  assert.equal(store.url(), "socks5h://user:pass@127.0.0.1:1080");
+  assert.equal(store.setMode("proxy").ok, true);
+  assert.equal(store.status().usingProxy, true);
   assert.equal(fs.readFileSync(file, "utf8").includes("user:pass"), false);
   assert.equal(fs.statSync(file).mode & 0o777, 0o600);
   assert.equal(store.save("https://example.com/subscription").ok, false);
   assert.equal(store.url(), "socks5h://user:pass@127.0.0.1:1080");
   fs.writeFileSync(file, "broken", { mode: 0o600 });
   assert.equal(store.status().storageReady, false);
+});
+
+test("legacy encrypted proxy is preserved but defaults to direct IPv4", () => {
+  const file = path.join(directory, "legacy-proxy.json");
+  const store = new ZzshuProxyStore({ file, encryptionKey: () => "test-only-encryption-key" });
+  assert.equal(store.save("http://proxy.local:8080").ok, true);
+  const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+  delete saved.mode;
+  saved.version = 1;
+  fs.writeFileSync(file, JSON.stringify(saved), { mode: 0o600 });
+  assert.equal(store.status().configured, true);
+  assert.equal(store.status().mode, "direct_ipv4");
+  assert.equal(store.status().usingProxy, false);
+  assert.equal(store.url(), "http://proxy.local:8080/");
 });
 
 test("ZZS proxy transport uses CONNECT and never bypasses a failed configured proxy", async () => {
