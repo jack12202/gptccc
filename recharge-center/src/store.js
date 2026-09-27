@@ -207,13 +207,14 @@ export class JsonStore {
     fs.renameSync(temporary, this.filePath);
   }
 
-  createOrder(input) {
+  createOrder(input, sessionInput = null) {
     const state = this.read();
     const order = {
       id: makeId("order"),
       siteSource: input.siteSource || "unknown",
       provider: input.provider || config.defaultProvider,
       cardMask: input.cardMask || "",
+      submissionCodeHash: input.submissionCodeHash || "",
       productId: input.productId ?? config.defaultProductId,
       status: input.status || "created",
       upstreamTaskId: input.upstreamTaskId || "",
@@ -245,9 +246,34 @@ export class JsonStore {
       createdAt: nowIso(),
       updatedAt: nowIso()
     };
+    if (input.lockHCardCode) {
+      const card = state.hCards.find(item => item.codeHash === cardCodeHash(String(input.lockHCardCode).trim().toUpperCase()));
+      if (!card || card.status !== "unused" || card.disabledAt || card.archivedAt) throw new Error("卡密当前不可使用");
+      card.status = "locked";
+      card.orderId = order.id;
+      card.lockReason = "manual_review";
+      card.hasSubmission = true;
+      card.submittedAt = order.createdAt;
+      if (sessionInput?.userEmail) card.boundEmail = normalizeEmail(sessionInput.userEmail);
+      if (sessionInput?.accountId) card.boundAccountId = normalizeAccountId(sessionInput.accountId);
+      card.boundAt = order.createdAt;
+      card.updatedAt = order.createdAt;
+      order.hCardId = card.id;
+    }
     state.orders.push(order);
+    if (sessionInput) state.rechargeSessions.push({
+      id: makeId("session"), orderId: order.id,
+      userEmail: sessionInput.userEmail || "", accountId: normalizeAccountId(sessionInput.accountId),
+      tokenHash: sessionInput.tokenHash || "", authDataCiphertext: sessionInput.authDataCiphertext || "",
+      rawSecretCiphertext: sessionInput.rawSecretCiphertext || "", authDataEncoded: "", createdAt: nowIso()
+    });
     this.write(state);
     return order;
+  }
+
+  getActiveSubmissionByCode(code) {
+    const hash = crypto.createHash("sha256").update(String(code || "").trim().toUpperCase()).digest("hex");
+    return this.read().orders.find(order => order.submissionCodeHash === hash && !["failed", "cancelled"].includes(order.status)) || null;
   }
 
   updateOrder(orderId, patch) {
@@ -377,7 +403,7 @@ export class JsonStore {
     if (!card || !["pro_x5", "pro_x20"].includes(card.plan)) return { ok: false, status: 404, message: "未找到 Pro 套餐卡密。" };
     const existing = state.orders.find(item => item.id === card.orderId);
     if (existing) {
-      if (!cardIdentityMatches(card, identity)) return { ok: false, status: 409, message: "卡密已绑定其他账号。" };
+      if ((card.boundEmail || card.boundAccountId) && !cardIdentityMatches(card, identity)) return { ok: false, status: 409, message: "卡密已绑定其他账号。" };
       return { ok: true, existing: true, order: existing };
     }
     if (card.disabledAt || card.archivedAt || card.status !== "unused") return { ok: false, status: 409, message: "卡密当前不可使用。" };
@@ -390,14 +416,15 @@ export class JsonStore {
     const protection = selected && (selected.usageMode === "pro_reserved" || activeHifupayProReservation(state, selected.id));
     const available = selected && selected.enabled !== false && hifupayRemoteStatus(selected.status) === "active" && !protection &&
       selected.balance !== null && Number.isFinite(charge) && charge > 0 && selected.balance >= charge + buffer;
-    const auto = Boolean(selectedId && available);
-    const reason = card.plan === "pro_x5" && settings.pro5xAutoEnabled && !auto ? "指定付款卡不可用或余额不足，已转人工处理。" : "已进入充值队列，请稍后，完成后可在本页查询结果。";
+    const auto = Boolean(session.validForAuto !== false && selectedId && available);
+    const reason = session.validForAuto === false ? "资料已提交，待人工核查账号信息。" :
+      card.plan === "pro_x5" && settings.pro5xAutoEnabled && !auto ? "指定付款卡不可用或余额不足，已转人工处理。" : "已进入充值队列，请稍后，完成后可在本页查询结果。";
     const timestamp = nowIso();
     const order = {
       id: makeId("order"), provider: "h", plan: card.plan, productId: card.productId,
       fulfillmentMode: auto ? "auto" : "manual", initialFulfillmentMode: auto ? "auto" : "manual",
       autoEnabledSnapshot: card.plan === "pro_x5" && settings.pro5xAutoEnabled === true,
-      selectedCardSnapshotId: configuredId, status: auto ? "queued" : "manual_queued",
+      selectedCardSnapshotId: configuredId, status: auto ? "queued" : session.validForAuto === false ? "needs_info" : "manual_queued",
       siteSource: source || "unknown", cardMask: card.cardMask, hCardId: card.id,
       hifupayCardId: auto ? selectedId : "", hifupayCardLastFour: auto ? selected.lastFour || "" : "",
       proRegion: settings.pro5xRegion || "EG", estimatedChargeUsd: Number.isFinite(charge) ? charge : 0,
@@ -1491,6 +1518,7 @@ export class JsonStore {
         return {
           id: order.id,
           provider: order.provider,
+          submissionCodeHash: order.submissionCodeHash || "",
           hCardId: customerCard?.id || order.hCardId || "",
           cardMask: order.cardMask,
           productId: order.productId,

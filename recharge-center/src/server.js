@@ -1289,7 +1289,8 @@ function serveRecoveryAdmin(res) {
           if (reason === null) return;
           if (reason.trim().length < 8) { setStatus("核查依据至少需要 8 个字，订单状态未改变。", true); return; }
           if (!window.confirm("确认该订单" + (outcome === "success" ? "充值成功并核销卡密" : "明确未支付并恢复卡密权益") + "？订单：" + orderId)) return;
-          await api("/api/admin/zzshu/orders/" + encodeURIComponent(orderId) + "/resolve", { method: "POST", body: JSON.stringify({ outcome, reason: reason.trim() }) });
+          await api((record.submissionIntake ? "/api/admin/recoveries/" : "/api/admin/zzshu/orders/")
+            + encodeURIComponent(orderId) + "/resolve", { method: "POST", body: JSON.stringify({ outcome, reason: reason.trim() }) });
           setStatus("人工核查结果已记录，订单状态已更新。");
           await loadRecoveries();
         } else if (action === "release-zzshu-use" || action === "consume-zzshu-use") {
@@ -1885,6 +1886,21 @@ export const server = http.createServer(async (req, res) => {
         ? rechargeService.markRecoverySuccess(orderId, "admin", body.message || "人工充值成功，系统已同步完成。")
         : rechargeService.markHSubscriptionHandled(orderId, "admin");
       sendJson(res, result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message, data: result.data });
+      return;
+    }
+
+    const intakeResolution = url.pathname.match(/^\/api\/admin\/recoveries\/([^/]+)\/resolve$/);
+    if (req.method === "POST" && intakeResolution) {
+      const body = await readJsonBody(req);
+      const auth = assertAdmin(req, url, body);
+      if (!auth.ok) { sendJson(res, auth.status, { success: false, message: auth.message }); return; }
+      const id = decodeURIComponent(intakeResolution[1]);
+      const reason = String(body.reason || "").trim();
+      const result = reason.length < 8 ? { ok: false, status: 409, message: "请填写至少 8 字核查依据。" }
+        : body.outcome === "success" ? rechargeService.markRecoverySuccess(id, "admin", reason)
+        : body.outcome === "unpaid" ? rechargeService.markRecoveryUnpaid(id, reason)
+        : { ok: false, status: 400, message: "未知核查结果。" };
+      sendJson(res, result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message });
       return;
     }
 

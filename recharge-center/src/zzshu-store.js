@@ -271,6 +271,19 @@ export class ZzshuStore {
     return this.db.prepare("SELECT v.code_cipher AS cipher FROM orders o JOIN vouchers v ON v.id=o.voucher_id WHERE o.id=?")
       .get(orderId)?.cipher || "";
   }
+  resolveUnsubmittedVoucher(code, outcome, email, accountId, intakeId) {
+    if (!["success", "unpaid"].includes(outcome)) return false;
+    return this.transaction(() => {
+      const voucher = this.voucher(code);
+      if (!voucher || voucher.status !== "unused" || voucher.orderId) return false;
+      if (voucher.email && email && voucher.email !== email) return false;
+      if (voucher.accountId && accountId && voucher.accountId !== accountId) return false;
+      if (outcome === "success") this.db.prepare("UPDATE vouchers SET status='used',order_id=?,email=?,account_id=? WHERE id=? AND status='unused'")
+        .run(intakeId, email || voucher.email || "", accountId || voucher.accountId || "", voucher.id);
+      this.audit(intakeId, `intake_${outcome}`, "管理员核实提交记录");
+      return true;
+    });
+  }
   listVouchers() { return this.db.prepare("SELECT id,batch_id AS batchId,source,product_id AS productId,status,order_id AS orderId,email,account_id AS accountId,created_at AS createdAt FROM vouchers WHERE id NOT LIKE 'hcard_%' ORDER BY created_at DESC LIMIT 500").all(); }
   unifiedOrderIds() { return this.db.prepare("SELECT order_id AS id FROM vouchers WHERE id LIKE 'hcard_%' AND order_id IS NOT NULL").all().map(row => row.id); }
   selectCandidate(allowedHifupayIds, allowManual) {

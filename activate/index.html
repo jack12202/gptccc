@@ -1549,7 +1549,7 @@ window._hmt = _hmt;
       } catch {
         return { ok: false, message: "充值密钥格式不完整，请从密钥页面复制全部内容后重试。" };
       }
-      if (!payload || typeof payload !== "object") {
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
         return { ok: false, message: "充值密钥内容无效，请重新获取后再试。" };
       }
       const user = payload.user && typeof payload.user === "object" ? payload.user : {};
@@ -1567,12 +1567,6 @@ window._hmt = _hmt;
       const fullAuthData = payload.fullAuthData && typeof payload.fullAuthData === "object"
         ? payload.fullAuthData
         : payload;
-      if (!userEmail) {
-        return { ok: false, message: "充值密钥缺少账号邮箱，请重新获取后再试。" };
-      }
-      if (!userGptToken) {
-        return { ok: false, message: "充值密钥缺少访问令牌，请重新获取后再试。" };
-      }
       return {
         ok: true,
         data: {
@@ -1645,28 +1639,15 @@ window._hmt = _hmt;
           setNotice("step2Notice", "密钥识别失败", result.message, "error");
           return;
         }
-        if (currentProvider === "zzshu") {
-          const session = result.data.fullAuthData;
-          const message = !session?.user?.id || !session?.user?.email || !session?.account?.id
-            ? "Session JSON 缺少账号 user.id、user.email 或 account.id，请重新获取完整内容。"
-            : session.account.planType !== "free"
-              ? "ZZS 当前仅支持免费账号开通 Plus；请确认该账号的 Session JSON 中 account.planType 为 free。"
-              : !session.accessToken || !session.sessionToken || !session.expires
-                ? "Session JSON 缺少 accessToken、sessionToken 或 expires，请重新获取完整内容。"
-                : "";
-          if (message) {
-            currentParsedSecret = null;
-            setNotice("step2Notice", "账号信息未通过", message, "error");
-            return;
-          }
-        }
         currentParsedSecret = result.data;
         const checkbox = document.getElementById("overwriteRecharge");
         if (checkbox) checkbox.checked = false;
         updateConfirmButtonState();
         setTextIfPresent("confirmEmail", result.data.userEmail);
         setTextIfPresent("confirmCard", document.getElementById("cardInfo").value.trim());
-        const submitMessage = currentProvider === "zzshu"
+        const submitMessage = !result.data.userEmail || !result.data.userGptToken
+          ? "JSON 格式已识别。账号资料可能不完整，提交后后台会继续核查。"
+          : currentProvider === "zzshu"
           ? `已识别账号邮箱：${result.data.userEmail}。首次确认提交后，卡密将绑定此账号；充值失败也不能更换账号。`
           : currentProvider === "h"
           ? `已识别账号邮箱：${result.data.userEmail}。首次确认提交后，卡密将绑定此账号；充值失败也不能更换账号。`
@@ -1786,7 +1767,7 @@ window._hmt = _hmt;
           task.status === "queued" ||
           task.status === "processing" ||
           task.status === "created" ||
-          ["manual_queued", "manual_processing", "needs_info", "submitting"].includes(task.status) ||
+          ["manual_queued", "manual_processing", "needs_info", "needs_review", "submitting"].includes(task.status) ||
           task.processing === true
         ) {
           renderProgressBox(mapRechargeMessage(task.message, task.status), task);
@@ -1803,7 +1784,7 @@ window._hmt = _hmt;
         } else if (task.status === "syncing") {
           renderResultBox("syncing", mapRechargeMessage(task.message, task.status));
           schedulePoll(10000);
-        } else if (task.status === "needs_review" || currentProvider === "czgpt") {
+        } else if (currentProvider === "czgpt") {
           renderResultBox("review", mapRechargeMessage(task.message, "needs_review"));
           schedulePoll(10000);
         } else {

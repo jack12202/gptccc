@@ -245,6 +245,17 @@ function parseRechargeInput(input) {
   });
 }
 
+function submissionIdentityMatches(order, secretJsonText) {
+  const raw = safeJsonParse(secretJsonText);
+  if (!raw.ok || !raw.value || typeof raw.value !== "object" || Array.isArray(raw.value)) return false;
+  const auth = raw.value.fullAuthData && typeof raw.value.fullAuthData === "object" ? raw.value.fullAuthData : raw.value;
+  const email = String(auth.userEmail || auth.user?.email || "").trim().toLowerCase();
+  const accountId = String(auth.account?.id || "").trim();
+  const session = store.getRechargeSession(order.id);
+  return (!session?.userEmail || !email || session.userEmail.toLowerCase() === email) &&
+    (!session?.accountId || !accountId || session.accountId === accountId);
+}
+
 function normalizedProviderData(provider) {
   const adapter = getProviderAdapter(provider);
   return {
@@ -458,6 +469,16 @@ export const rechargeService = {
   queryHCardStatus(cardInfo, provider) {
     const canonicalCardInfo = canonicalLocalCardCode(cardInfo);
     const localCard = store.getHCardByCode(canonicalCardInfo);
+    const intake = store.getActiveSubmissionByCode(canonicalCardInfo);
+    if (intake) {
+      const native = intake.provider === "zzshu" && intake.upstreamTaskId ? zzshuService.store.order(intake.upstreamTaskId) : null;
+      const status = native?.status === "success" ? "success" : intake.status;
+      if (status !== intake.status) store.updateOrder(intake.id, { status, message: "Plus 已开通" });
+      return { ok: true, status: 200, data: { status,
+      plan: localCard?.plan || "plus", statusLabel: status === "success" ? "充值成功" : "正在处理",
+      canRecharge: false, hasPriorSubmission: true, boundAccount: "",
+      message: status === "success" ? "充值已完成。" : "资料已提交，正在处理，请勿重复提交。" } };
+    }
     if (localCard?.unified && (localCard.disabledAt || localCard.archivedAt)) return {
       ok: true, status: 200, data: { status: "disabled", plan: "plus", statusLabel: "已禁用", canRecharge: false,
         boundAccount: "", message: "卡密当前不可使用，请联系客服处理。" }
@@ -701,6 +722,15 @@ export const rechargeService = {
   },
 
   listRechargeSubmissions() {
+    for (const intake of store.listRechargeOrders().filter(item => item.provider === "zzshu" && item.submissionCodeHash && item.upstreamTaskId)) {
+      const native = zzshuService.store.order(intake.upstreamTaskId);
+      if (native?.status === "success" && intake.status !== "success")
+        store.updateOrder(intake.id, { status: "success", message: "Plus 已开通" });
+      else if (native?.status === "needs_review" && intake.status !== "needs_review")
+        store.updateOrder(intake.id, { status: "needs_review", message: "资料已提交，正在核查。" });
+      else if (native?.status === "failed" && intake.status === "processing")
+        store.updateOrder(intake.id, { status: "needs_review", message: "自动充值未完成，等待人工核查。" });
+    }
     const customerCards = store.listHCards(1, true, true, true);
     const cardsById = new Map(customerCards.map(card => [card.id, card]));
     const cardsByHash = new Map(customerCards.filter(card => card.code).map(card => [sha256(card.code), card]));
@@ -712,9 +742,11 @@ export const rechargeService = {
     });
     const primaryRecords = store.listRechargeOrders().map(item => ({
       ...item,
+      submissionIntake: item.provider === "zzshu" && Boolean(item.submissionCodeHash),
       ...customerCardFields(cardsById.get(item.hCardId))
     }));
-    const zzshuRecords = zzshuService.store.listOrders().map(item => {
+    const linkedZzshuIds = new Set(primaryRecords.filter(item => item.provider === "zzshu" && item.upstreamTaskId).map(item => item.upstreamTaskId));
+    const zzshuRecords = zzshuService.store.listOrders().filter(item => !linkedZzshuIds.has(item.id)).map(item => {
       const linkedCard = cardsByHash.get(item.voucherHash);
       const legacyCode = linkedCard ? "" : decryptSecretText(item.voucherCipher, config.recoveryEncryptionKey, "zzshu-voucher");
       return {
@@ -889,10 +921,10 @@ export const rechargeService = {
         message: order.message || "",
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
-        hasSecret: parsed.ok,
+        hasSecret: Boolean(sessionSecretText(session)),
         ...(reveal ? {
           cardInfo,
-          secretJsonText: parsed.ok ? parsed.rawText : "",
+          secretJsonText: sessionSecretText(session),
           parseMessage: parsed.ok ? "" : parsed.message
         } : {})
       }
@@ -906,6 +938,17 @@ export const rechargeService = {
     if (["pro_x5", "pro_x20"].includes(order.plan)) return { ok: false, status: 409, message: "Pro 订单请在 Pro 工作台操作。" };
     if (order.status === "success") {
       return { ok: true, status: 200, data: { orderId: order.id, status: "success", message: order.message } };
+    }
+    if (order.provider === "zzshu") {
+      const native = order.upstreamTaskId ? zzshuService.store.order(order.upstreamTaskId) : null;
+      const completed = native
+        ? native.status === "success" || zzshuService.store.manualResolve(order.upstreamTaskId, "success", String(message || "人工核实已充值成功"))
+        : zzshuService.store.resolveUnsubmittedVoucher(storedCardCode(order), "success",
+          record.session?.userEmail, record.session?.accountId, order.id);
+      if (!completed) return { ok: false, status: 409, message: "请先核查上游订单及卡密状态，当前不能确认成功。" };
+      if (order.upstreamTaskId) zzshuService.syncUnifiedOrder(order.upstreamTaskId);
+      else if (store.getHCardByCode(storedCardCode(order))?.unified)
+        store.syncUnifiedPlus(storedCardCode(order), zzshuService.store.voucher(storedCardCode(order)));
     }
     if (order.provider === "h") {
       const hCard = order.hCardId ? null : store.getHCardByCode(storedCardCode(order));
@@ -944,6 +987,24 @@ export const rechargeService = {
       responseSummary: message
     });
     return { ok: true, status: 200, data: { orderId: updated.id, status: updated.status, message: updated.message } };
+  },
+
+  markRecoveryUnpaid(orderId, reason) {
+    const record = store.getRecoveryOrder(orderId);
+    if (!record || record.order.provider !== "zzshu" || !["processing", "needs_review"].includes(record.order.status) ||
+        String(reason || "").trim().length < 8)
+      return { ok: false, status: 409, message: "仅待核查的 ZZS 订单可凭至少 8 字核查依据恢复卡密。" };
+    const order = record.order;
+    const released = order.upstreamTaskId
+      ? zzshuService.store.manualResolve(order.upstreamTaskId, "unpaid", String(reason).trim())
+      : zzshuService.store.resolveUnsubmittedVoucher(storedCardCode(order), "unpaid",
+        record.session?.userEmail, record.session?.accountId, order.id);
+    if (!released) return { ok: false, status: 409, message: "上游状态仍未确认，卡密保持占用。" };
+    if (order.upstreamTaskId) zzshuService.syncUnifiedOrder(order.upstreamTaskId);
+    else store.releaseUnsubmittedUnifiedPlus(storedCardCode(order));
+    store.updateOrder(orderId, { status: "failed", message: "本次未完成充值，请联系人工。" });
+    store.addLog({ orderId, step: "manual.unpaid", requestSummary: "admin confirmed unpaid", responseSummary: String(reason).trim() });
+    return { ok: true, status: 200, data: { orderId, status: "failed" } };
   },
 
   unlockHCard(cardId) {
@@ -1044,12 +1105,12 @@ export const rechargeService = {
   },
 
   parseSecret(secretJsonText) {
+    const raw = safeJsonParse(secretJsonText);
+    if (!raw.ok || !raw.value || typeof raw.value !== "object" || Array.isArray(raw.value))
+      return { ok: false, status: 400, message: "请提交完整的 JSON 对象。" };
     const result = parseSecretPayload(secretJsonText);
-    if (!result.ok) {
-      return { ok: false, status: 400, message: result.message };
-    }
 
-    const secret = result.data;
+    const secret = result.ok ? result.data : raw.value;
     const user = typeof secret.user === "object" && secret.user ? secret.user : {};
     const account = typeof secret.account === "object" && secret.account ? secret.account : {};
 
@@ -1057,9 +1118,9 @@ export const rechargeService = {
       ok: true,
       status: 200,
       data: {
-        userEmail: secret.userEmail,
-        hasToken: true,
-        hasFullAuthData: true,
+        userEmail: secret.userEmail || user.email || "",
+        hasToken: Boolean(secret.userGptToken || secret.accessToken),
+        hasFullAuthData: Boolean(result.ok),
         userName: typeof user.name === "string" ? user.name : "",
         userId: typeof user.id === "string" ? user.id : "",
         accountId: typeof account.id === "string" ? account.id : "",
@@ -1073,12 +1134,94 @@ export const rechargeService = {
   },
 
   async confirmRecharge(input) {
+    const code = canonicalLocalCardCode(input.cardInfo);
+    const card = store.getHCardByCode(code);
+    const route = card?.unified ? card.routedProvider || (store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h") : "";
+    if ((route === "zzshu" || isZzshuVoucher(code) || !card && resolveProvider(input.provider) === "zzshu") && !input.dryRun) {
+      const existing = store.getActiveSubmissionByCode(code);
+      if (existing && !submissionIdentityMatches(existing, input.secretJsonText))
+        return { ok: false, status: 409, message: "此卡密已绑定首次提交的账号，请使用原账号。" };
+      if (existing) return { ok: true, status: 200, data: { orderId: existing.id, taskId: existing.id,
+        status: existing.status, message: "资料已提交，正在处理。", provider: "zzshu", providerLabel: "自动充值" } };
+      const raw = safeJsonParse(input.secretJsonText);
+      if (!raw.ok || !raw.value || typeof raw.value !== "object" || Array.isArray(raw.value))
+        return { ok: false, status: 400, message: "请提交完整的 JSON 对象。" };
+      const voucher = zzshuService.store.voucher(code);
+      if (!voucher || voucher.status !== "unused") return { ok: false, status: 409, message: "卡密不存在或已在处理。" };
+      const auth = raw.value.fullAuthData && typeof raw.value.fullAuthData === "object" ? raw.value.fullAuthData : raw.value;
+      const email = String(auth.userEmail || auth.user?.email || "").trim();
+      const accountId = String(auth.account?.id || "").trim();
+      const order = store.createOrder({ siteSource: input.siteSource, provider: "zzshu", cardMask: maskCard(code),
+        submissionCodeHash: sha256(code.toUpperCase()), productId: voucher.productId,
+        cardInfoCiphertext: encryptProtected(code, "recharge-card-info"), status: "processing",
+        message: "资料已提交，正在处理。" }, { userEmail: email, accountId,
+        rawSecretCiphertext: encryptProtected(input.secretJsonText, "recharge-secret-json") });
+      let result;
+      try { result = await this.confirmRechargeAuto({ ...input, cardInfo: code }); }
+      catch { result = { ok: false, message: "自动通道异常，等待人工处理。" }; }
+      const upstreamOrderId = result?.data?.orderId || "";
+      const status = result.ok && result.data?.status !== "failed" ? result.data?.status || "processing" : "needs_review";
+      store.updateOrder(order.id, { upstreamTaskId: upstreamOrderId, status,
+        message: result.ok ? result.data?.message || "资料已提交，正在处理。" : "资料已提交，等待人工处理。" });
+      return { ok: true, status: 200, data: { orderId: order.id, taskId: order.id, status,
+        message: "资料已提交，正在处理。", provider: "zzshu", providerLabel: "自动充值" } };
+    }
+    if (!input.dryRun && typeof input.secretJsonText === "string") {
+      const raw = safeJsonParse(input.secretJsonText);
+      if (!raw.ok || !raw.value || typeof raw.value !== "object" || Array.isArray(raw.value))
+        return { ok: false, status: 400, message: "请提交完整的 JSON 对象。" };
+      const parsed = parseRechargeInput(input);
+      if (!parsed.ok) {
+        const existing = store.getActiveSubmissionByCode(code);
+        if (existing && !submissionIdentityMatches(existing, input.secretJsonText))
+          return { ok: false, status: 409, message: "此卡密已绑定首次提交的账号，请使用原账号。" };
+        if (existing) return { ok: true, status: 200, data: { orderId: existing.id, taskId: existing.id,
+          status: existing.status, message: "资料已提交，正在处理。", provider: existing.provider } };
+        if (!card && normalizeHCardCode(code)) return { ok: false, status: 404, message: "卡密不存在。" };
+        if (card && (card.disabledAt || card.archivedAt || card.status !== "unused"))
+          return { ok: false, status: 409, message: "卡密当前不可使用。" };
+        const auth = raw.value.fullAuthData && typeof raw.value.fullAuthData === "object" ? raw.value.fullAuthData : raw.value;
+        const email = String(auth.userEmail || auth.user?.email || "").trim();
+        const accountId = String(auth.account?.id || "").trim();
+        if (card && ["pro_x5", "pro_x20"].includes(card.plan)) {
+          const result = store.createProOrder({ code, identity: { email, accountId }, source: input.siteSource,
+            ciphertext: encryptProtected(code, "recharge-card-info"), session: { userEmail: email, accountId,
+              validForAuto: false, tokenHash: "", authDataCiphertext: "",
+              rawSecretCiphertext: encryptProtected(input.secretJsonText, "recharge-secret-json") } });
+          return result.ok ? { ok: true, status: 200, data: proService.expose(result.order) }
+            : { ok: false, status: result.status, message: result.message };
+        }
+        if (card?.unified) {
+          const claim = store.claimUnifiedPlus(code, "h");
+          if (!claim.ok) return { ok: false, status: 409, message: claim.message };
+        }
+        const order = store.createOrder({ siteSource: input.siteSource, provider: card ? "h" : resolveProvider(input.provider),
+          cardMask: maskCard(code), submissionCodeHash: sha256(code.toUpperCase()), productId: Number(input.productId || config.defaultProductId),
+          lockHCardCode: card ? code : "",
+          cardInfoCiphertext: encryptProtected(code, "recharge-card-info"), status: "needs_review",
+          message: "资料已提交，待人工核查账号信息。" }, { userEmail: email, accountId,
+          rawSecretCiphertext: encryptProtected(input.secretJsonText, "recharge-secret-json") });
+        return { ok: true, status: 200, data: { orderId: order.id, taskId: order.id, status: "needs_review",
+          message: "资料已提交，正在处理。", ...normalizedProviderData(order.provider) } };
+      }
+    }
+    return this.confirmRechargeAuto(input);
+  },
+
+  async confirmRechargeAuto(input) {
     const canonicalCardInfo = canonicalLocalCardCode(input.cardInfo);
     const normalizedInput = { ...input, cardInfo: canonicalCardInfo };
     const unifiedCard = store.getHCardByCode(canonicalCardInfo);
     const unifiedRoute = unifiedCard?.unified
       ? unifiedCard.routedProvider || (store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h")
       : "";
+    if (!input.dryRun && unifiedRoute !== "zzshu" && !isZzshuVoucher(canonicalCardInfo)) {
+      const existing = store.getActiveSubmissionByCode(canonicalCardInfo);
+      if (existing && !submissionIdentityMatches(existing, input.secretJsonText))
+        return { ok: false, status: 409, message: "此卡密已绑定首次提交的账号，请使用原账号。" };
+      if (existing) return { ok: true, status: 200, data: { orderId: existing.id, taskId: existing.id,
+        status: existing.status, message: "资料已提交，正在处理。", ...normalizedProviderData(existing.provider) } };
+    }
     if (unifiedRoute === "zzshu" && !input.dryRun) {
       const validation = zzshuService.validateSession(normalizedInput);
       if (!validation.ok) return { ok: false, status: 400, message: validation.message };
@@ -1144,6 +1287,7 @@ export const rechargeService = {
       siteSource,
       provider: selectedProvider,
       cardMask,
+      submissionCodeHash: sha256(cardInfo.trim().toUpperCase()),
       productId: Number(productId || config.defaultProductId),
       providerSessionId: input.providerSessionId || "",
       cardInfoCiphertext: encryptProtected(cardInfo.trim(), "recharge-card-info"),
@@ -1151,10 +1295,7 @@ export const rechargeService = {
       subscriptionCancellationStatus: selectedProvider === "h" ? "not_started" : "",
       status: "processing",
       message: `任务已创建，等待${providerData.providerLabel}处理。`
-    });
-
-    store.createRechargeSession({
-      orderId: order.id,
+    }, {
       userEmail: secret.userEmail,
       accountId: accountIdFromSecret(secret),
       tokenHash: sha256(secret.userGptToken),
@@ -1194,7 +1335,7 @@ export const rechargeService = {
       upstream = await adapter.startRecharge(upstreamPayload);
     } catch (error) {
       const message = error instanceof Error ? error.message : "充值通道请求异常。";
-      store.updateOrder(order.id, { status: "failed", message: `充值提交失败：${message}` });
+      store.updateOrder(order.id, { status: "needs_review", message: `自动充值异常，待人工核查：${message}` });
       store.addLog({
         orderId: order.id,
         step: `${selectedProvider}.start.error`,
@@ -1202,25 +1343,21 @@ export const rechargeService = {
         responseSummary: message
       });
       return {
-        ok: false,
+        ok: true,
         status: 200,
         hifupaySafetyPendingOrderIds: hifupayReconciliation?.confirmationPendingOrderIds || [],
         data: {
           orderId: order.id,
-          taskId: "",
-          status: "failed",
-          message: `充值提交失败：${message}`,
+          taskId: order.id,
+          status: "needs_review",
+          message: "资料已提交，正在处理。",
           ...providerData
         }
       };
     }
     const upstreamTaskId = upstream.data?.taskId || "";
     const message = upstream.data?.message || "充值已提交，正在处理。";
-    const status = upstream.ok
-      ? upstream.data?.status || "processing"
-      : selectedProvider === "h" && upstream.data?.hifupayCardId
-        ? "needs_review"
-        : "failed";
+    const status = upstream.ok ? upstream.data?.status || "processing" : "needs_review";
 
     store.updateOrder(order.id, {
       upstreamTaskId,
@@ -1246,14 +1383,14 @@ export const rechargeService = {
     });
 
     return {
-      ok: upstream.ok,
-      status: upstream.ok ? 200 : upstream.status && upstream.status < 500 ? 200 : 502,
+      ok: true,
+      status: 200,
       hifupaySafetyPendingOrderIds: hifupayReconciliation?.confirmationPendingOrderIds || [],
       data: {
         orderId: order.id,
-        taskId: upstreamTaskId,
+        taskId: upstreamTaskId || order.id,
         status,
-        message: upstream.ok ? "充值请求已提交，正在排队处理，请勿重复提交。" : message,
+        message: "资料已提交，正在处理。",
         queueSubmitted: selectedProvider === "czgpt",
         ...providerData
       }
@@ -1275,6 +1412,20 @@ export const rechargeService = {
   },
 
   async queryTaskStatus(input, options = {}) {
+    const intake = input.orderId ? store.getOrder(input.orderId) : null;
+    if (intake?.provider === "zzshu") {
+      if (intake.upstreamTaskId && intake.status !== "success") {
+        try {
+          const result = await zzshuService.refresh(intake.upstreamTaskId);
+          if (result.data?.status === "success") store.updateOrder(intake.id, { status: "success", message: "Plus 已开通" });
+          else if (result.data?.status === "needs_review") store.updateOrder(intake.id, { status: "needs_review", message: "资料已提交，正在核查。" });
+        } catch { /* Preserve the stored submission for manual review. */ }
+      }
+      const current = store.getOrder(intake.id);
+      return { ok: true, status: 200, data: { orderId: current.id, taskId: current.id,
+        status: current.status, message: current.status === "success" ? current.message : "资料已提交，正在处理。",
+        provider: "zzshu", providerLabel: "自动充值" } };
+    }
     if (input.orderId && zzshuService.store.order(input.orderId)) return zzshuService.refresh(input.orderId);
     if (requiredString(input.cardInfo) && store.getHCardByCode(input.cardInfo)?.plan?.startsWith("pro_")) return proService.query(input);
     if (["pro_x5", "pro_x20"].includes((requiredString(input.orderId) ? store.getOrder(input.orderId) : store.getOrderByUpstreamTaskId(input.taskId))?.plan)) return { ok: false, status: 404, message: "请使用卡密查询订单。" };
@@ -1283,7 +1434,7 @@ export const rechargeService = {
       : requiredString(input.taskId)
         ? store.getOrderByUpstreamTaskId(input.taskId)
         : null;
-    const taskId = order?.upstreamTaskId || input.taskId || "";
+    const taskId = order ? order.upstreamTaskId || "" : input.taskId || "";
 
     const hSubscriptionPending = order?.provider === "h" && order.subscriptionCancellationStatus === "pending";
     if (order?.status === "success" && !options.forceRefresh && !hSubscriptionPending) {
@@ -1310,7 +1461,7 @@ export const rechargeService = {
             orderId: order.id,
             taskId: "",
             status: order.status,
-            message: order.message,
+            message: order.submissionCodeHash && order.status === "needs_review" ? "资料已提交，正在处理。" : order.message,
             ...subscriptionPublicData(order),
             ...normalizedProviderData(order.provider)
           }
@@ -1529,7 +1680,7 @@ export const rechargeService = {
         orderId: order?.id || "",
         taskId,
         status: nextStatus,
-        message,
+        message: order?.submissionCodeHash && nextStatus === "needs_review" ? "资料已提交，正在处理。" : message,
         upstreamStatus: taskData.upstreamStatus || "",
         cardStatus: taskData.cardStatus || "",
         cardStatusVerified: taskData.cardStatusVerified === true,

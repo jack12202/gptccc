@@ -18,6 +18,8 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   zzshuCredentialStore.verifySaved = async () => ({ ok: true, points: 9 });
   t.after(() => { zzshuCredentialStore.verifySaved = originalPreflight; });
   const { rechargeService } = await import("../src/recharge-service.js");
+  const { JsonStore } = await import("../src/store.js");
+  const intakeStore = new JsonStore(process.env.DATA_FILE);
   const { ZzshuStore } = await import("../src/zzshu-store.js");
   const { config } = await import("../src/config.js");
   config.zzshuBaseUrl = "https://fixture.example.test";
@@ -102,9 +104,10 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
       : await service.confirm({cardInfo:vouchers[i].code,secretJsonText:customerSession});
     if (i === 0) { config.zzshuTestMode = false; config.zzshuTestVoucherHash = ""; config.zzshuTestAccountHash = ""; }
     assert.equal(result.ok,true);
-    assert.equal((await service.confirm({cardInfo:vouchers[i].code,secretJsonText:customerSession})).data.orderId,result.data.orderId);
-    assert.equal((await service.refresh(result.data.orderId)).data.status,"success");
-    await service.refresh(result.data.orderId);
+    const nativeId = i === 0 ? intakeStore.getOrder(result.data.orderId).upstreamTaskId : result.data.orderId;
+    assert.equal((await service.confirm({cardInfo:vouchers[i].code,secretJsonText:customerSession})).data.orderId,nativeId);
+    assert.equal((await service.refresh(nativeId)).data.status,"success");
+    await service.refresh(nativeId);
   }
   assert.deepEqual(submitted,[a,a,b]);
   const statusQueriesBeforeLocalLookup = statusQueries;
