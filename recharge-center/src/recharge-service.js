@@ -773,7 +773,7 @@ export const rechargeService = {
       };
     });
     const records = [...primaryRecords, ...zzshuRecords]
-      .sort((left, right) => String(right.updatedAt || right.createdAt).localeCompare(String(left.updatedAt || left.createdAt)));
+      .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")) || String(right.id).localeCompare(String(left.id)));
     return {
       ok: true,
       status: 200,

@@ -24,6 +24,7 @@ test("recent retained Session JSON backfills account UUID without exposing the t
     rawSecretCiphertext: encryptSecretText(sessionJson, "account-id-fixture-key", "recharge-secret-json") });
   const state = store.read();
   state.orders.find(item => item.id === old.id).createdAt = new Date(Date.now() - 10 * 86400000).toISOString();
+  state.orders.find(item => item.id === old.id).updatedAt = new Date(Date.now() + 86400000).toISOString();
   store.write(state);
 
   assert.deepEqual(rechargeService.syncRecentAccountIds(), { scanned: 1, updated: 1, missing: 0 });
@@ -34,6 +35,7 @@ test("recent retained Session JSON backfills account UUID without exposing the t
   const record = rechargeService.listRechargeSubmissions().data.records.find(item => item.id === recent.id);
   assert.equal(record.accountId, accountId);
   assert.equal(record.userEmail, "recent@example.test");
+  assert.equal(rechargeService.listRechargeSubmissions().data.records[0].id, recent.id);
   assert.equal(JSON.stringify(record).includes("private-token"), false);
   assert.equal(rechargeService.getRecoverySubmission(recent.id).data.accountId, accountId);
 });
