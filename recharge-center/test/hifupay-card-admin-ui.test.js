@@ -24,7 +24,9 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(html, /全部支付卡/);
   assert.match(html, /导入手动支付卡/);
   assert.match(html, /批量设置总次数/);
-  assert.ok(html.indexOf('id="importPanel"') < html.indexOf('<h2>全部支付卡</h2>'));
+  assert.ok(html.indexOf('id="cardsPanel"') < html.indexOf('id="importPanel"'));
+  assert.match(html, /id="cardsPanel" hidden/);
+  assert.match(html, /id="poolToggleLabel"/);
   assert.match(html, /id="importPanel" open/);
   assert.doesNotMatch(html, /嗨付支付卡<\/a>|ZZS 支付卡<\/a>/);
   assert.equal((await fetch(base + "/admin/hifupay/cards?tab=zzshu", { headers: { Cookie: cookie } })).status, 200);
