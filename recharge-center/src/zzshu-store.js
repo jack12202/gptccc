@@ -169,6 +169,23 @@ export class ZzshuStore {
       .run(crypto.randomUUID(), row.fingerprint, row.masked.slice(-4), options.credentialRef,
         options.source, options.note, options.enabled ? 1 : 0, options.maxSuccess, new Date().toISOString(), options.paymentCipher || null).changes === 1;
   }
+  paymentCardByFingerprint(fingerprint) {
+    return this.db.prepare(`SELECT id,enabled,paused,retired_at AS retiredAt,
+      (SELECT COUNT(*) FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing','needs_review')) AS pending
+      FROM payment_cards WHERE fingerprint=? AND credential_ref NOT LIKE 'hifupay:%'`).get(fingerprint) || null;
+  }
+  restorePaymentCard(row, options) {
+    return this.transaction(() => {
+      const card = this.paymentCardByFingerprint(row.fingerprint);
+      if (!card || card.enabled && !card.retiredAt) return { ok: false, reason: "duplicate" };
+      if (card.pending) return { ok: false, reason: "pending" };
+      this.db.prepare(`UPDATE payment_cards SET last_four=?,credential_ref=?,payment_cipher=?,source=?,note=?,enabled=?,paused=0,failures=0,retired_at=NULL
+        WHERE id=?`).run(row.masked.slice(-4),options.credentialRef,options.paymentCipher,
+        options.source,options.note,options.enabled ? 1 : 0,card.id);
+      this.audit("card:"+card.id,"manual_card_restored","管理员通过重新导入恢复卡片；历史使用次数和订单记录保留");
+      return { ok: true };
+    });
+  }
   paymentCipher(ref) {
     return this.db.prepare("SELECT payment_cipher AS cipher FROM payment_cards WHERE credential_ref=? AND retired_at IS NULL").get(ref)?.cipher || "";
   }

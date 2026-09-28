@@ -100,7 +100,19 @@ export const zzshuService = {
       return {ok:false,reason:"这张卡仍受 Pro 保护，请先解除保护后再分配给吱吱鼠"};
     return store.assignHifupay({id:card.id,lastFour:card.lastFour},role);
   },
-  preview(text) { return publicPreview(parsePaymentCards(text, store.hashes())); },
+  preview(text) {
+    const parsedRows = parsePaymentCards(text);
+    return publicPreview(parsePaymentCards(text, store.hashes())).map(row => {
+      if (row.status !== "duplicate") return row;
+      const parsed = parsedRows.find(item => item.line === row.line);
+      const existing = parsed?.fingerprint ? store.paymentCardByFingerprint(parsed.fingerprint) : null;
+      if (existing && (!existing.enabled || existing.paused || existing.retiredAt)) return {
+        ...row, status: existing.pending ? "pending" : "restore",
+        error: existing.pending ? "该卡仍有关联的未完成订单，需先核查订单" : "已存在的停用卡，导入时将恢复并保留历史次数"
+      };
+      return row;
+    });
+  },
   importStatus() {
     return config.recoveryEncryptionKey
       ? { ready: true, message: "可直接导入；支付资料加密保存在本机，按设置次数使用" }
@@ -144,14 +156,25 @@ export const zzshuService = {
     const limit = Number(maxSuccess);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) return { ok: false, message: "总可用次数应为 1–100" };
     const rows = parsePaymentCards(text, store.hashes());
+    const parsedRows = parsePaymentCards(text);
+    for (const row of rows.filter(item => item.status === "duplicate")) {
+      const parsed = parsedRows.find(item => item.line === row.line);
+      const existing = parsed?.fingerprint ? store.paymentCardByFingerprint(parsed.fingerprint) : null;
+      if (parsed?.status === "ready" && existing && (!existing.enabled || existing.paused || existing.retiredAt)) {
+        Object.assign(row, parsed, { status: existing.pending ? "pending" : "restore" });
+      }
+    }
     if (rows.length > 100 || !rows.length) return { ok: false, message: "每批 1–100 行" };
     const result = publicPreview(rows);
-    for (const row of rows.filter(item => item.status === "ready")) {
+    for (const row of rows.filter(item => ["ready", "restore"].includes(item.status))) {
       try {
         const paymentCipher = encryptSecretText(JSON.stringify(row.payment), config.recoveryEncryptionKey, "zzshu-payment-card");
-        const added = store.addPaymentCard(row, { credentialRef: `local:${row.fingerprint}`, paymentCipher, source: String(source).trim().slice(0, 40),
-          note: String(note).slice(0, 200), enabled, maxSuccess: limit });
-        result[row.line - 1] = { line: row.line, masked: row.masked, status: added ? "imported" : "duplicate" };
+        const cardOptions = { credentialRef: `local:${row.fingerprint}`, paymentCipher, source: String(source).trim().slice(0, 40),
+          note: String(note).slice(0, 200), enabled, maxSuccess: limit };
+        const restored = row.status === "restore" ? store.restorePaymentCard(row, cardOptions) : null;
+        const added = row.status === "ready" ? store.addPaymentCard(row, cardOptions) : false;
+        result[row.line - 1] = { line: row.line, masked: row.masked,
+          status: restored?.ok ? "restored" : restored?.reason === "pending" ? "pending" : added ? "imported" : "duplicate" };
       } catch { result[row.line - 1] = { line: row.line, status: "error", masked: row.masked, error: "此行保存失败，未导入" }; }
     }
     return { ok: true, rows: result };
