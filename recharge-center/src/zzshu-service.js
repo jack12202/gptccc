@@ -45,7 +45,7 @@ function session(input) {
   if (data?.fullAuthData) data = data.fullAuthData;
   if (typeof data === "string") { try { data = JSON.parse(data); } catch { return null; } }
   if (!data || typeof data !== "object" || Array.isArray(data) || !data.user?.id || !data.user?.email ||
-      !data.account?.id || data.account?.planType !== "free" || !data.accessToken || !data.sessionToken || !data.expires) return null;
+      !data.account?.id || !["free", "plus"].includes(data.account?.planType) || !data.accessToken || !data.sessionToken || !data.expires) return null;
   return data;
 }
 function sessionValidation(input) {
@@ -61,8 +61,8 @@ function sessionValidation(input) {
     return { ok: false, message: "请粘贴完整账号 Session JSON。" };
   if (!data.user?.id || !data.user?.email || !data.account?.id)
     return { ok: false, message: "Session JSON 缺少账号 user.id、user.email 或 account.id，请重新获取完整内容。" };
-  if (data.account.planType !== "free")
-    return { ok: false, message: "ZZS 当前仅支持免费账号开通 Plus；请确认该账号的 Session JSON 中 account.planType 为 free。" };
+  if (!["free", "plus"].includes(data.account.planType))
+    return { ok: false, message: "ZZS Plus 仅支持 account.planType 为 free 或 plus 的 Session JSON。" };
   if (!data.accessToken || !data.sessionToken || !data.expires)
     return { ok: false, message: "Session JSON 缺少 accessToken、sessionToken 或 expires，请重新获取完整内容。" };
   return { ok: true, data };
@@ -320,9 +320,20 @@ export const zzshuService = {
         !Number.isInteger(payment.expYear) || payment.expYear < new Date().getUTCFullYear()) {
       store.abortBeforeSubmit(id,"支付卡详情无效，未调用吱吱鼠"); return {ok:false,status:503,message:"支付卡详情无效，兑换权益未消耗"};
     }
-    store.markSubmitting(id); // Persist before the network request: crash means no automatic resubmission.
+    const submittedToken = structuredClone(token);
+    const converted = submittedToken.account.planType === "plus";
+    if (converted) submittedToken.account.planType = "free";
+    // Persist the exact session snapshot and submitting state together before any network request.
+    try {
+      const cipher = encryptSecretText(JSON.stringify(submittedToken), config.recoveryEncryptionKey, "zzshu-submitted-session-json");
+      if (!store.prepareSessionSubmission(id, cipher, converted))
+        return { ok: true, status: 200, data: safeOrder(store.order(id)) };
+    } catch {
+      store.abortBeforeSubmit(id, "发送 JSON 保存失败，未调用吱吱鼠");
+      return { ok: false, status: 503, message: "发送资料保存失败，本次未提交充值" };
+    }
     let created;
-    try { created = await zzshuAdapter.create({ token, payment }); }
+    try { created = await zzshuAdapter.create({ token: submittedToken, payment }); }
     catch { store.review(id,"创建请求连接中断或超时；上游是否已创建未知"); return { ok: true, status: 200, data: safeOrder(store.order(id)) }; }
     const upstreamNo = String(created.data?.order_no ?? ""), upstreamKey = String(created.data?.card_key ?? "");
     if (created.ok && upstreamNo && upstreamKey) store.created(id,upstreamNo,upstreamKey);

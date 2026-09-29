@@ -38,7 +38,8 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   for (const secret of [a,b,cvv,"fixture-api-key"]) assert.equal(stored.includes(Buffer.from(secret)),false);
   const reopened = new ZzshuStore(process.env.ZZSHU_DB_FILE);
   assert.equal(reopened.listCards().length,2);
-  const session = JSON.stringify({user:{id:"u",email:"customer@example.test"},account:{id:"account",planType:"free"},
+  const session = JSON.stringify({user:{id:"u",email:"customer@example.test"},account:{id:"account",planType:"plus",structure:"personal",isDelinquent:true,createdTime:1717147288.836},
+    extra:{label:"plus",nested:{planType:"plus"},values:[false,null,0,"free"]},
     accessToken:"fixture-access",sessionToken:"fixture-session",expires:"2040-01-01"});
   const vouchers = service.createVouchers({count:7,source:"fixture"});
   const {sha256} = await import("../src/utils.js");
@@ -70,6 +71,7 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   const verified = await rechargeService.verifyCard(vouchers[0].code,"sange");
   assert.equal(verified.data.selectedProvider,"zzshu");
   const submitted = [];
+  const submittedBodies = [];
   let statusQueries = 0;
   let status = "success";
   let paymentResultMode = "normal";
@@ -79,8 +81,10 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
     if (endpoint.endsWith("/direct")) {
       const body = JSON.parse(options.body);
       submitted.push(body.cardNumber);
+      submittedBodies.push(body);
       assert.equal(body.cvv,cvv);
       assert.equal(body.planType,"plus");
+      assert.equal(body.token.account.planType,"free");
       return {ok:true,status:201,json:async()=>({code:0,data:{order_no:`up-${submitted.length}`,card_key:`key-${submitted.length}`}})};
     }
     if (endpoint.endsWith("/status")) {
@@ -97,15 +101,36 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
     const customerSession = i === 0 ? session : JSON.stringify({
       ...JSON.parse(session),
       user: { id: `customer-${i}`, email: `customer-${i}@example.test` },
-      account: { id: `account-${i}`, planType: "free" }
+      account: { ...JSON.parse(session).account, id: `account-${i}`, planType: "free" }
     });
-    const result = i === 0
+    const result = i < 2
       ? await rechargeService.confirmRecharge({provider:"sange",cardInfo:vouchers[i].code,secretJsonText:customerSession})
       : await service.confirm({cardInfo:vouchers[i].code,secretJsonText:customerSession});
     if (i === 0) { config.zzshuTestMode = false; config.zzshuTestVoucherHash = ""; config.zzshuTestAccountHash = ""; }
     assert.equal(result.ok,true);
-    const nativeId = i === 0 ? intakeStore.getOrder(result.data.orderId).upstreamTaskId : result.data.orderId;
+    const nativeId = i < 2 ? intakeStore.getOrder(result.data.orderId).upstreamTaskId : result.data.orderId;
+    const detail = rechargeService.getRecoverySubmission(result.data.orderId, true).data;
+    assert.equal(detail.secretJsonText, customerSession);
+    assert.equal(detail.sessionPlanConverted, i === 0);
+    // Compare the actual outbound HTTP payload, not just the stored snapshot.
+    const expectedToken = JSON.parse(customerSession);
+    if (i === 0) expectedToken.account.planType = "free";
+    assert.deepEqual(submittedBodies[i], {
+      orderType:"direct",planType:"plus",token:expectedToken,
+      cardNumber:i < 2 ? a : b,expMonth:12,expYear:2040,cvv
+    });
+    assert.deepEqual(JSON.parse(detail.submittedJsonText), submittedBodies[i].token);
+    assert.equal(JSON.parse(detail.secretJsonText).account.planType, i === 0 ? "plus" : "free");
+
+    assert.deepEqual(JSON.parse(detail.submittedJsonText), {
+      ...JSON.parse(customerSession),
+      account: {...JSON.parse(customerSession).account, planType:"free"}
+    });
+    assert.equal(rechargeService.getRecoverySubmission(result.data.orderId, false).data.submittedJsonText, undefined);
+    assert.equal(service.store.submissionRecord(nativeId).submittedCipher, undefined);
+    const snapshotBefore = service.store.submissionRecord(nativeId, true);
     assert.equal((await service.confirm({cardInfo:vouchers[i].code,secretJsonText:customerSession})).data.orderId,nativeId);
+    assert.deepEqual(service.store.submissionRecord(nativeId, true), snapshotBefore);
     assert.equal((await service.refresh(nativeId)).data.status,"success");
     await service.refresh(nativeId);
   }

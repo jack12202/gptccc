@@ -1082,6 +1082,12 @@ function serveRecoveryAdmin(res) {
     function cardValue(item) {
       return item.customerCardCode || item.customerCardMask || (item.provider === "zzshu" ? "历史卡密未关联" : item.cardMask || "-");
     }
+    function renderSessionSubmission(item) {
+      if (item.provider !== "zzshu") return "";
+      return '<div><span class="detail-label">提交 JSON</span><div>'
+        + (item.hasSubmittedJson ? (item.sessionPlanConverted ? 'Plus → Free（仅修改 account.planType）' : 'Free 原样提交') : '未留存发送版本')
+        + '</div>' + (item.hasSubmittedJson ? '<button class="secondary" data-action="copy-submitted-json" data-order-id="' + escapeHtml(item.id) + '">复制发送 JSON</button><div class="muted">提交准备时间：' + escapeHtml(formatDate(item.sessionSubmissionAt)) + '；是否受理以上游订单状态为准。</div>' : '') + '</div>';
+    }
     function renderRecoveryActions(item) {
       return ''
         + (item.provider === 'zzshu' ? '<a class="back-link" href="/admin#zzshu-query">查询 ZZS 开通记录</a>' : '')
@@ -1103,12 +1109,12 @@ function serveRecoveryAdmin(res) {
         const date = formatDate(item.createdAt);
         return '<tr class="record-row">'
           + '<td><div class="account-email" title="' + escapeHtml(item.userEmail || "") + '">' + escapeHtml(item.userEmail || "-") + '</div><div class="muted mono">UUID：' + escapeHtml(shortValue(item.accountId) || "未留存") + (item.accountId ? ' <button class="copy-inline" data-action="copy-uuid" data-order-id="' + id + '" aria-label="复制完整账号 UUID">复制</button>' : '') + '</div></td>'
-          + '<td><div class="mono">' + escapeHtml(shortValue(cardValue(item))) + ' <button class="copy-inline" data-action="copy-card" data-order-id="' + id + '" aria-label="复制完整客户卡密">复制</button></div><div class="muted">' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") : "Plus") + ' · ' + escapeHtml(item.fulfillmentMode === "manual" ? "人工" : ({zzshu:"ZZS",h:"嗨付",hifupay:"嗨付"})[item.provider] || item.provider || "-") + '</div>' + (item.salesChannel ? '<span class="sales-channel">销售渠道：' + escapeHtml(item.salesChannel) + '</span>' : '<span class="muted">销售渠道：未记录</span>') + '</td>'
+          + '<td><div class="mono">' + escapeHtml(shortValue(cardValue(item))) + ' <button class="copy-inline" data-action="copy-card" data-order-id="' + id + '" aria-label="复制完整客户卡密">复制</button></div><div class="muted">' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") : "Plus") + ' · ' + escapeHtml(item.fulfillmentMode === "manual" ? "人工" : ({zzshu:"ZZS",h:"嗨付",hifupay:"嗨付"})[item.provider] || item.provider || "-") + '</div>' + (item.provider === 'zzshu' && item.sessionPlanConverted ? '<div class="muted">JSON：Plus → Free</div>' : '') + (item.salesChannel ? '<span class="sales-channel">销售渠道：' + escapeHtml(item.salesChannel) + '</span>' : '<span class="muted">销售渠道：未记录</span>') + '</td>'
           + '<td class="mono">' + (item.paymentCardLastFour || item.hifupayCardLastFour ? '****' + escapeHtml(item.paymentCardLastFour || item.hifupayCardLastFour) : '-') + '</td>'
           + '<td><span class="state-badge ' + badge + '">' + escapeHtml(statusLabel(item.status)) + '</span><div class="muted status-note">' + escapeHtml(note) + '</div></td>'
           + '<td><time>' + escapeHtml(date).split(' ').map((part, index) => index ? '<span class="muted">' + part + '</span>' : part).join('<br>') + '</time></td>'
-          + '<td class="action-cell"><div class="row-actions">' + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情') + '</button></div></td></tr>'
-          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div>' + (item.provider === 'zzshu' ? '<div><span class="detail-label">ZZS 上游订单号</span><div class="mono">' + escapeHtml(item.upstreamTaskId || "尚未取得") + '</div></div><div><span class="detail-label">最近查单</span><div>' + escapeHtml(item.lastCheckAt ? formatDate(item.lastCheckAt) + ' · ' + ({paid:'已确认付款',unpaid:'明确未付',processing:'处理中',needs_review:'结果待核查',verification_required:'需要持卡人验证',unknown:'未知结果',api_rejected:'API 凭据被拒绝',upstream_error:'上游接口错误',invalid_response:'响应格式异常',order_mismatch:'订单信息不匹配',network_error:'连接失败或超时'})[item.lastCheckResult] + (item.lastCheckHttpStatus ? ' · HTTP ' + item.lastCheckHttpStatus : '') + (item.lastCheckCode !== null && item.lastCheckCode !== undefined ? ' · code ' + item.lastCheckCode : '') : '尚无查单记录') + '</div></div>' : '') + '</div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再填写核查依据人工结案。</p>' : '') + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
+          + '<td class="action-cell"><div class="row-actions">' + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制原始 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情') + '</button></div></td></tr>'
+          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div>' + renderSessionSubmission(item) + (item.provider === 'zzshu' ? '<div><span class="detail-label">ZZS 上游订单号</span><div class="mono">' + escapeHtml(item.upstreamTaskId || "尚未取得") + '</div></div><div><span class="detail-label">最近查单</span><div>' + escapeHtml(item.lastCheckAt ? formatDate(item.lastCheckAt) + ' · ' + ({paid:'已确认付款',unpaid:'明确未付',processing:'处理中',needs_review:'结果待核查',verification_required:'需要持卡人验证',unknown:'未知结果',api_rejected:'API 凭据被拒绝',upstream_error:'上游接口错误',invalid_response:'响应格式异常',order_mismatch:'订单信息不匹配',network_error:'连接失败或超时'})[item.lastCheckResult] + (item.lastCheckHttpStatus ? ' · HTTP ' + item.lastCheckHttpStatus : '') + (item.lastCheckCode !== null && item.lastCheckCode !== undefined ? ' · code ' + item.lastCheckCode : '') : '尚无查单记录') + '</div></div>' : '') + '</div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再填写核查依据人工结案。</p>' : '') + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
       }).join("");
     }
     async function lookupCardBinding() {
@@ -1268,10 +1274,12 @@ function serveRecoveryAdmin(res) {
       if (action === "mark-subscription-handled" && !window.confirm("确认已经联系用户并完成自动续费处理？")) return;
       button.disabled = true;
       try {
-        if (action === "copy-json") {
+        if (action === "copy-json" || action === "copy-submitted-json") {
           const detail = await api("/api/admin/recoveries/" + encodeURIComponent(orderId) + "?reveal=1");
-          await navigator.clipboard.writeText(detail.secretJsonText || "");
-          setStatus("JSON 已复制到剪贴板，请注意不要转发给无关人员。");
+          const text = action === "copy-submitted-json" ? detail.submittedJsonText : detail.secretJsonText;
+          if (!text) throw new Error("该版本 JSON 未留存或无法解密，无法复制。");
+          await navigator.clipboard.writeText(text);
+          setStatus((action === "copy-submitted-json" ? "发送 JSON" : "原始 JSON") + " 已复制到剪贴板，请注意不要转发给无关人员。");
         } else if (action === "refresh-zzshu") {
           const latest = await api("/api/admin/zzshu/orders/" + encodeURIComponent(orderId) + "/refresh", { method: "POST", body: JSON.stringify({}) });
           setStatus(latest.status === record.status ? "已查询上游，状态仍为" + statusLabel(latest.status) + "。" : "已查询上游，订单状态已更新。");

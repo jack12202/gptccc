@@ -68,6 +68,9 @@ export class ZzshuStore {
     if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === "auto_query"))
       this.db.exec("ALTER TABLE orders ADD COLUMN auto_query INTEGER NOT NULL DEFAULT 1");
     for (const [name, definition] of Object.entries({
+      submitted_session_cipher: "TEXT",
+      session_plan_converted: "INTEGER NOT NULL DEFAULT 0",
+      session_submission_at: "TEXT NOT NULL DEFAULT ''",
       last_check_at: "TEXT NOT NULL DEFAULT ''",
       last_check_result: "TEXT NOT NULL DEFAULT ''",
       last_check_http_status: "INTEGER",
@@ -360,6 +363,19 @@ export class ZzshuStore {
   }
   order(id) { return this.db.prepare(`SELECT o.*,c.last_four AS lastFour,v.batch_id AS batchId,v.source AS voucherSource,c.source AS paymentSource
     FROM orders o JOIN payment_cards c ON c.id=o.card_id JOIN vouchers v ON v.id=o.voucher_id WHERE o.id=?`).get(id); }
+  prepareSessionSubmission(id, cipher, converted) {
+    if (!cipher) throw new Error("发送 JSON 加密保存失败");
+    const now = new Date().toISOString();
+    return this.db.prepare(`UPDATE orders SET submitted_session_cipher=?,session_plan_converted=?,session_submission_at=?,
+      status='submitting',updated_at=? WHERE id=? AND status='reserved' AND submitted_session_cipher IS NULL`)
+      .run(cipher, converted ? 1 : 0, now, now, id).changes === 1;
+  }
+  submissionRecord(id, reveal = false) {
+    const row = this.db.prepare("SELECT session_plan_converted,session_submission_at,submitted_session_cipher FROM orders WHERE id=?").get(id);
+    return { hasSubmittedJson: Boolean(row?.submitted_session_cipher), sessionPlanConverted: Boolean(row?.session_plan_converted),
+      sessionSubmissionAt: row?.session_submission_at || "",
+      ...(reveal ? { submittedCipher: row?.submitted_session_cipher || "" } : {}) };
+  }
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
   listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
     o.review_reason AS reviewReason,o.cancellation,o.auto_query AS autoQuery,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,

@@ -18,6 +18,17 @@ import {
 } from "./utils.js";
 
 const store = new JsonStore();
+function submissionJsonRecord(orderId, reveal = false) {
+  const { submittedCipher, ...metadata } = zzshuService.store.submissionRecord(orderId, reveal);
+  if (!reveal) return metadata;
+  let submittedJsonText = "";
+  if (submittedCipher) {
+    try { submittedJsonText = decryptSecretText(submittedCipher, config.recoveryEncryptionKey, "zzshu-submitted-session-json"); }
+    catch { /* Do not expose encrypted data or substitute the original session. */ }
+  }
+  return { ...metadata, submittedJsonText };
+}
+
 
 const H_CARD_CODE_PATTERN = /^(?:HPLUS|HPRO5|HPRO20)[0-9A-F]{32}$/;
 const H_CARD_STATUS_LABELS = {
@@ -742,6 +753,7 @@ export const rechargeService = {
     });
     const primaryRecords = store.listRechargeOrders().map(item => ({
       ...item,
+      ...(item.provider === "zzshu" ? submissionJsonRecord(item.upstreamTaskId || "") : {}),
       submissionIntake: item.provider === "zzshu" && Boolean(item.submissionCodeHash),
       ...customerCardFields(cardsById.get(item.hCardId))
     }));
@@ -753,6 +765,7 @@ export const rechargeService = {
         ...customerCardFields(linkedCard),
         salesChannel: linkedCard?.source || item.voucherSource || "",
         ...(legacyCode ? { customerCardCode: legacyCode, customerCardMask: maskCard(legacyCode) } : {}),
+        ...submissionJsonRecord(item.id),
         id: item.id, provider: "zzshu", cardMask: item.lastFour ? `****${item.lastFour}` : "", productId: config.hifupayProductId,
         paymentCardLastFour: item.lastFour || "",
         plan: "plus", fulfillmentMode: "auto", processingNote: item.reviewReason || "", useResolution: item.useResolution || "", paymentConfirmed: item.status === "success",
@@ -895,6 +908,7 @@ export const rechargeService = {
         try { secretJsonText = decryptSecretText(cipher, config.recoveryEncryptionKey, "zzshu-session-json"); } catch { secretJsonText = ""; }
       }
       return { ok: true, status: 200, data: {
+        ...submissionJsonRecord(zzshuOrder.id, reveal),
         orderId: zzshuOrder.id, provider: "zzshu", cardMask: zzshuOrder.lastFour ? `****${zzshuOrder.lastFour}` : "",
         status: zzshuOrder.status, userEmail: zzshuOrder.email || "", accountId: zzshuOrder.account_id || "", message: zzshuOrder.review_reason || "",
         createdAt: zzshuOrder.created_at, updatedAt: zzshuOrder.updated_at, hasSecret: Boolean(cipher),
@@ -910,6 +924,7 @@ export const rechargeService = {
       ok: true,
       status: 200,
       data: {
+        ...(order.provider === "zzshu" ? submissionJsonRecord(order.upstreamTaskId || "", reveal) : {}),
         orderId: order.id,
         provider: order.provider,
         cardMask: order.cardMask,

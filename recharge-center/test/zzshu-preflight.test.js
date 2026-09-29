@@ -31,4 +31,31 @@ test("ZZS gateway outage rejects a new submission before reserving payment or vo
   assert.equal(zzshuService.store.voucher(voucher.code).status, "unused");
   assert.equal(zzshuService.store.listCards()[0].occupiedOrderId, null);
   assert.equal(zzshuService.store.listCards()[0].successCount, 0);
+  // A local snapshot failure must stop before the upstream create call and release the reservation.
+  zzshuCredentialStore.verifySaved = async () => ({ ok: true, points: 9 });
+  const { zzshuAdapter } = await import("../src/providers/zzshu-adapter.js");
+  const originalCreate = zzshuAdapter.create;
+  const originalPrepare = zzshuService.store.prepareSessionSubmission;
+  let createCalls = 0;
+  zzshuAdapter.create = async () => { createCalls++; throw new Error("must not submit"); };
+  zzshuService.store.prepareSessionSubmission = () => { throw new Error("fixture disk failure"); };
+  t.after(() => {
+    zzshuAdapter.create = originalCreate;
+    zzshuService.store.prepareSessionSubmission = originalPrepare;
+  });
+  const plus = {...JSON.parse(session), account:{id:"account-1",planType:"plus"}};
+  const failure = await zzshuService.confirm({cardInfo:voucher.code,secretJsonText:JSON.stringify({fullAuthData:plus})});
+  assert.equal(failure.status,503);
+  assert.match(failure.message,/本次未提交/);
+  assert.equal(createCalls,0);
+  assert.equal(zzshuService.store.voucher(voucher.code).status,"unused");
+  assert.equal(zzshuService.store.listCards()[0].occupiedOrderId,null);
+  assert.equal(zzshuService.store.listOrders().length,0);
+  assert.equal(zzshuService.store.submissionRecord("historical-missing").hasSubmittedJson,false);
+  const unsupported = await zzshuService.confirm({cardInfo:voucher.code,secretJsonText:JSON.stringify({
+    ...plus, account:{...plus.account,planType:"pro"}
+  })});
+  assert.equal(unsupported.ok,false);
+  assert.equal(createCalls,0);
+
 });
