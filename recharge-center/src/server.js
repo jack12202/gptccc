@@ -11,6 +11,7 @@ const adminAuth = createAdminAuth({ password: config.adminToken, file: path.join
 import { rechargeService } from "./recharge-service.js";
 import { proService } from "./pro-orders.js";
 import { zzshuService } from "./zzshu-service.js";
+import { recoveryReasons, recoveryEvidence } from "./zzshu-recovery.js";
 import { zzshuAdapter } from "./providers/zzshu-adapter.js";
 import { zzshuCredentialStore } from "./zzshu-credential-store.js";
 import { normalizeZzshuProxy, zzshuProxyStore } from "./zzshu-proxy.js";
@@ -1038,6 +1039,12 @@ function serveRecoveryAdmin(res) {
       <div class="actions"><button class="secondary" id="previousRecords" type="button">上一页</button><span id="recordPage" class="hint">第 1 页</span><button class="secondary" id="nextRecords" type="button">下一页</button></div>
     </section>
   </main>
+  <dialog id="recoveryDialog" style="width:min(600px,94vw);border:1px solid #dbe4ee;border-radius:16px;padding:24px">
+    <form id="recoveryForm"><h2 id="recoveryDialogTitle"></h2><p id="recoveryDialogAccount" style="overflow-wrap:anywhere"></p><p id="recoveryDialogEffect"></p>
+    <label>核查依据<select id="recoveryReason" required style="width:100%;margin:8px 0 16px"></select></label>
+    <label>补充备注（选填）<textarea id="recoveryNote" maxlength="500" rows="3" style="width:100%"></textarea></label>
+    <div class="actions"><button type="submit">确认操作</button><button class="secondary" id="recoveryCancel" type="button">取消</button></div></form>
+  </dialog>
   <script>
     const statusBox = document.getElementById("statusBox");
 
@@ -1045,6 +1052,26 @@ function serveRecoveryAdmin(res) {
     let firstLoad = true;
     let audioContext = null;
     let allRecords = [];
+    const responseHistories = new Map();
+    const recoveryReasonOptions = ${JSON.stringify(recoveryReasons)};
+    async function chooseRecoveryEvidence(record, outcome) {
+      const dialog = document.getElementById('recoveryDialog');
+      const labels = {unlock:'解锁卡密',freeze:'冻结待查',success:'确认充值成功',release:'释放冻结次数',consume:'记为已消耗',cancellation:'确认续费已关闭'};
+      document.getElementById('recoveryDialogTitle').textContent = labels[outcome];
+      document.getElementById('recoveryDialogAccount').textContent = '账号：' + (record.userEmail || '-') + ' · 订单：' + record.id + ' · 卡密尾号：' + cardValue(record).slice(-6);
+      document.getElementById('recoveryDialogEffect').textContent = outcome === 'unlock' ? '仅在已核实未开通、未扣款时解锁；原订单保留，原卡密可为原账号重新提交。' : outcome === 'freeze' ? '暂停原卡密使用，保留相关支付占用。后续仍可解锁或确认成功。' : outcome === 'success' ? '确认账号已开通后更新订单和卡密；不会再次发起充值。' : '核查完成后记录处理结果。';
+      const select = document.getElementById('recoveryReason');
+      select.innerHTML = '<option value="">请选择核查依据</option>' + Object.entries(recoveryReasonOptions[outcome] || {}).map(([code,label]) => '<option value="' + escapeHtml(code) + '">' + escapeHtml(label) + '</option>').join('');
+      document.getElementById('recoveryNote').value = '';
+      dialog.showModal();
+      return new Promise(resolve => {
+        const form = document.getElementById('recoveryForm');
+        const finish = value => { form.removeEventListener('submit', submit); dialog.removeEventListener('cancel', cancel); document.getElementById('recoveryCancel').removeEventListener('click', cancel); dialog.close(); resolve(value); };
+        const submit = event => { event.preventDefault(); if (!form.reportValidity()) return; finish({reasonCode:select.value,note:document.getElementById('recoveryNote').value}); };
+        const cancel = event => { event.preventDefault(); finish(null); };
+        form.addEventListener('submit', submit); dialog.addEventListener('cancel', cancel); document.getElementById('recoveryCancel').addEventListener('click', cancel);
+      });
+    }
     let selectedCardId = new URLSearchParams(window.location.search).get("cardId") || "";
     let currentPage = 1;
     const recordsPerPage = 50;
@@ -1089,14 +1116,40 @@ function serveRecoveryAdmin(res) {
         + '</div>' + (item.hasSubmittedJson ? '<button class="secondary" data-action="copy-submitted-json" data-order-id="' + escapeHtml(item.id) + '">复制发送 JSON</button><div class="muted">提交准备时间：' + escapeHtml(formatDate(item.sessionSubmissionAt)) + '；是否受理以上游订单状态为准。</div>' : '') + '</div>';
     }
     function renderRecoveryActions(item) {
+      const id = escapeHtml(item.id);
+      const pending = ['processing','needs_review'].includes(item.status);
       return ''
         + (item.provider === 'zzshu' ? '<a class="back-link" href="/admin#zzshu-query">查询 ZZS 开通记录</a>' : '')
-        + (canConfirmProManual(item) ? '<button type="button" data-action="mark-pro-success" data-order-id="' + escapeHtml(item.id) + '">确认充值成功</button>' : item.provider === "zzshu" && item.autoQuery && item.hasUpstreamQueryKey && ["processing", "needs_review"].includes(item.status) ? '<button type="button" data-action="refresh-zzshu" data-order-id="' + escapeHtml(item.id) + '">安全补查</button>' : !isPro(item) && item.provider !== "zzshu" && ["failed", "needs_review"].includes(item.status) ? '<button type="button" data-action="mark-success" data-order-id="' + escapeHtml(item.id) + '">同步成功</button>' : '')
-        + (item.provider === 'zzshu' && (item.status === 'needs_review' || item.status === 'processing' && item.hasUpstreamQueryKey) ? '<button class="secondary" type="button" data-action="resolve-zzshu-success" data-order-id="' + escapeHtml(item.id) + '">核实成功</button><button class="secondary" type="button" data-action="resolve-zzshu-unpaid" data-order-id="' + escapeHtml(item.id) + '">核实未支付</button>' : '')
-        + (item.provider === 'zzshu' && item.status === 'failed' && item.useResolution === 'frozen' ? '<button class="secondary" type="button" data-action="release-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">释放冻结次数</button><button class="secondary" type="button" data-action="consume-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">记为已消耗</button>' : '')
-        + (item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<button class="secondary" type="button" data-action="confirm-zzshu-cancellation" data-order-id="' + escapeHtml(item.id) + '">核实续费已关闭</button>' : '')
-        + (item.needsAttention && item.provider !== 'zzshu' ? '<button type="button" data-action="mark-subscription-handled" data-order-id="' + escapeHtml(item.id) + '">标记已处理</button>' : '')
-;
+        + (item.provider === 'zzshu' && item.autoQuery && item.hasUpstreamQueryKey && pending ? '<button data-action="refresh-zzshu" data-order-id="' + id + '">安全补查</button>' : '')
+        + (item.provider === 'zzshu' && (pending || item.status === 'failed') ? '<button data-action="disposition-unlock" data-order-id="' + id + '">解锁卡密</button>' + (pending ? '<button class="secondary" data-action="disposition-freeze" data-order-id="' + id + '">' + (item.adminFrozen ? '继续冻结待查' : '冻结待查') + '</button>' : '') + '<button data-action="disposition-success" data-order-id="' + id + '">确认充值成功</button>' : '')
+        + (item.provider === 'zzshu' && !item.hasUpstreamQueryKey && pending ? '<span class="hint">没有上游查询标识，请人工核查；不要重新下单。</span>' : '')
+        + (item.provider === 'zzshu' && item.status === 'failed' && item.useResolution === 'frozen' ? '<button class="secondary" data-action="release-zzshu-use" data-order-id="' + id + '">释放冻结次数</button><button class="secondary" data-action="consume-zzshu-use" data-order-id="' + id + '">记为已消耗</button>' : '')
+        + (item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<button class="secondary" data-action="confirm-zzshu-cancellation" data-order-id="' + id + '">核实续费已关闭</button>' : '')
+        + (canConfirmProManual(item) ? '<button data-action="mark-pro-success" data-order-id="' + id + '">确认充值成功</button>' : !isPro(item) && item.provider !== 'zzshu' && ['failed','needs_review'].includes(item.status) ? '<button data-action="mark-success" data-order-id="' + id + '">同步成功</button>' : '')
+        + (item.needsAttention && item.provider !== 'zzshu' ? '<button data-action="mark-subscription-handled" data-order-id="' + id + '">标记已处理</button>' : '');
+    }
+    function renderResponseHistory(item) {
+      if (item.provider !== 'zzshu') return '';
+      const history = responseHistories.get(item.id);
+      const entries = history?.entries || [];
+      return '<div class="panel"><strong>ZZS 返回历史</strong><p class="hint">保存每次创建和查单的返回原因；敏感资料已过滤。历史保存启用前的原始返回无法补回。</p>'
+        + (!history ? '<p>正在读取返回历史…</p>' : !entries.length ? '<p>暂无已保存的返回记录。</p>' :
+          '<p>已显示 ' + entries.length + ' / ' + history.total + ' 条</p>' + entries.map(entry =>
+            '<details><summary>' + escapeHtml(formatDate(entry.at)) + ' · ' + (entry.stage === 'create' ? '创建订单' : '查询订单')
+            + ' · ' + escapeHtml(({accepted:'接口已接受',rejected:'接口拒绝',network_error:'连接失败或超时',invalid_response:'响应格式异常'})[entry.result] || entry.result)
+            + (entry.httpStatus ? ' · HTTP ' + entry.httpStatus : '') + (entry.code !== null ? ' · code ' + escapeHtml(entry.code) : '')
+            + '</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">' + escapeHtml(JSON.stringify(entry.reasons, null, 2)) + '</pre></details>').join(''))
+        + '<button class="secondary" data-action="response-history-refresh" data-order-id="' + escapeHtml(item.id) + '">刷新返回历史</button>'
+        + (history?.nextBefore ? '<button class="secondary" data-action="response-history-older" data-order-id="' + escapeHtml(item.id) + '">加载更早记录</button>' : '') + '</div>';
+    }
+    async function loadResponseHistory(orderId, older = false) {
+      const previous = responseHistories.get(orderId);
+      const before = older ? previous?.nextBefore : null;
+      if (older && !before) return;
+      const history = await api('/api/admin/recoveries/' + encodeURIComponent(orderId) + '/responses' + (before ? '?before=' + before : ''));
+      if (older) history.entries = [...(previous?.entries || []), ...history.entries];
+      responseHistories.set(orderId, history);
+      applyRecordFilters();
     }
     function renderRows(items) {
       if (!items.length) return '<tr><td class="empty" colspan="6">暂无匹配记录</td></tr>';
@@ -1104,7 +1157,7 @@ function serveRecoveryAdmin(res) {
         const id = escapeHtml(item.id);
         const expanded = expandedRecoveryIds.has(item.id);
         const badge = item.status === "success" ? "success" : needsFollowup(item) ? "warning" : "progress";
-        const note = item.useResolution === "frozen" ? "本次支付次数已冻结" : item.hifupaySafetyStatus === "confirming_unpaid" ? "安全复核中" : item.subscriptionCancellationStatus === "cancelled" ? "续费已关闭" : item.provider === "zzshu" && item.status === "success" ? "续费状态待同步" : item.provider === "zzshu" && item.status === "needs_review" ? "支付结果待核查" : item.needsAttention ? "需取消续费" : "";
+        const note = item.adminFrozen ? "已冻结待查" : item.retryAllowed ? "原卡密可重新提交" : item.useResolution === "frozen" ? "本次支付次数已冻结" : item.hifupaySafetyStatus === "confirming_unpaid" ? "安全复核中" : item.subscriptionCancellationStatus === "cancelled" ? "续费已关闭" : item.provider === "zzshu" && item.status === "success" ? "续费状态待同步" : item.provider === "zzshu" && item.status === "needs_review" ? "支付结果待核查" : item.needsAttention ? "需取消续费" : "";
         const message = item.provider === "zzshu" && item.status === "needs_review" ? item.processingNote || item.message : item.needsAttention ? item.subscriptionActionMessage || item.message : item.message;
         const date = formatDate(item.createdAt);
         return '<tr class="record-row">'
@@ -1114,7 +1167,7 @@ function serveRecoveryAdmin(res) {
           + '<td><span class="state-badge ' + badge + '">' + escapeHtml(statusLabel(item.status)) + '</span><div class="muted status-note">' + escapeHtml(note) + '</div></td>'
           + '<td><time>' + escapeHtml(date).split(' ').map((part, index) => index ? '<span class="muted">' + part + '</span>' : part).join('<br>') + '</time></td>'
           + '<td class="action-cell"><div class="row-actions">' + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制原始 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情') + '</button></div></td></tr>'
-          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div>' + renderSessionSubmission(item) + (item.provider === 'zzshu' ? '<div><span class="detail-label">ZZS 上游订单号</span><div class="mono">' + escapeHtml(item.upstreamTaskId || "尚未取得") + '</div></div><div><span class="detail-label">最近查单</span><div>' + escapeHtml(item.lastCheckAt ? formatDate(item.lastCheckAt) + ' · ' + ({paid:'已确认付款',unpaid:'明确未付',processing:'处理中',needs_review:'结果待核查',verification_required:'需要持卡人验证',unknown:'未知结果',api_rejected:'API 凭据被拒绝',upstream_error:'上游接口错误',invalid_response:'响应格式异常',order_mismatch:'订单信息不匹配',network_error:'连接失败或超时'})[item.lastCheckResult] + (item.lastCheckHttpStatus ? ' · HTTP ' + item.lastCheckHttpStatus : '') + (item.lastCheckCode !== null && item.lastCheckCode !== undefined ? ' · code ' + item.lastCheckCode : '') : '尚无查单记录') + '</div></div>' : '') + '</div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再填写核查依据人工结案。</p>' : '') + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
+          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div>' + renderSessionSubmission(item) + (item.provider === 'zzshu' ? '<div><span class="detail-label">ZZS 上游订单号</span><div class="mono">' + escapeHtml(item.upstreamTaskId || "尚未取得") + '</div></div><div><span class="detail-label">最近查单</span><div>' + escapeHtml(item.lastCheckAt ? formatDate(item.lastCheckAt) + ' · ' + ({paid:'已确认付款',unpaid:'明确未付',processing:'处理中',needs_review:'结果待核查',verification_required:'需要持卡人验证',unknown:'未知结果',api_rejected:'API 凭据被拒绝',upstream_error:'上游接口错误',invalid_response:'响应格式异常',order_mismatch:'订单信息不匹配',network_error:'连接失败或超时'})[item.lastCheckResult] + (item.lastCheckHttpStatus ? ' · HTTP ' + item.lastCheckHttpStatus : '') + (item.lastCheckCode !== null && item.lastCheckCode !== undefined ? ' · code ' + item.lastCheckCode : '') : '尚无查单记录') + '</div></div>' : '') + '</div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再选择核查依据确认成功。</p>' : '') + renderResponseHistory(item) + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
       }).join("");
     }
     async function lookupCardBinding() {
@@ -1257,8 +1310,22 @@ function serveRecoveryAdmin(res) {
       if (!record) { setStatus("订单记录已更新，请刷新后重试。", true); return; }
       if (action === "toggle-details") {
         if (expandedRecoveryIds.has(orderId)) expandedRecoveryIds.delete(orderId);
-        else expandedRecoveryIds.add(orderId);
+        else {
+          expandedRecoveryIds.add(orderId);
+          applyRecordFilters();
+          if (record.provider === 'zzshu') {
+            try { await loadResponseHistory(orderId); }
+            catch (error) { setStatus("返回历史读取失败：" + error.message, true); }
+          }
+        }
         applyRecordFilters(); return;
+      }
+      if (["response-history-refresh", "response-history-older"].includes(action)) {
+        button.disabled = true;
+        try { await loadResponseHistory(orderId, action === "response-history-older"); }
+        catch (error) { setStatus("返回历史读取失败：" + error.message, true); }
+        finally { button.disabled = false; }
+        return;
       }
       if (action === "copy-uuid" || action === "copy-card") {
         try {
@@ -1281,35 +1348,16 @@ function serveRecoveryAdmin(res) {
           await navigator.clipboard.writeText(text);
           setStatus((action === "copy-submitted-json" ? "发送 JSON" : "原始 JSON") + " 已复制到剪贴板，请注意不要转发给无关人员。");
         } else if (action === "refresh-zzshu") {
-          const latest = await api("/api/admin/zzshu/orders/" + encodeURIComponent(orderId) + "/refresh", { method: "POST", body: JSON.stringify({}) });
+          const latest = await api("/api/admin/recoveries/" + encodeURIComponent(orderId) + "/check", { method: "POST", body: JSON.stringify({}) });
           setStatus(latest.status === record.status ? "已查询上游，状态仍为" + statusLabel(latest.status) + "。" : "已查询上游，订单状态已更新。");
           await loadRecoveries();
-        } else if (action.startsWith("resolve-zzshu-")) {
-          const outcome = action === "resolve-zzshu-success" ? "success" : "unpaid";
-          const reason = window.prompt("请填写至少 8 个字的核查依据（例如上游订单查询结果）。结果不明时请取消，保持订单占用。", "");
-          if (reason === null) return;
-          if (reason.trim().length < 8) { setStatus("核查依据至少需要 8 个字，订单状态未改变。", true); return; }
-          if (!window.confirm("确认该订单" + (outcome === "success" ? "充值成功并核销卡密" : "明确未支付并恢复卡密权益") + "？订单：" + orderId)) return;
-          await api((record.submissionIntake ? "/api/admin/recoveries/" : "/api/admin/zzshu/orders/")
-            + encodeURIComponent(orderId) + "/resolve", { method: "POST", body: JSON.stringify({ outcome, reason: reason.trim() }) });
-          setStatus("人工核查结果已记录，订单状态已更新。");
-          await loadRecoveries();
-        } else if (action === "release-zzshu-use" || action === "consume-zzshu-use") {
-          const outcome = action === "release-zzshu-use" ? "release" : "consume";
-          const reason = window.prompt("请填写至少 8 个字的支付卡次数核查依据。", "");
-          if (reason === null) return;
-          if (reason.trim().length < 8) { setStatus("核查依据至少需要 8 个字，冻结次数未改变。", true); return; }
-          if (!window.confirm("确认将这笔订单冻结的支付次数" + (outcome === "release" ? "释放" : "记为已消耗") + "？")) return;
-          await api("/api/admin/zzshu/orders/" + encodeURIComponent(orderId) + "/frozen-use", { method: "POST", body: JSON.stringify({ outcome, reason: reason.trim() }) });
-          setStatus("支付卡次数处理已记录。");
-          await loadRecoveries();
-        } else if (action === "confirm-zzshu-cancellation") {
-          const reason = window.prompt("确认上游显示续费已关闭后，填写至少 8 个字的核查依据。", "");
-          if (reason === null) return;
-          if (reason.trim().length < 8) { setStatus("核查依据至少需要 8 个字，订单状态未改变。", true); return; }
-          if (!window.confirm("确认这笔订单的自动续费已关闭？订单：" + orderId)) return;
-          await api("/api/admin/zzshu/orders/" + encodeURIComponent(orderId) + "/confirm-cancellation", { method: "POST", body: JSON.stringify({ reason: reason.trim() }) });
-          setStatus("已记录续费关闭核查结果。");
+          if (responseHistories.has(orderId)) await loadResponseHistory(orderId);
+        } else if (action.startsWith('disposition-') || ['release-zzshu-use','consume-zzshu-use','confirm-zzshu-cancellation'].includes(action)) {
+          const outcome = action.startsWith('disposition-') ? action.slice('disposition-'.length) : action === 'release-zzshu-use' ? 'release' : action === 'consume-zzshu-use' ? 'consume' : 'cancellation';
+          const evidence = await chooseRecoveryEvidence(record,outcome);
+          if (!evidence) return;
+          await api('/api/admin/recoveries/' + encodeURIComponent(orderId) + '/disposition', {method:'POST',body:JSON.stringify({outcome,...evidence})});
+          setStatus(({unlock:'卡密已解锁，原账号可以重新提交。',freeze:'卡密已冻结待查。',success:'已确认充值成功。',release:'已释放冻结次数。',consume:'已记录消耗次数。',cancellation:'已确认续费关闭。'})[outcome]);
           await loadRecoveries();
         } else {
           const endpoint = action === "mark-pro-success"
@@ -1858,6 +1906,20 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
+    const responseHistoryPath = url.pathname.match(/^\/api\/admin\/recoveries\/([^/]+)\/responses$/);
+    if (req.method === "GET" && responseHistoryPath) {
+      const auth = assertAdmin(req, url);
+      if (!auth.ok) { sendJson(res, auth.status, { success: false, message: auth.message }); return; }
+      const beforeText = url.searchParams.get("before");
+      const before = beforeText === null ? null : Number(beforeText);
+      if (beforeText !== null && (!Number.isSafeInteger(before) || before < 1)) {
+        sendJson(res, 400, { success: false, message: "历史记录游标无效。" }); return;
+      }
+      const result = rechargeService.getRecoveryResponseHistory(decodeURIComponent(responseHistoryPath[1]), before);
+      sendJson(res, result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message });
+      return;
+    }
+
     const recoveryDetail = url.pathname.match(/^\/api\/admin\/recoveries\/([^/]+)$/);
     if (req.method === "GET" && recoveryDetail) {
       const auth = assertAdmin(req, url);
@@ -1888,6 +1950,22 @@ export const server = http.createServer(async (req, res) => {
         : rechargeService.markHSubscriptionHandled(orderId, "admin");
       sendJson(res, result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message, data: result.data });
       return;
+    }
+
+    const dispositionPath = url.pathname.match(/^\/api\/admin\/recoveries\/([^/]+)\/(disposition|check)$/);
+    if (req.method === 'POST' && dispositionPath) {
+      const body = await readJsonBody(req);
+      const auth = assertAdmin(req);
+      if (!auth.ok) { sendJson(res,auth.status,{success:false,message:auth.message}); return; }
+      const id = decodeURIComponent(dispositionPath[1]);
+      if (dispositionPath[2] === 'check') {
+        const result = await rechargeService.checkZzshuRecovery(id);
+        sendJson(res,result.status,result.ok ? {success:true,data:result.data} : {success:false,message:result.message}); return;
+      }
+      const evidence = recoveryEvidence(body.outcome,body,'admin:' + auth.session.id.slice(0,12));
+      if (!evidence) { sendJson(res,400,{success:false,message:'请选择与操作匹配的核查依据。'}); return; }
+      const result = rechargeService.applyZzshuDisposition(id,body.outcome,evidence);
+      sendJson(res,result.status,result.ok ? {success:true,data:result.data} : {success:false,message:result.message}); return;
     }
 
     const intakeResolution = url.pathname.match(/^\/api\/admin\/recoveries\/([^/]+)\/resolve$/);

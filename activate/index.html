@@ -1317,6 +1317,34 @@ window._hmt = _hmt;
       return "";
     }
 
+    let retryInstruction = null;
+    function renderRetryBox(task) {
+      retryInstruction = task;
+      clearTimeout(pollTimer);
+      clearTimeout(cardStatusTimer);
+      setSubmissionPending(false);
+      document.getElementById('progressBox').style.display = 'none';
+      const box = document.getElementById('resultBox');
+      box.className = 'result-card review';
+      box.style.display = 'block';
+      box.innerHTML = '<div class="result-heading"><h3 class="result-title">' + (task.actionRequired === 'update_session' ? '请更新账号授权资料' : '原卡密可以重新提交') + '</h3><p>' + escapeHtml(task.message || '原卡密权益已恢复，可以为原账号重新提交。') + '</p></div><div class="result-actions"><button type="button" class="green" onclick="beginSessionRetry()">' + (task.actionRequired === 'update_session' ? '使用原卡密，更新 JSON' : '使用原卡密重新提交') + '</button></div>';
+      setNotice('step3Notice','原卡密权益已保留',task.message || '请为原账号重新提交。','info');
+    }
+    function beginSessionRetry() {
+      if (!retryInstruction?.canRetry) return;
+      clearTimeout(pollTimer); clearTimeout(cardStatusTimer);
+      currentTaskId = ''; currentOrderId = ''; setSubmissionPending(false);
+      currentParsedSecret = null;
+      document.getElementById('secretJson').value = '';
+      document.getElementById('overwriteRecharge').checked = false;
+      document.getElementById('confirmRechargeBtn').textContent = '确认充值';
+      document.getElementById('resultBox').style.display = 'none';
+      setNotice('step2Notice','请获取新的账号资料',retryInstruction.message || '使用原卡密，为原账号获取新的 Session JSON 后提交。','info');
+      retryInstruction = null;
+      updateConfirmButtonState();
+      goStep(2);
+    }
+
     function renderResultBox(type, message, task = {}) {
       const resultBox = document.getElementById("resultBox");
       const accountEmail = document.getElementById("confirmEmail")?.textContent?.trim() || "-";
@@ -1472,7 +1500,10 @@ window._hmt = _hmt;
             }
           }
           const account = result.boundAccount ? ` 绑定账号：${result.boundAccount}。` : "";
-          const waitingForHelp = result.status === "failed" || (result.status === "unused" && result.hasPriorSubmission);
+          if (result.canRetry) {
+            setSubmissionPending(false); currentOrderId = ''; currentTaskId = '';
+          }
+          const waitingForHelp = !result.canRetry && (result.status === "failed" || (result.status === "unused" && result.hasPriorSubmission));
           const nextStep = result.canRecharge && !waitingForHelp ? " 你可以点击“验证激活码”继续充值。" : "";
           const subscriptionStep = result.subscriptionActionRequired
             ? " 请登录 ChatGPT，依次进入“头像 → 设置 → 账户 → 订阅管理”，手动取消连续包月计划；取消后本月 Plus 仍然有效，到期后不再自动续费。"
@@ -1697,6 +1728,7 @@ window._hmt = _hmt;
         const task = data.data || {};
         setSubmissionPending(false);
         currentOrderId = task.orderId || "";
+        if (data.success && task.canRetry) { renderRetryBox(task); return; }
         if (!data.success || task.success === false || (!task.taskId && !task.plan?.startsWith("pro_"))) {
           const message = currentOrderId ? "提交记录已保留，正在等待人工核查和处理。如等候时间较长，请联系人工客服。" : mapRechargeMessage(task.message || data.message, "failed");
           setNotice("step3Notice", currentOrderId ? "已提交，等待处理" : "暂未完成提交", message, currentOrderId ? "info" : "error");
@@ -1763,6 +1795,7 @@ window._hmt = _hmt;
           schedulePoll(4000);
           return;
         }
+        if (task.canRetry) { renderRetryBox(task); return; }
         if (
           task.status === "queued" ||
           task.status === "processing" ||

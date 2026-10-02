@@ -24,6 +24,9 @@ export class ZzshuStore {
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
       CREATE UNIQUE INDEX IF NOT EXISTS zzshu_card_active ON orders(card_id) WHERE status IN ('reserved','submitting','processing','needs_review');
       CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, at TEXT NOT NULL, order_id TEXT NOT NULL, action TEXT NOT NULL, reason TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS response_history (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL,
+        order_id TEXT NOT NULL, stage TEXT NOT NULL, http_status INTEGER, code INTEGER, result TEXT NOT NULL, reasons TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS zzshu_response_order ON response_history(order_id,id);
       CREATE TABLE IF NOT EXISTS runtime_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS card_roles (hifupay_id TEXT PRIMARY KEY, role TEXT NOT NULL CHECK(role IN ('h','zzshu')),
         h_order_id TEXT, updated_at TEXT NOT NULL);
@@ -71,6 +74,9 @@ export class ZzshuStore {
       submitted_session_cipher: "TEXT",
       session_plan_converted: "INTEGER NOT NULL DEFAULT 0",
       session_submission_at: "TEXT NOT NULL DEFAULT ''",
+      failure_kind: "TEXT NOT NULL DEFAULT ''",
+      retry_allowed: "INTEGER NOT NULL DEFAULT 0",
+      admin_frozen: "INTEGER NOT NULL DEFAULT 0",
       last_check_at: "TEXT NOT NULL DEFAULT ''",
       last_check_result: "TEXT NOT NULL DEFAULT ''",
       last_check_http_status: "INTEGER",
@@ -118,7 +124,7 @@ export class ZzshuStore {
       const id=String(hifupayId), card=this.db.prepare("SELECT * FROM payment_cards WHERE credential_ref=? AND retired_at IS NULL").get(`hifupay:${id}`);
       if (!card || !card.enabled || card.paused) return false;
       if (!this.hasHClaim(id,orderId)) {
-        const activeZ=this.db.prepare("SELECT COUNT(*) AS n FROM orders WHERE card_id=? AND status IN ('reserved','submitting','processing')").get(card.id).n;
+        const activeZ=this.db.prepare("SELECT COUNT(*) AS n FROM orders WHERE card_id=? AND (status IN ('reserved','submitting','processing') OR (admin_frozen=1 AND status='needs_review'))").get(card.id).n;
         const activeH=this.db.prepare("SELECT COUNT(*) AS n FROM h_card_claims WHERE hifupay_id=?").get(id).n;
         if (activeZ || activeH) return false;
         if (card.success_count+card.h_success_count+card.frozen_count+activeZ+activeH >= card.max_success) return false;
@@ -198,7 +204,7 @@ export class ZzshuStore {
       CASE WHEN credential_ref LIKE 'hifupay:%' THEN substr(credential_ref,9) ELSE NULL END AS hifupayId,
       MAX(0,max_success-success_count-h_success_count-frozen_count) AS remainingUses,
       success_count AS successCount,h_success_count AS hifupaySuccessCount,frozen_count AS frozenUses,failures,paused,last_failure AS lastFailure,created_at AS createdAt,
-      (SELECT id FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing')) AS occupiedOrderId
+      (SELECT id FROM orders WHERE card_id=payment_cards.id AND (status IN ('reserved','submitting','processing') OR (admin_frozen=1 AND status='needs_review')) LIMIT 1) AS occupiedOrderId
       FROM payment_cards WHERE retired_at IS NULL
       ORDER BY success_count DESC,created_at,id`).all();
     const successes = this.db.prepare(`SELECT o.card_id AS cardId,o.id AS orderId,o.email,o.account_id AS accountId,
@@ -291,18 +297,27 @@ export class ZzshuStore {
     return this.db.prepare("SELECT v.code_cipher AS cipher FROM orders o JOIN vouchers v ON v.id=o.voucher_id WHERE o.id=?")
       .get(orderId)?.cipher || "";
   }
-  resolveUnsubmittedVoucher(code, outcome, email, accountId, intakeId) {
-    if (!["success", "unpaid"].includes(outcome)) return false;
+  resolveUnsubmittedVoucher(code, outcome, email, accountId, intakeId, reason = "管理员核实提交记录") {
+    if (!["success", "unpaid", "freeze"].includes(outcome)) return false;
     return this.transaction(() => {
       const voucher = this.voucher(code);
-      if (!voucher || voucher.status !== "unused" || voucher.orderId) return false;
+      if (!voucher || !["unused", "frozen"].includes(voucher.status) || voucher.orderId && voucher.orderId !== intakeId) return false;
       if (voucher.email && email && voucher.email !== email) return false;
       if (voucher.accountId && accountId && voucher.accountId !== accountId) return false;
-      if (outcome === "success") this.db.prepare("UPDATE vouchers SET status='used',order_id=?,email=?,account_id=? WHERE id=? AND status='unused'")
+      if (outcome === "success") this.db.prepare("UPDATE vouchers SET status='used',order_id=?,email=?,account_id=? WHERE id=? AND status IN ('unused','frozen')")
         .run(intakeId, email || voucher.email || "", accountId || voucher.accountId || "", voucher.id);
-      this.audit(intakeId, `intake_${outcome}`, "管理员核实提交记录");
+      if (outcome === "freeze") this.db.prepare("UPDATE vouchers SET status='frozen',order_id=? WHERE id=?").run(intakeId,voucher.id);
+      if (outcome === "unpaid") this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL WHERE id=?").run(voucher.id);
+      this.audit(intakeId, `intake_${outcome}`, reason);
       return true;
     });
+  }
+  latestVoucherOrder(code) {
+    const voucher = this.voucher(code);
+    return voucher ? this.db.prepare("SELECT * FROM orders WHERE voucher_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1").get(voucher.id) : null;
+  }
+  voucherForOrder(id) {
+    return this.db.prepare("SELECT v.* FROM vouchers v JOIN orders o ON o.voucher_id=v.id WHERE o.id=?").get(id);
   }
   listVouchers() { return this.db.prepare("SELECT id,batch_id AS batchId,source,product_id AS productId,status,order_id AS orderId,email,account_id AS accountId,created_at AS createdAt FROM vouchers WHERE id NOT LIKE 'hcard_%' ORDER BY created_at DESC LIMIT 500").all(); }
   unifiedOrderIds() { return this.db.prepare("SELECT order_id AS id FROM vouchers WHERE id LIKE 'hcard_%' AND order_id IS NOT NULL").all().map(row => row.id); }
@@ -312,7 +327,7 @@ export class ZzshuStore {
         (SELECT COUNT(*) FROM h_card_claims WHERE hifupay_id=substr(payment_cards.credential_ref,9))<max_success
       AND (credential_ref NOT LIKE 'hifupay:%' OR NOT EXISTS
         (SELECT 1 FROM h_card_claims WHERE hifupay_id=substr(payment_cards.credential_ref,9)))
-      AND NOT EXISTS (SELECT 1 FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing'))
+      AND NOT EXISTS (SELECT 1 FROM orders WHERE card_id=payment_cards.id AND (status IN ('reserved','submitting','processing') OR (admin_frozen=1 AND status='needs_review')))
       ORDER BY CASE WHEN success_count+h_success_count>0 THEN 0 ELSE 1 END,success_count+h_success_count DESC,created_at,id`).all();
     return candidates.find(item => item.credential_ref.startsWith("hifupay:")
       ? allowedHifupayIds?.has(item.credential_ref.slice(8)) : allowManual);
@@ -378,7 +393,7 @@ export class ZzshuStore {
   }
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
   listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
-    o.review_reason AS reviewReason,o.cancellation,o.auto_query AS autoQuery,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,
+    o.review_reason AS reviewReason,o.failure_kind AS failureKind,o.retry_allowed AS retryAllowed,o.admin_frozen AS adminFrozen,o.cancellation,o.auto_query AS autoQuery,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,
     o.last_check_at AS lastCheckAt,o.last_check_result AS lastCheckResult,
     o.last_check_http_status AS lastCheckHttpStatus,o.last_check_code AS lastCheckCode,c.last_four AS lastFour,
     v.code_hash AS voucherHash,v.code_cipher AS voucherCipher,v.source AS voucherSource,o.created_at AS createdAt,o.updated_at AS updatedAt
@@ -438,6 +453,20 @@ export class ZzshuStore {
       return frozen;
     });
   }
+  recordResponse(orderId, stage, response) {
+    if (!['create', 'status'].includes(stage)) throw new Error("未知的上游请求类型");
+    this.db.prepare("INSERT INTO response_history(at,order_id,stage,http_status,code,result,reasons) VALUES(?,?,?,?,?,?,?)")
+      .run(new Date().toISOString(), orderId, stage, response.httpStatus ?? null, response.code ?? null,
+        response.result, JSON.stringify(response.reasons || {}));
+  }
+  responseHistory(orderId, before = null) {
+    const cursor = Number.isSafeInteger(before) && before > 0 ? before : Number.MAX_SAFE_INTEGER;
+    const rows = this.db.prepare("SELECT id,at,stage,http_status AS httpStatus,code,result,reasons FROM response_history WHERE order_id=? AND id<? ORDER BY id DESC LIMIT 101")
+      .all(orderId, cursor);
+    return { entries: rows.slice(0, 100).map(row => ({ ...row, reasons: JSON.parse(row.reasons) })),
+      nextBefore: rows.length > 100 ? rows[99].id : null,
+      total: this.db.prepare("SELECT COUNT(*) AS n FROM response_history WHERE order_id=?").get(orderId).n };
+  }
   markChecked(id, successful = false, detail = {}) {
     const at = new Date().toISOString();
     const allowed = new Set(["paid", "unpaid", "processing", "needs_review", "verification_required", "unknown", "api_rejected", "upstream_error", "invalid_response", "order_mismatch", "network_error"]);
@@ -475,14 +504,14 @@ export class ZzshuStore {
       return true;
     });
   }
-  rejectUncreated(id, reason) {
+  rejectUncreated(id, reason, failureKind = "") {
     return this.transaction(() => {
       const order = this.order(id);
       if (!order || order.status !== "submitting" || order.upstream_order_no || order.upstream_card_key) return false;
       const at = new Date().toISOString();
-      this.db.prepare("UPDATE orders SET status='failed',use_resolution='frozen',review_reason=?,updated_at=? WHERE id=? AND status='submitting'")
-        .run(reason,at,id);
-      this.db.prepare("UPDATE payment_cards SET frozen_count=frozen_count+1 WHERE id=?").run(order.card_id);
+      this.db.prepare("UPDATE orders SET status='failed',use_resolution=?,failure_kind=?,retry_allowed=?,review_reason=?,updated_at=? WHERE id=? AND status='submitting'")
+        .run(failureKind ? 'released' : 'frozen',failureKind,failureKind ? 1 : 0,reason,at,id);
+      if (!failureKind) this.db.prepare("UPDATE payment_cards SET frozen_count=frozen_count+1 WHERE id=?").run(order.card_id);
       this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL WHERE id=? AND order_id=?")
         .run(order.voucher_id,id);
       this.audit(id,"upstream_rejected_before_create",reason);
@@ -490,7 +519,9 @@ export class ZzshuStore {
     });
   }
   settle(id, state, cancellation = "unconfirmed") {
-    return this.transaction(() => {
+    return this.transaction(() => this.settleUncommitted(id, state, cancellation));
+  }
+  settleUncommitted(id, state, cancellation = "unconfirmed") {
       const order = this.order(id);
       if (!order || order.status === "success" || order.status === "failed") {
         if (order?.status === "success" && cancellation === "cancelled") this.db.prepare("UPDATE orders SET cancellation='cancelled',updated_at=? WHERE id=?").run(new Date().toISOString(),id);
@@ -509,7 +540,6 @@ export class ZzshuStore {
       this.db.prepare("UPDATE orders SET status=?,use_resolution=?,cancellation=?,review_reason='',updated_at=? WHERE id=?")
         .run(state,state === "success" ? "consumed" : "frozen",state === "success" ? cancellation : "not_started",new Date().toISOString(),id);
       return true;
-    });
   }
   resolveFrozenUse(id, outcome, reason) {
     if (!['release','consume'].includes(outcome) || String(reason || '').trim().length < 8) return false;
@@ -524,6 +554,41 @@ export class ZzshuStore {
     });
   }
   audit(id, action, reason) { this.db.prepare("INSERT INTO audit(at,order_id,action,reason) VALUES(?,?,?,?)").run(new Date().toISOString(),id,action,reason); }
+  manualDisposition(id, outcome, evidence) {
+    if (!['success','unlock','freeze'].includes(outcome) || !evidence?.reason) return false;
+    return this.transaction(() => {
+      const order = this.order(id);
+      if (!order || !['processing','needs_review','failed'].includes(order.status)) return false;
+      if (order.status === 'processing' && !order.upstream_card_key || outcome === 'unlock' && order.use_resolution === 'consumed') return false;
+      const voucher = this.voucherForOrder(id);
+      if (!voucher || voucher.status === 'used' || voucher.order_id && voucher.order_id !== id) return false;
+      if (this.db.prepare("SELECT 1 FROM orders WHERE voucher_id=? AND id!=? AND (status IN ('reserved','submitting','processing','needs_review','success') OR rowid>(SELECT rowid FROM orders WHERE id=?)) LIMIT 1").get(order.voucher_id,id,id)) return false;
+      if (outcome === 'freeze') {
+        if (order.status === 'failed') return false;
+        if (order.use_resolution !== 'frozen') this.db.prepare("UPDATE payment_cards SET frozen_count=frozen_count+1 WHERE id=?").run(order.card_id);
+        this.db.prepare("UPDATE orders SET status='needs_review',use_resolution='frozen',admin_frozen=1,retry_allowed=0,review_reason=?,updated_at=? WHERE id=?")
+          .run(evidence.reason,new Date().toISOString(),id);
+      } else {
+        if (order.status === 'failed') {
+          if (order.use_resolution === 'frozen') this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
+          if (outcome === 'success') {
+            if (order.use_resolution !== 'consumed') this.db.prepare("UPDATE payment_cards SET success_count=success_count+1,failures=0 WHERE id=?").run(order.card_id);
+            this.db.prepare("UPDATE vouchers SET status='used',order_id=? WHERE id=?").run(id,order.voucher_id);
+          }
+        } else this.settleUncommitted(id,outcome === 'success' ? 'success' : 'failed');
+        if (outcome === 'unlock') {
+          // settle() freezes the uncertain payment use; explicit unpaid evidence releases it atomically.
+          if (order.status !== 'failed') this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
+          this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL WHERE id=?").run(order.voucher_id);
+        }
+        this.db.prepare("UPDATE orders SET status=?,use_resolution=?,admin_frozen=0,retry_allowed=?,failure_kind=?,review_reason=?,updated_at=? WHERE id=?")
+          .run(outcome === 'success' ? 'success' : 'failed',outcome === 'success' ? 'consumed' : 'released',outcome === 'unlock' ? 1 : 0,
+            outcome === 'unlock' ? evidence.reasonCode === 'token_expired' ? 'token_expired' : 'manual_unlocked' : '',evidence.reason,new Date().toISOString(),id);
+      }
+      this.audit(id,'admin_'+outcome,JSON.stringify({ ...evidence, before:order.status, after:outcome === 'freeze' ? 'needs_review' : outcome === 'success' ? 'success' : 'failed' }));
+      return true;
+    });
+  }
   manualResolve(id, outcome, reason) {
     if (!reason || reason.length < 8) return false;
     const order = this.order(id);

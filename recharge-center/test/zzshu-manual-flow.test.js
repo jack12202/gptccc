@@ -163,10 +163,12 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   paymentResultMode = "normal";
   const unpaid = await service.confirm({cardInfo:vouchers[6].code,secretJsonText:session});
   assert.equal(unpaid.ok,true);
-  assert.equal((await service.refresh(unpaid.data.orderId)).data.status,"failed");
+  assert.equal((await service.refresh(unpaid.data.orderId)).data.status,"needs_review");
+  assert.equal(service.store.voucher(vouchers[6].code).status,"reserved");
+  assert.equal(service.store.manualDisposition(unpaid.data.orderId,"unlock",{reason:"已核实上游未开通且支付记录未扣款",reasonCode:"no_charge",operator:"test-admin"}),true);
   assert.equal(service.store.voucher(vouchers[6].code).status,"unused");
   assert.equal(service.store.listCards().find(c=>c.lastFour === "4242").successCount,2);
-  assert.equal(service.store.resolveFrozenUse(unpaid.data.orderId,"release","fixture payment record checked"),true);
+  assert.equal(service.store.order(unpaid.data.orderId).use_resolution,"released");
   const retry = await service.confirm({cardInfo:vouchers[4].code,secretJsonText:session});
   assert.equal(retry.ok,true);
   assert.notEqual(retry.data.orderId,unknown.data.orderId);

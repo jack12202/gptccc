@@ -118,8 +118,8 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
       assert.doesNotMatch(html, /type="password"/);
     }
     if (page === "/admin/recoveries") {
-      assert.match(html, /resolve-zzshu-success/);
-      assert.match(html, /resolve-zzshu-unpaid/);
+      assert.match(html, /disposition-success/);
+      assert.match(html, /disposition-unlock/);
       assert.match(html, /支付结果待核查/);
       assert.match(html, /href="\/admin\/pro-orders">Pro 履约工作台/);
     }

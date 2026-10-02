@@ -45,11 +45,11 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   delete incomplete.sessionToken;
   const invalid = await rechargeService.confirmRecharge({ cardInfo: invalidCard.code, provider: "h", secretJsonText: JSON.stringify(incomplete) });
   assert.equal(invalid.ok, true);
-  assert.equal(invalid.data.status, "needs_review");
+  assert.equal(invalid.data.status, "failed");
+  assert.equal(invalid.data.canRetry,true);
   assert.equal(rechargeService.getRecoverySubmission(invalid.data.orderId, true).data.secretJsonText, JSON.stringify(incomplete));
   assert.equal(zzshuService.store.voucher(invalidCard.code).status, "unused");
-  const duplicateIntake = await rechargeService.confirmRecharge({ cardInfo: invalidCard.code, provider: "h", secretJsonText: session });
-  assert.equal(duplicateIntake.data.orderId, invalid.data.orderId);
+  assert.equal((await rechargeService.queryHCardStatus(invalidCard.code,"zzshu")).data.canRetry,true);
   assert.equal(zzshuService.store.voucher(invalidCard.code).status, "unused");
   assert.equal(rechargeService.markRecoverySuccess(invalid.data.orderId, "admin", "人工核实已完成充值").ok, true);
   assert.equal(zzshuService.store.voucher(invalidCard.code).status, "used");
@@ -59,7 +59,8 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   const configFailure = await rechargeService.confirmRecharge({ cardInfo: configCard.code, provider: "h", secretJsonText: session });
   config.zzshuEnabled = true;
   assert.equal(configFailure.ok, true);
-  assert.equal(configFailure.data.status, "needs_review");
+  assert.equal(configFailure.data.status, "failed");
+  assert.equal(configFailure.data.canRetry,true);
   assert.equal(rechargeService.getRecoverySubmission(configFailure.data.orderId, true).data.secretJsonText, session);
   assert.equal(rechargeService.listRechargeSubmissions().data.records.find(item => item.id === configFailure.data.orderId).userEmail, "new@example.test");
   assert.equal(rechargeService.markRecoveryUnpaid(configFailure.data.orderId, "管理员核实上游未创建订单").ok, true);

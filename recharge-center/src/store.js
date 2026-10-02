@@ -231,6 +231,7 @@ export class JsonStore {
       hifupayReservationReleaseReason: input.hifupayReservationReleaseReason || "",
       cardInfoCiphertext: input.cardInfoCiphertext || "",
       message: input.message || "",
+      submissionInFlight: Boolean(input.submissionInFlight),
       subscriptionCancellationStatus: input.subscriptionCancellationStatus || "",
       subscriptionActionRequired: Boolean(input.subscriptionActionRequired),
       subscriptionActionMessage: input.subscriptionActionMessage || "",
@@ -269,6 +270,14 @@ export class JsonStore {
     });
     this.write(state);
     return order;
+  }
+
+  hasLaterSubmission(code, orderId) {
+    const orders = this.read().orders;
+    const position = orders.findIndex(order => order.id === orderId);
+    if (position < 0) return false;
+    const hash = crypto.createHash("sha256").update(String(code || "").trim().toUpperCase()).digest("hex");
+    return orders.slice(position + 1).some(order => order.submissionCodeHash === hash);
   }
 
   getActiveSubmissionByCode(code) {
@@ -651,7 +660,7 @@ export class JsonStore {
     const state = this.read();
     const card = state.hCards.find(item => item.codeHash === cardCodeHash(String(code).trim().toUpperCase()));
     if (!card?.unified || card.routedProvider !== "zzshu" || !voucher) return false;
-    const next = voucher.status === "used" ? "used" : voucher.status === "reserved" ? "locked" : "unused";
+    const next = voucher.status === "used" ? "used" : ["reserved", "frozen"].includes(voucher.status) ? "locked" : "unused";
     if (card.status === next && card.orderId === (voucher.orderId || "")) return true;
     card.status = next;
     card.orderId = voucher.orderId || "";
@@ -1528,6 +1537,9 @@ export class JsonStore {
           paymentConfirmed: order.paymentConfirmed === true,
           waitingMinutes: Math.max(0, Math.floor((Date.now() - Date.parse(order.createdAt)) / 60000)),
           status: order.status,
+          retryAllowed: Boolean(order.retryAllowed),
+          actionRequired: order.actionRequired || "wait",
+          adminFrozen: Boolean(order.adminFrozen),
           upstreamTaskId: order.upstreamTaskId || "",
           providerSessionId: order.providerSessionId || "",
           hifupayCardId: order.hifupayCardId || "",

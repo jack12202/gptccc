@@ -137,7 +137,7 @@ test('customer card library searches partial codes and copies the successful ord
   assert.equal(orderElement('recoveryCount').textContent,'2 / 3 条');
   vm.runInContext('allRecords.push({id:"processing-zzshu",provider:"zzshu",status:"processing",hasUpstreamQueryKey:true})',orderContext);
   vm.runInContext('expandedRecoveryIds.add("processing-zzshu")',orderContext);
-  assert.match(vm.runInContext('renderRows([allRecords.at(-1)])',orderContext),/data-action="resolve-zzshu-success"/);
+  assert.match(vm.runInContext('renderRows([allRecords.at(-1)])',orderContext),/data-action="disposition-success"/);
   cards[0].batchId='batch-one'; cards[0].sequence=1; cards[0].batchSize=3; cards[0].source='微信';
   cards[1].batchId='batch-one'; cards[1].sequence=2; cards[1].batchSize=3; cards[1].source='微信';
   const archived = 'HPLUS' + 'D'.repeat(28) + '5678';

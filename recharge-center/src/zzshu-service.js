@@ -6,6 +6,7 @@ import { hifupayAdapter } from "./providers/hifupay-adapter.js";
 import { JsonStore } from "./store.js";
 import { encryptSecretText, decryptSecretText, sha256 } from "./utils.js";
 import { zzshuCredentialStore } from "./zzshu-credential-store.js";
+import { classifyCreation, issueMessage } from "./zzshu-recovery.js";
 
 const store = sharedZzshuStore;
 const hifupayStore = new JsonStore();
@@ -34,10 +35,13 @@ async function vaultRequest(method, suffix, payment) {
 }
 function safeOrder(order) {
   if (!order) return null;
-  return { orderId: order.id, taskId: order.id, provider: "zzshu", providerLabel: "自动充值", status: order.status,
-    message: order.status === "success" ? (order.cancellation === "cancelled" ? "Plus 已开通，续费已关闭" : "Plus 已开通，续费关闭状态待同步") : order.status === "failed" ? "本次未完成，卡密权益已恢复，可以重新提交" :
-      order.status === "needs_review" && /银行卡持有人验证/.test(order.review_reason || "") ? "支付需要银行卡持有人验证，请等待处理，勿重复提交" :
-      "正在处理或待确认，请勿重复提交", subscriptionCancellationStatus: order.cancellation };
+  const voucher = store.voucherForOrder(order.id);
+  const canRetry = order.status === 'failed' && Boolean(order.retry_allowed) && voucher?.status === 'unused';
+  return { orderId: order.id, taskId: order.id, provider: 'zzshu', providerLabel: '自动充值', status: order.status,
+    canRetry, actionRequired: canRetry && ['token_expired','session_invalid'].includes(order.failure_kind) ? 'update_session' : canRetry ? 'retry' : 'wait',
+    message: order.status === 'success' ? '充值成功。' : canRetry ? issueMessage(order.failure_kind) :
+      order.status === 'needs_review' || order.status === 'failed' ? '充值结果正在核查，请暂时不要重复提交。' : '正在处理，请稍后查看结果，暂时不要重复提交。',
+    subscriptionCancellationStatus: order.cancellation };
 }
 function session(input) {
   let data;
@@ -204,17 +208,21 @@ export const zzshuService = {
     if (!voucher) return { ok: false, message: "卡密不存在" };
     // Card lookup is intentionally local-only. Upstream reconciliation runs in
     // the background and through the explicit admin refresh action.
-    const order = voucher.orderId ? safeOrder(store.order(voucher.orderId)) : null;
+    const native = voucher.orderId ? store.order(voucher.orderId) : store.latestVoucherOrder(code);
+    const order = safeOrder(native);
+    const canRecharge = voucher.status === 'unused' && (!native || Boolean(native.retry_allowed));
     return { ok: true, status: voucher.status === "used" ? "success" : order?.status || voucher.status,
-      canRecharge: voucher.status === "unused", hasPriorSubmission: store.hasVoucherOrders(code),
+      canRecharge, canRetry: canRecharge && Boolean(native), actionRequired: order?.actionRequired || "wait", hasPriorSubmission: store.hasVoucherOrders(code),
       statusLabel: voucher.status === "used" ? "充值成功" :
-        voucher.status === "unused" ? "未使用" : "正在处理", boundAccount: voucher.email ?
+        canRecharge && native ? "可重新提交" : voucher.status === "frozen" ? "正在核查" : voucher.status === "unused" ? "未使用" : "正在处理", boundAccount: voucher.email ?
           `${voucher.email.slice(0,1)}***@${voucher.email.split("@")[1]}` : "",
       subscriptionCancellationStatus: order?.subscriptionCancellationStatus || "",
       subscriptionActionRequired: false,
-      message: order?.message || (voucher.status === "unused" ? "可继续激活" : "请勿重复提交") };
+      message: voucher.status === "used" ? "充值成功。" : order?.message || (canRecharge ? "可继续激活" : "充值结果正在核查，请暂时不要重复提交。") };
   },
+  publicOrder(id) { return safeOrder(store.order(id)); },
   syncUnifiedOrder(id) {
+    if (!store.order(id)) return;
     const code = decryptSecretText(store.voucherCipherForOrder(id), config.recoveryEncryptionKey, "zzshu-voucher");
     if (/^HPLUS[0-9A-F]{32}$/.test(code)) hifupayStore.syncUnifiedPlus(code, store.voucher(code));
   },
@@ -236,12 +244,12 @@ export const zzshuService = {
           { message: "测试请求的卡密、支付资料或订单预留未就绪" }) };
     }
     if (!codePattern.test(code)) return { ok: false, status: 400, message: "Plus 卡密格式不正确" };
-    if (!token) return { ok: false, status: 400, message: sessionValidation(rawSession).message };
+    if (!token) return { ok: false, status: 400, message: sessionValidation(rawSession).message, canRetry: true };
     const reject = (status, message, reason) => {
       if (config.zzshuTestMode && sha256(code) === config.zzshuTestVoucherHash) {
         try { store.audit("test-voucher", "pre_submit_rejected", reason); } catch { /* Preserve the rejection response. */ }
       }
-      return { ok: false, status, message };
+      return { ok: false, status, message, canRetry: true };
     };
     if (/^HPLUS[0-9A-F]{32}$/.test(code)) {
       const unified = hifupayStore.getHCardByCode(code);
@@ -274,7 +282,7 @@ export const zzshuService = {
     try { upstreamReady = await zzshuCredentialStore.verifySaved(); }
     catch { upstreamReady = { ok: false }; }
     if (!upstreamReady.ok)
-      return reject(503, "ZZS 上游连接异常，本次尚未提交，卡密权益保留；请稍后再试", "上游账号预检失败，未预留支付卡或创建订单");
+      return reject(503, "充值服务暂时不可用，本次尚未提交，卡密权益保留。请稍后重试或联系客服。", "上游账号预检失败，未预留支付卡或创建订单");
     let allowedHifupayIds=null;
     if (hifupayStore.listHifupayCards().length) {
       try {
@@ -314,11 +322,11 @@ export const zzshuService = {
         : reservation.credentialRef.startsWith("local:")
           ? JSON.parse(decryptSecretText(store.paymentCipher(reservation.credentialRef),config.recoveryEncryptionKey,"zzshu-payment-card"))
         : await vaultRequest("GET", `/credentials/${encodeURIComponent(reservation.credentialRef)}`);
-    } catch { store.abortBeforeSubmit(id,"支付卡详情读取失败，未调用吱吱鼠"); return {ok:false,status:503,message:"支付卡详情不可用，兑换权益未消耗"}; }
+    } catch { store.abortBeforeSubmit(id,"支付卡详情读取失败，未调用吱吱鼠"); return {ok:false,status:503,message:"充值服务暂时不可用，本次未提交，卡密权益保留。",canRetry:true}; }
     if (!payment || !/^\d{12,19}$/.test(payment.cardNumber || "") || !/^\d{3,4}$/.test(payment.cvv || "") ||
         !Number.isInteger(payment.expMonth) || payment.expMonth < 1 || payment.expMonth > 12 ||
         !Number.isInteger(payment.expYear) || payment.expYear < new Date().getUTCFullYear()) {
-      store.abortBeforeSubmit(id,"支付卡详情无效，未调用吱吱鼠"); return {ok:false,status:503,message:"支付卡详情无效，兑换权益未消耗"};
+      store.abortBeforeSubmit(id,"支付卡详情无效，未调用吱吱鼠"); return {ok:false,status:503,message:"充值服务暂时不可用，本次未提交，卡密权益保留。",canRetry:true};
     }
     const submittedToken = structuredClone(token);
     const converted = submittedToken.account.planType === "plus";
@@ -330,21 +338,19 @@ export const zzshuService = {
         return { ok: true, status: 200, data: safeOrder(store.order(id)) };
     } catch {
       store.abortBeforeSubmit(id, "发送 JSON 保存失败，未调用吱吱鼠");
-      return { ok: false, status: 503, message: "发送资料保存失败，本次未提交充值" };
+      return { ok: false, status: 503, message: "充值服务暂时不可用，本次未提交，卡密权益保留。", canRetry: true };
     }
     let created;
-    try { created = await zzshuAdapter.create({ token: submittedToken, payment }); }
+    try { created = await zzshuAdapter.create({ token: submittedToken, payment }, response => store.recordResponse(id, "create", response)); }
     catch { store.review(id,"创建请求连接中断或超时；上游是否已创建未知"); return { ok: true, status: 200, data: safeOrder(store.order(id)) }; }
     const upstreamNo = String(created.data?.order_no ?? ""), upstreamKey = String(created.data?.card_key ?? "");
     if (created.ok && upstreamNo && upstreamKey) store.created(id,upstreamNo,upstreamKey);
-    else if ([42902,40305,40306,40106,40107,40005,40006,40007,40008,40024,40025,40026,40027,40028,40030].includes(Number(created.code)) &&
-             store.rejectUncreated(id,`上游拒绝创建订单（HTTP ${created.status}, code ${created.code}）`))
-      return { ok: false, status: created.status === 429 ? 429 : 400,
-        message: Number(created.code) === 42902 ? "上游当前并发已满，请稍后再试；卡密和支付卡未消耗" :
-          Number(created.code) === 40305 ? "上游暂时关闭充值，请稍后再试；卡密和支付卡未消耗" :
-          [40106,40107,40306].includes(Number(created.code)) ? "上游 API 凭据或额度不可用，请联系客服；卡密和支付卡未消耗" :
-            "账号 Session 未被上游接受，请重新获取完整 Session；卡密和支付卡未消耗" };
-    else store.review(id,`创建响应未能确认订单（HTTP ${created.status}, code ${created.code ?? "?"}）；不得自动重试`);
+    else {
+      const kind = classifyCreation(created);
+      if (kind && store.rejectUncreated(id,`上游拒绝创建订单（HTTP ${created.status}, code ${created.code}）`, kind))
+        return { ok: false, status: created.status === 429 ? 429 : 400, message: issueMessage(kind), data: safeOrder(store.order(id)), canRetry: true };
+      store.review(id,`创建响应未能确认订单（HTTP ${created.status}, code ${created.code ?? "?"}）；不得自动重试`);
+    }
     return { ok: true, status: 200, data: safeOrder(store.order(id)) };
     } finally {
       if (/^HPLUS[0-9A-F]{32}$/.test(code)) {
@@ -362,7 +368,7 @@ export const zzshuService = {
     if (!order.auto_query || !order.upstream_card_key || order.status === "failed" || order.status === "success" && order.cancellation === "cancelled")
       return { ok: true, status: 200, data: safeOrder(order) };
     try {
-      const result = await zzshuAdapter.status(order.upstream_card_key);
+      const result = await zzshuAdapter.status(order.upstream_card_key, response => store.recordResponse(id, "status", response));
       if (!result.ok || !result.data) {
         store.markChecked(id, false, { result: [401, 403].includes(result.status) || [40106, 40107, 40306].includes(Number(result.code)) ? "api_rejected" : "upstream_error", httpStatus: result.status, code: result.code });
         return { ok: true, status: 200, data: safeOrder(store.order(id)) };
@@ -373,10 +379,12 @@ export const zzshuService = {
         return { ok: true, status: 200, data: safeOrder(store.order(id)) };
       }
       const data = result.data;
-      if (data.status === "success" && data.paid) store.settle(id,"success",data.cancellation);
-      else if (data.status === "unpaid" && data.unpaid && !data.paid) store.settle(id,"failed");
-      else if (data.status === "verification_required") store.review(id,"支付需要银行卡持有人验证");
-      else if (["needs_review","unknown"].includes(data.status)) store.review(id,`上游状态需核查：${data.upstreamStatus || "unknown"}`);
+      if (!order.admin_frozen) {
+        if (data.status === "success" && data.paid) store.settle(id,"success",data.cancellation);
+        else if (data.status === "unpaid" && data.unpaid && !data.paid) store.review(id,"上游报告未支付，仍需核实账号权益与支付记录后解锁卡密");
+      }
+      if (!order.admin_frozen && data.status === "verification_required") store.review(id,"支付需要银行卡持有人验证");
+      else if (!order.admin_frozen && ["needs_review","unknown"].includes(data.status)) store.review(id,`上游状态需核查：${data.upstreamStatus || "unknown"}`);
       store.markChecked(id, true, { result: data.paid ? "paid" : data.unpaid ? "unpaid" : data.status, httpStatus: result.status });
     } catch { store.markChecked(id, false, { result: "network_error" }); }
     this.syncUnifiedOrder(id);

@@ -84,3 +84,36 @@ test('ZZS account check lets a parseable incomplete Session reach submission',as
   assert.ok(p.run('currentParsedSecret'));
   assert.equal(p.run('currentStep'),3);
 });
+
+test('expired authorization offers same-card JSON replacement without keeping the old task lock',async()=>{
+  const paths=[];
+  const p=page(async path=>{
+    paths.push(path);
+    return {text:async()=>JSON.stringify({success:true,data:{orderId:'old-order',taskId:'old-order',status:'failed',canRetry:true,
+      actionRequired:'update_session',message:'账号授权已失效，请获取新的 Session JSON，使用原卡密重新提交。'}})};
+  });
+  await p.run('confirmRecharge()');
+  assert.match(p.node('resultBox').innerHTML,/使用原卡密，更新 JSON/);
+  assert.doesNotMatch(p.node('resultBox').innerHTML,/401|已提交，等待处理/);
+  p.run('beginSessionRetry()');
+  assert.equal(p.run('currentTaskId'), '');
+  assert.equal(p.run('currentOrderId'), '');
+  assert.equal(p.run('currentStep'), 2);
+  assert.equal(p.node('secretJson').value,'');
+  assert.equal(p.run('currentParsedSecret'),null);
+  assert.equal(p.memory.size,0);
+  assert.equal(p.node('cardInfo').value,'HPLUS'+'A'.repeat(32));
+  assert.deepEqual(paths,['/api/recharge/confirm']);
+});
+
+test('explicitly released prior submission restores the original card after a lost response',async()=>{
+  const p=page(async()=>({text:async()=>JSON.stringify({success:true,data:{status:'failed',statusLabel:'可重新提交',canRecharge:true,canRetry:true,
+    hasPriorSubmission:true,actionRequired:'update_session',message:'账号授权已失效，请获取新的 Session JSON，使用原卡密重新提交。'}})}));
+  p.run('setSubmissionPending(true);currentTaskId="old-order";currentOrderId="old-order"');
+  assert.equal(await p.run('queryCardStatusFromInput()'),true);
+  assert.equal(p.run('currentTaskId'),'');
+  assert.equal(p.run('currentOrderId'),'');
+  assert.equal(p.run('submissionPending'),false);
+  assert.match(p.node('step1Notice').innerHTML,/授权已失效/);
+  assert.doesNotMatch(p.node('step1Notice').innerHTML,/等待人工核查/);
+});
