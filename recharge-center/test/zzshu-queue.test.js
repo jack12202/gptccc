@@ -23,4 +23,9 @@ test("durable manual queue without stock binds account, deduplicates and support
   reopened.db.close();
   assert.equal(store.manualResolve(queued.orderId,"success","人工核验充值已到账"),true);
   assert.equal(store.voucher(v.code).status,"used");
+  const completed = store.order(queued.orderId).completed_at;
+  assert.ok(Number.isFinite(Date.parse(completed)));
+  store.settle(queued.orderId,"success","cancelled");
+  store.markChecked(queued.orderId);
+  assert.equal(store.order(queued.orderId).completed_at,completed);
 });

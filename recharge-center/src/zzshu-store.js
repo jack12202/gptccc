@@ -71,6 +71,7 @@ export class ZzshuStore {
     if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === "auto_query"))
       this.db.exec("ALTER TABLE orders ADD COLUMN auto_query INTEGER NOT NULL DEFAULT 1");
     for (const [name, definition] of Object.entries({
+      completed_at: "TEXT NOT NULL DEFAULT ''",
       submitted_session_cipher: "TEXT",
       session_plan_converted: "INTEGER NOT NULL DEFAULT 0",
       session_submission_at: "TEXT NOT NULL DEFAULT ''",
@@ -551,6 +552,7 @@ export class ZzshuStore {
       }
       if (order.use_resolution === 'frozen') this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
       if (state === "success") {
+        this.db.prepare("UPDATE orders SET completed_at=? WHERE id=? AND completed_at=''").run(new Date().toISOString(),id);
         this.db.prepare("UPDATE payment_cards SET success_count=success_count+1,failures=0 WHERE id=?").run(order.card_id);
         this.db.prepare("UPDATE vouchers SET status='used' WHERE id=?").run(order.voucher_id);
       } else if (state === "failed") {
@@ -594,6 +596,7 @@ export class ZzshuStore {
         if (order.status === 'failed') {
           if (order.use_resolution === 'frozen') this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
           if (outcome === 'success') {
+            this.db.prepare("UPDATE orders SET completed_at=? WHERE id=? AND completed_at=''").run(new Date().toISOString(),id);
             if (order.use_resolution !== 'consumed') this.db.prepare("UPDATE payment_cards SET success_count=success_count+1,failures=0 WHERE id=?").run(order.card_id);
             this.db.prepare("UPDATE vouchers SET status='used',order_id=? WHERE id=?").run(id,order.voucher_id);
           }

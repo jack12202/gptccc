@@ -39,6 +39,8 @@ function safeOrder(order) {
   const queued = order.status === 'needs_review' && order.card_id === order.id && !order.admin_frozen;
   const canRetry = order.status === 'failed' && Boolean(order.retry_allowed) && voucher?.status === 'unused';
   return { orderId: order.id, taskId: order.id, provider: 'zzshu', providerLabel: '自动充值', status: queued ? 'processing' : order.status,
+    boundAccount: order.email ? `${order.email.slice(0,1)}***@${order.email.split('@')[1]}` : '',
+    plan: 'plus', completedAt: order.status === 'success' ? order.completed_at || '' : '',
     canRetry, actionRequired: canRetry && ['token_expired','session_invalid'].includes(order.failure_kind) ? 'update_session' : canRetry ? 'retry' : 'wait',
     message: queued ? '已提交，排队处理中，请勿重复提交' : order.status === 'success' ? '充值成功。' : canRetry ? issueMessage(order.failure_kind) :
       order.status === 'needs_review' || order.status === 'failed' ? '充值结果正在核查，请暂时不要重复提交。' : '正在处理，请稍后查看结果，暂时不要重复提交。',
@@ -212,7 +214,7 @@ export const zzshuService = {
     const native = voucher.orderId ? store.order(voucher.orderId) : store.latestVoucherOrder(code);
     const order = safeOrder(native);
     const canRecharge = voucher.status === 'unused' && (!native || Boolean(native.retry_allowed));
-    return { ok: true, status: voucher.status === "used" ? "success" : order?.status || voucher.status,
+    return { ok: true, plan: "plus", completedAt: order?.completedAt || "", status: voucher.status === "used" ? "success" : order?.status || voucher.status,
       canRecharge, canRetry: canRecharge && Boolean(native), actionRequired: order?.actionRequired || "wait", hasPriorSubmission: store.hasVoucherOrders(code),
       statusLabel: voucher.status === "used" ? "充值成功" :
         canRecharge && native ? "可重新提交" : voucher.status === "frozen" ? "正在核查" : voucher.status === "unused" ? "未使用" : "正在处理", boundAccount: voucher.email ?

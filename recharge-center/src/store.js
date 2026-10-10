@@ -109,7 +109,7 @@ function hCardQueryStatus(card, order) {
 }
 
 function hCardCompletedAt(card, order, status) {
-  if (status === "success") return card.usedAt || order?.manualCompletedAt || order?.updatedAt || "";
+  if (status === "success") return order?.completedAt || order?.manualCompletedAt || card.usedAt || "";
   if (status === "failed") return order?.updatedAt || "";
   if (status === "disabled") return card.disabledAt || card.archivedAt || card.updatedAt || "";
   return "";
@@ -289,6 +289,7 @@ export class JsonStore {
     const state = this.read();
     const order = state.orders.find((item) => item.id === orderId);
     if (!order) return null;
+    if (patch.status === "success" && order.status !== "success") patch = { ...patch, completedAt: order.completedAt || (Object.hasOwn(patch, "completedAt") ? patch.completedAt : patch.manualCompletedAt || nowIso()) };
     Object.assign(order, patch, { updatedAt: nowIso() });
     this.write(state);
     return order;
@@ -1537,6 +1538,7 @@ export class JsonStore {
           paymentConfirmed: order.paymentConfirmed === true,
           waitingMinutes: Math.max(0, Math.floor((Date.now() - Date.parse(order.createdAt)) / 60000)),
           status: order.status,
+          completedAt: order.completedAt || order.manualCompletedAt || "",
           retryAllowed: Boolean(order.retryAllowed),
           actionRequired: order.actionRequired || "wait",
           adminFrozen: Boolean(order.adminFrozen),

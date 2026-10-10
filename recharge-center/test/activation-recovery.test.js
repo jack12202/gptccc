@@ -8,7 +8,7 @@ function page(fetch) {
   const script = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]).find(s=>s.includes('let currentStep'));
   const nodes = new Map();
   const node = id => {
-    if (!nodes.has(id)) nodes.set(id, { value:'', textContent:'', style:{}, checked:true, disabled:false,
+    if (!nodes.has(id)) nodes.set(id, { value:'', textContent:'', style:{}, dataset:{}, checked:true, disabled:false,
       classList:{add(){},remove(){},toggle(){}}, addEventListener(){}, firstChild:{textContent:''} });
     return nodes.get(id);
   };
@@ -116,4 +116,25 @@ test('explicitly released prior submission restores the original card after a lo
   assert.equal(p.run('submissionPending'),false);
   assert.match(p.node('step1Notice').innerHTML,/授权已失效/);
   assert.doesNotMatch(p.node('step1Notice').innerHTML,/等待人工核查/);
+});
+
+
+test('completed lookup identifies account, plan and Beijing completion time', async () => {
+  const p = page(async () => ({text:async()=>JSON.stringify({success:true,data:{status:'success',canRecharge:false,
+    boundAccount:'a***@example.com',plan:'plus',completedAt:'2026-10-10T13:30:00Z'}})}));
+  await p.run('queryCardStatusFromInput()');
+  assert.match(p.node('step1Notice').innerHTML,/a\*\*\*@example.com · Plus 充值成功/);
+  assert.match(p.node('step1Notice').innerHTML,/21:30:00/);
+  assert.match(p.node('step1Notice').innerHTML,/北京时间/);
+  assert.match(p.run('completionTime("")'),/未记录/);
+});
+
+test('verified plan badge distinguishes all three plans', () => {
+  const p = page(async()=>{});
+  for (const [plan,label] of [['plus','Plus'],['pro_x5','Pro 5x'],['pro_x20','Pro 20x']]) {
+    p.run(`currentPlan=${JSON.stringify(plan)};updateVerifiedCardDisplay("fixture")`);
+    assert.equal(p.node('verifiedPlan').textContent,label);
+    assert.equal(p.node('verifiedPlan').dataset.plan,plan);
+    assert.equal(p.node('confirmPlan').textContent,label);
+  }
 });

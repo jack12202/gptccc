@@ -158,3 +158,19 @@ test("older H orders remain linked after the same customer card starts another o
   assert.equal(records.find(item => item.id === first.id).hCardId, card.id);
   assert.equal(records.find(item => item.id === next.id).hCardId, card.id);
 });
+
+
+test("completion time survives later order updates and legacy orders do not gain query time", async () => {
+  const { JsonStore } = await import("../src/store.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-completed-"));
+  try {
+    const store = new JsonStore(path.join(dir,"orders.json"));
+    const order = store.createOrder({provider:"h",status:"processing"});
+    store.updateOrder(order.id,{status:"success",completedAt:"2026-10-10T13:30:00Z"});
+    store.updateOrder(order.id,{subscriptionCancellationStatus:"cancelled"});
+    assert.equal(store.getOrder(order.id).completedAt,"2026-10-10T13:30:00Z");
+    const legacy = store.createOrder({provider:"h",status:"success"});
+    store.updateOrder(legacy.id,{message:"queried again"});
+    assert.equal(store.getOrder(legacy.id).completedAt,undefined);
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});

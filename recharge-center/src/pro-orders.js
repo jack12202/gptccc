@@ -19,6 +19,8 @@ export function createProService({ store = new JsonStore(), adapter = hifupayAda
   const readOrder = id => store.getOrder(id);
   const isPro = order => ["pro_x5", "pro_x20"].includes(order?.plan);
   const expose = order => ({ orderId: order.id, status: order.status, taskId: "", plan: order.plan,
+    boundAccount: (() => { const email = store.getRecoveryOrder(order.id)?.session?.userEmail || ""; return email ? `${email.slice(0,1)}***@${email.split("@")[1]}` : ""; })(),
+    completedAt: order.status === "success" ? order.completedAt || order.manualCompletedAt || "" : "",
     planLabel: order.plan === "pro_x5" ? "Pro 5x" : "Pro 20x", provider: "h", providerLabel: "h",
     fulfillmentMode: order.fulfillmentMode, paymentConfirmed: order.paymentConfirmed === true,
     autoCancelDone: order.autoCancelDone === true,

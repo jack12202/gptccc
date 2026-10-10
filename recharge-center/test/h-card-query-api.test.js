@@ -107,6 +107,7 @@ test("h card query APIs are read-only, authenticated where required, and rate li
     assert.deepEqual(Object.keys(payload.data).sort(), [
       "boundAccount",
       "canRecharge",
+      "completedAt",
       "hasPriorSubmission",
       "message",
       "plan",
@@ -120,6 +121,7 @@ test("h card query APIs are read-only, authenticated where required, and rate li
 
   const successQuery = await post("/api/recharge/h-card-status", { provider: "h", cardInfo: cards[3].code }, { ip: "198.51.100.20" });
   assert.equal(successQuery.payload.data.boundAccount, "s***@example.com");
+  assert.equal(successQuery.payload.data.completedAt, store.getOrder(successOrder.id).completedAt);
   assert.equal(successQuery.payload.data.status, "success");
   assert.equal(successQuery.payload.data.subscriptionCancellationStatus, "failed");
   assert.equal(successQuery.payload.data.subscriptionActionRequired, true);

@@ -489,7 +489,8 @@ export const rechargeService = {
       if (status !== intake.status) store.updateOrder(intake.id, { status, message: "Plus 已开通" });
       return { ok: true, status: 200, data: { status,
       plan: localCard?.plan || "plus", statusLabel: status === "success" ? "充值成功" : "正在处理",
-      canRecharge: false, hasPriorSubmission: true, boundAccount: "",
+      canRecharge: false, hasPriorSubmission: true, boundAccount: native ? zzshuService.publicOrder(native.id).boundAccount : maskEmail(intake.userEmail || localCard?.boundEmail),
+      completedAt: status === "success" ? native?.completed_at || intake.completedAt || intake.manualCompletedAt || "" : "",
       message: native ? zzshuService.publicOrder(native.id).message : intake.message || "充值结果正在核查，请暂时不要重复提交。" } };
     }
     const priorRetry = store.listRechargeOrders().find(item => item.provider === "zzshu" && item.submissionCodeHash === sha256(canonicalCardInfo.toUpperCase()) && item.status === 'failed' && item.retryAllowed);
@@ -523,6 +524,7 @@ export const rechargeService = {
         plan: record.plan || "plus",
         statusLabel: H_CARD_STATUS_LABELS[record.status],
         boundAccount: maskedBoundAccount(record),
+        completedAt: record.completedAt || "",
         canRecharge: record.status === "unused",
         hasPriorSubmission: Boolean(record.hasOrder),
         message: record.subscriptionActionRequired
@@ -745,7 +747,7 @@ export const rechargeService = {
       const native = zzshuService.publicOrder(intake.upstreamTaskId);
       if (!native) continue;
       if (intake.status !== native.status || intake.retryAllowed !== native.canRetry || intake.message !== native.message)
-        store.updateOrder(intake.id, { status:native.status, message:native.message, retryAllowed:native.canRetry, actionRequired:native.actionRequired });
+        store.updateOrder(intake.id, { status:native.status, completedAt:native.completedAt || intake.completedAt || "", message:native.message, retryAllowed:native.canRetry, actionRequired:native.actionRequired });
     }
   },
   listRechargeSubmissions() {
@@ -1491,7 +1493,7 @@ export const rechargeService = {
       }
       const current = store.getOrder(intake.id);
       return { ok:true,status:200,data:{ orderId:current.id,taskId:current.id,status:current.status,
-        message:current.message,canRetry:Boolean(current.retryAllowed),actionRequired:current.actionRequired || 'wait',provider:'zzshu',providerLabel:'自动充值' } };
+        plan:'plus', completedAt:current.status === 'success' ? zzshuService.publicOrder(current.upstreamTaskId)?.completedAt || current.completedAt || '' : '', message:current.message,canRetry:Boolean(current.retryAllowed),actionRequired:current.actionRequired || 'wait',provider:'zzshu',providerLabel:'自动充值' } };
     }
     if (input.orderId && zzshuService.store.order(input.orderId)) return zzshuService.refresh(input.orderId);
     if (requiredString(input.cardInfo) && store.getHCardByCode(input.cardInfo)?.plan?.startsWith("pro_")) return proService.query(input);
@@ -1528,6 +1530,7 @@ export const rechargeService = {
             orderId: order.id,
             taskId: "",
             status: order.status,
+            completedAt: order.status === "success" ? order.completedAt || order.manualCompletedAt || "" : "",
             message: order.submissionCodeHash && order.status === "needs_review" ? "资料已提交，正在处理。" : order.message,
             ...subscriptionPublicData(order),
             ...normalizedProviderData(order.provider)
@@ -1746,6 +1749,7 @@ export const rechargeService = {
       data: {
         orderId: order?.id || "",
         taskId,
+        completedAt: nextStatus === "success" ? store.getOrder(order?.id)?.completedAt || "" : "",
         status: nextStatus,
         message: order?.submissionCodeHash && nextStatus === "needs_review" ? "资料已提交，正在处理。" : message,
         upstreamStatus: taskData.upstreamStatus || "",
