@@ -128,13 +128,14 @@ test('same-card retry, explicit freezing and audited administrator resolution wo
   assert.equal((await action(renewed.data.orderId,'success','account_active')).status,409);
   assert.equal(zzs.store.listCards()[0].successCount,2);
   assert.equal(zzs.store.listCards()[0].frozenUses,0);
-  // An intake with no upstream task can be manually frozen and released without a replacement card.
+  // A queued intake can be manually frozen and released without a replacement card.
   ready=false;
   const prior=await submit(noNative);
-  assert.equal(prior.data.canRetry,true); assert.equal(local.getOrder(prior.data.orderId).upstreamTaskId,'');
+  assert.equal(prior.data.canRetry,false); assert.equal(prior.data.status,'processing');
+  assert.ok(local.getOrder(prior.data.orderId).upstreamTaskId);
   local.updateOrder(prior.data.orderId,{status:'needs_review',retryAllowed:false});
   assert.equal((await action(prior.data.orderId,'freeze','account_check')).status,200);
-  assert.equal(zzs.store.voucher(noNative.code).status,'frozen');
+  assert.equal(zzs.store.voucher(noNative.code).status,'reserved');
   assert.equal((await submit(noNative)).data.orderId,prior.data.orderId);
   assert.equal((await action(prior.data.orderId,'unlock','token_expired')).status,200);
   assert.equal((await service.queryHCardStatus(noNative.code,'zzshu')).data.canRetry,true);

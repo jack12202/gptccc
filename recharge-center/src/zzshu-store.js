@@ -205,7 +205,7 @@ export class ZzshuStore {
       MAX(0,max_success-success_count-h_success_count-frozen_count) AS remainingUses,
       success_count AS successCount,h_success_count AS hifupaySuccessCount,frozen_count AS frozenUses,failures,paused,last_failure AS lastFailure,created_at AS createdAt,
       (SELECT id FROM orders WHERE card_id=payment_cards.id AND (status IN ('reserved','submitting','processing') OR (admin_frozen=1 AND status='needs_review')) LIMIT 1) AS occupiedOrderId
-      FROM payment_cards WHERE retired_at IS NULL
+      FROM payment_cards WHERE retired_at IS NULL AND credential_ref NOT LIKE 'queued:%'
       ORDER BY success_count DESC,created_at,id`).all();
     const successes = this.db.prepare(`SELECT o.card_id AS cardId,o.id AS orderId,o.email,o.account_id AS accountId,
       o.created_at AS submittedAt FROM orders o JOIN payment_cards c ON c.id=o.card_id
@@ -362,6 +362,28 @@ export class ZzshuStore {
   }
   reserve(code, email, accountId, allowedHifupayIds = null, allowManual = true, sessionCipher = "") {
     return this.transaction(() => this.reserveUncommitted(code,email,accountId,allowedHifupayIds,allowManual,sessionCipher));
+  }
+  queue(code, email, accountId, sessionCipher, reason) {
+    if (!sessionCipher) throw new Error("排队资料未保存");
+    return this.transaction(() => {
+      const voucher = this.voucher(code);
+      if (!voucher) return { ok: false, reason: "卡密不存在" };
+      const bound = this.boundIdentity(code);
+      if (bound?.email && bound.email !== email || bound?.accountId && bound.accountId !== accountId)
+        return { ok: false, reason: "此卡密已绑定首次提交的账号，请使用原账号。" };
+      if (voucher.orderId) return { ok: true, orderId: voucher.orderId };
+      if (voucher.status !== "unused") return { ok: false, reason: "卡密已使用" };
+      const id = crypto.randomUUID(), at = new Date().toISOString();
+      // Disabled placeholder satisfies the legacy card foreign key; never selectable for payment.
+      const ref = `queued:${id}`;
+      this.db.prepare(`INSERT INTO payment_cards(id,fingerprint,last_four,credential_ref,source,enabled,max_success,created_at)
+        VALUES(?,?,'',?,'人工排队',0,0,?)`).run(id,ref,ref,at);
+      this.db.prepare(`INSERT INTO orders(id,voucher_id,card_id,email,account_id,status,review_reason,created_at,updated_at,session_cipher,auto_query)
+        VALUES(?,?,?,?,?,'needs_review',?,?,?,?,0)`).run(id,voucher.id,id,email,accountId,reason,at,at,sessionCipher);
+      this.db.prepare("UPDATE vouchers SET status='reserved',order_id=?,email=?,account_id=? WHERE id=?").run(id,email,accountId,voucher.id);
+      this.audit(id,"manual_queue",reason);
+      return { ok: true, orderId: id };
+    });
   }
   probeManualReservation(code) {
     const rollback = new Error("probe-rollback");

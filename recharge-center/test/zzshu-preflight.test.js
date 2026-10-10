@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-test("ZZS gateway outage rejects a new submission before reserving payment or voucher", async t => {
+test("ZZS gateway outage queues submission without reserving a payment card", async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-preflight-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   process.env.DATA_FILE = path.join(dir, "orders.json");
@@ -24,11 +24,12 @@ test("ZZS gateway outage rejects a new submission before reserving payment or vo
     account: { id: "account-1", planType: "free" }, accessToken: "fixture-access",
     sessionToken: "fixture-session", expires: "2040-01-01" });
   const result = await zzshuService.confirm({ cardInfo: voucher.code, secretJsonText: session });
-  assert.equal(result.ok, false);
-  assert.equal(result.status, 503);
-  assert.match(result.message, /尚未提交/);
-  assert.equal(zzshuService.store.listOrders().length, 0);
-  assert.equal(zzshuService.store.voucher(voucher.code).status, "unused");
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 200);
+  assert.equal(result.data.status, "processing");
+  assert.match(result.data.message, /排队/);
+  assert.equal(zzshuService.store.listOrders().length, 1);
+  assert.equal(zzshuService.store.voucher(voucher.code).status, "reserved");
   assert.equal(zzshuService.store.listCards()[0].occupiedOrderId, null);
   assert.equal(zzshuService.store.listCards()[0].successCount, 0);
   // A local snapshot failure must stop before the upstream create call and release the reservation.
@@ -43,14 +44,16 @@ test("ZZS gateway outage rejects a new submission before reserving payment or vo
     zzshuAdapter.create = originalCreate;
     zzshuService.store.prepareSessionSubmission = originalPrepare;
   });
+  const [secondVoucher] = zzshuService.createVouchers({ count: 1, source: "fixture" });
   const plus = {...JSON.parse(session), account:{id:"account-1",planType:"plus"}};
-  const failure = await zzshuService.confirm({cardInfo:voucher.code,secretJsonText:JSON.stringify({fullAuthData:plus})});
-  assert.equal(failure.status,503);
-  assert.match(failure.message,/本次未提交/);
+  const failure = await zzshuService.confirm({cardInfo:secondVoucher.code,secretJsonText:JSON.stringify({fullAuthData:plus})});
+  assert.equal(failure.status,200);
+  assert.equal(failure.data.status,"processing");
+  assert.match(failure.data.message,/排队/);
   assert.equal(createCalls,0);
-  assert.equal(zzshuService.store.voucher(voucher.code).status,"unused");
+  assert.equal(zzshuService.store.voucher(secondVoucher.code).status,"reserved");
   assert.equal(zzshuService.store.listCards()[0].occupiedOrderId,null);
-  assert.equal(zzshuService.store.listOrders().length,0);
+  assert.equal(zzshuService.store.listOrders().length,2);
   assert.equal(zzshuService.store.submissionRecord("historical-missing").hasSubmittedJson,false);
   const unsupported = await zzshuService.confirm({cardInfo:voucher.code,secretJsonText:JSON.stringify({
     ...plus, account:{...plus.account,planType:"pro"}

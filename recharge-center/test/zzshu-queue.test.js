@@ -1,0 +1,26 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { ZzshuStore } from "../src/zzshu-store.js";
+test("durable manual queue without stock binds account, deduplicates and supports resolution", t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zzshu-queue-"));
+  const store = new ZzshuStore(path.join(dir,"test.sqlite"));
+  t.after(() => { store.db.close(); fs.rmSync(dir,{recursive:true,force:true}); });
+  const [v] = store.createVouchers(1,"fixture",3, x => x);
+  const queued = store.queue(v.code,"a@example.test","account-a","encrypted-session","缺卡等待人工处理");
+  assert.equal(queued.ok,true);
+  assert.equal(store.order(queued.orderId).status,"needs_review");
+  assert.equal(store.sessionCipher(queued.orderId),"encrypted-session");
+  assert.equal(store.listCards().length,0);
+  assert.equal(store.selectCandidate(null,true),undefined);
+  assert.equal(store.queue(v.code,"a@example.test","account-a","encrypted-session","retry").orderId,queued.orderId);
+  assert.equal(store.queue(v.code,"b@example.test","account-b","encrypted-session","retry").ok,false);
+  assert.equal(store.listOrders().length,1);
+  const reopened = new ZzshuStore(path.join(dir,"test.sqlite"));
+  assert.equal(reopened.order(queued.orderId).status,"needs_review");
+  reopened.db.close();
+  assert.equal(store.manualResolve(queued.orderId,"success","人工核验充值已到账"),true);
+  assert.equal(store.voucher(v.code).status,"used");
+});

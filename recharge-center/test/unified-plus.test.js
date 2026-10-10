@@ -59,8 +59,8 @@ test("new Plus cards switch before use and keep their chosen provider after subm
   const configFailure = await rechargeService.confirmRecharge({ cardInfo: configCard.code, provider: "h", secretJsonText: session });
   config.zzshuEnabled = true;
   assert.equal(configFailure.ok, true);
-  assert.equal(configFailure.data.status, "failed");
-  assert.equal(configFailure.data.canRetry,true);
+  assert.equal(configFailure.data.status, "processing");
+  assert.equal(configFailure.data.canRetry,false);
   assert.equal(rechargeService.getRecoverySubmission(configFailure.data.orderId, true).data.secretJsonText, session);
   assert.equal(rechargeService.listRechargeSubmissions().data.records.find(item => item.id === configFailure.data.orderId).userEmail, "new@example.test");
   assert.equal(rechargeService.markRecoveryUnpaid(configFailure.data.orderId, "管理员核实上游未创建订单").ok, true);
