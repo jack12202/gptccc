@@ -1,9 +1,10 @@
+import { buildWorkbench } from './admin-workbench.js';
 import { config } from "./config.js";
 import { getProviderAdapter, listProviders } from "./providers/index.js";
 import { JsonStore } from "./store.js";
 import { proService } from "./pro-orders.js";
 import { zzshuService } from "./zzshu-service.js";
-import { issueMessage } from "./zzshu-recovery.js";
+import { issueMessage, recoveryReasons } from "./zzshu-recovery.js";
 import { hifupayCredentialStore } from "./hifupay-credential-store.js";
 import {
   decodeJson,
@@ -617,6 +618,13 @@ export const rechargeService = {
         updatedAt: store.getSettings().hifupayCardsUpdatedAt || ""
       }
     };
+  },
+
+  getAdminWorkbench(query = {}) {
+    const records = this.listRechargeSubmissions().data.records;
+    return {...buildWorkbench({hifupay:store.listHifupayCards(),usageCards:zzshuService.store.listCards(),
+      customerCards:store.listHCards(1,true,true,false),records,plusProvider:store.getSettings().plusProvider,
+      chargeThreshold:Math.max(0,config.hifupayEstimatedPlusChargeUsd+config.hifupaySafetyBufferUsd)},query),recoveryReasons};
   },
 
   getRechargeDashboard() {

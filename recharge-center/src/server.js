@@ -48,59 +48,8 @@ function serveHCardBatchAdmin(res) {
   res.end(html);
 }
 
-function serveAdminOverview(res) {
-  const html = `<!doctype html>
-<html lang="zh-CN"><head>
-<script src="/admin/session.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
-<title>充值工作台｜GPTC 后台</title>
-<style>
-*{box-sizing:border-box}body{margin:0;padding:20px;background:#f4f7fb;color:#132033;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:1180px;margin:auto}.panel{background:#fff;border:1px solid #dbe4ee;border-radius:16px;padding:22px;margin-bottom:16px;box-shadow:0 16px 42px #0f172a0d}h1,h2{margin:0 0 8px}h1{font-size:28px}h2{font-size:18px}p,.muted{color:#64748b;line-height:1.55}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.api-card{border:1px solid #dbe4ee;border-radius:13px;padding:17px;background:#fbfdff}.status-line{font-weight:800;margin:8px 0 14px}.good{color:#047857}.bad{color:#be123c}.form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}input{width:100%;min-height:44px;border:1px solid #cbd5e1;border-radius:9px;padding:0 11px;font:inherit}button,.link{min-height:44px;border:1px solid #99f6e4;border-radius:9px;padding:0 14px;background:#ecfdf5;color:#0f766e;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.choices button.active{background:#0f766e;color:#fff;border-color:#0f766e}.message{margin-top:12px;min-height:22px;color:#1e3a8a}.message.error{color:#be123c}.nav{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}@media(max-width:760px){body{padding:12px}.grid{grid-template-columns:1fr}.form{grid-template-columns:1fr}}
-</style></head><body><main>
-<section class="panel"><h1>充值工作台</h1><p>从这里进入四项日常管理。客户的登录、获取 JSON、提交卡密和自助充值流程保持现状。</p><div class="nav"><a class="link" href="/admin/cards">卡密管理</a><a class="link" href="/admin/recoveries">充值订单</a><a class="link" href="/admin/hifupay/cards">支付卡池</a><a class="link" href="/admin#protocol-settings">协议设置</a></div><p class="muted">卡密管理可按来源查卡和关联订单；充值订单可查 Plus、Pro 记录及已留存的 JSON；支付卡池保留现有嗨付和 ZZS 卡片管理。</p></section>
-<section class="panel"><div class="grid">
-<article class="api-card" data-channel="hifupay"><h2>嗨付 API</h2><div class="status-line" id="hifupayState">读取中…</div><div class="form"><input id="hifupayKey" type="password" autocomplete="new-password" placeholder="填写新的嗨付 API Key"><button id="saveHifupay">验证并保存</button></div><div class="actions"><button id="checkHifupay">检测连接</button></div><div class="message" id="hifupayMessage"></div></article>
-<article class="api-card" data-channel="zzshu"><h2>ZZS API</h2><div class="status-line" id="zzshuState">读取中…</div><div class="form"><input id="zzshuKey" type="password" autocomplete="new-password" placeholder="填写新的 ZZS API Key"><button id="saveZzshu">验证并保存</button></div><p class="muted">“检测连接”只检查后台已保存的 Key；输入框中的内容需先验证并保存才会生效。本站旧订单直接从服务器读取；更换 Key 后，未完成的旧订单保留待核查，不会用新 Key 自动查单。</p><div class="actions"><button id="checkZzshu">检测连接</button><button id="probeZzshu">诊断上游连通性</button></div><div class="message" id="zzshuMessage"></div></article>
-</div></section>
-<section class="panel" id="zzshu-query"><h2>ZZS 开通记录</h2><p>使用后台已保存的 ZZS Key 只读查询上游记录，不提交充值，也不修改本站订单。可与<a href="/admin/recoveries">本站充值订单</a>中的账号、时间和上游订单号核对。</p><div class="actions"><button id="queryZzshuUsage">查询上游记录</button><a class="link" href="https://card.zzshu.pro/query" target="_blank" rel="noopener noreferrer">打开 ZZS 查询页</a></div><div class="message" id="zzshuUsageMessage"></div><div id="zzshuUsageResults"></div><div class="actions"><button id="zzshuUsagePrevious" disabled>上一页</button><button id="zzshuUsageNext" disabled>下一页</button></div></section>
-<section class="panel" id="protocol-settings"><h2>Plus 通道选择</h2><p>勾选的协议用于尚未首次提交的通用 Plus 卡密。已提交的卡密及订单继续使用原协议；Pro 订单在<a href="/admin/pro-orders">Pro 履约工作台</a>查看。</p><div class="choices"><button data-provider="h">嗨付</button><button data-provider="zzshu">ZZS</button></div><div class="message" id="providerMessage"></div><p class="muted">其他网站入口设置仍在<a href="/admin/provider">路由设置</a>中。</p></section>
-<script>
-const api=window.adminApi;
-function message(id,value,error){const el=document.getElementById(id);el.textContent=value||"";el.classList.toggle("error",Boolean(error))}
-async function loadCredential(channel,path){
-  try{const d=await api(path);const configured=Boolean(d.configured),button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu");const state=document.getElementById(channel+"State");state.textContent=configured?"已保存 · 连接待检测 · "+(d.source==="environment"?"部署配置":"后台保存"):"未配置";state.className="status-line "+(configured?"":"bad");document.getElementById(channel+"Key").disabled=!d.canConfigure;button.disabled=!d.canConfigure;button.textContent=configured?"验证并更换":"验证并保存";button.dataset.replace=configured?"1":"0"}catch(e){message(channel+"Message",e.message,true)}
-}
-async function save(channel,path){
-  const input=document.getElementById(channel+"Key"), key=input.value.trim(); if(!key){message(channel+"Message","请填写 API Key。",true);return}
-  const button=document.getElementById(channel==="hifupay"?"saveHifupay":"saveZzshu"),replace=button.dataset.replace==="1";if(replace&&!confirm(channel==="zzshu"?"更换后，旧订单仍保存在本站；未完成的旧订单将停止自动查单，进入待核查。确认更换？":"新 API 验证成功后将替换当前 API。未完成订单存在时系统会拒绝更换。确认继续？"))return;
-  try{await api(path,{method:"POST",body:JSON.stringify({apiKey:key,replace})});input.value="";message(channel+"Message",replace?"新 API 验证成功，已完成更换。":"验证成功，已保存。");await loadAll()}catch(e){message(channel+"Message",e.message,true)}
-}
-async function check(channel,path){const state=document.getElementById(channel+"State");try{const d=await api(path);state.textContent="连接正常 · "+new Date().toLocaleString("zh-CN",{hour12:false});state.className="status-line good";message(channel+"Message","连接正常"+(d.points==null?"":" · 积分 "+d.points))}catch(e){state.textContent="连接检测失败";state.className="status-line bad";message(channel+"Message",e.message,true)}}
-async function loadProvider(){try{const d=await api("/api/admin/recharge-dashboard");document.querySelectorAll("[data-provider]").forEach(b=>b.classList.toggle("active",b.dataset.provider===d.plusProvider))}catch(e){message("providerMessage",e.message,true)}}
-let zzshuUsagePage=1;
-async function loadZzshuUsage(page){
-  const button=document.getElementById("queryZzshuUsage");button.disabled=true;message("zzshuUsageMessage","正在查询…");
-  try{const d=await api("/api/admin/zzshu/usage?page="+page);zzshuUsagePage=d.page||page;const box=document.getElementById("zzshuUsageResults");box.replaceChildren();
-    const summary=document.createElement("p");summary.textContent="上游记录 "+d.total+" 条 · 剩余点数 "+d.remaining+" · 第 "+zzshuUsagePage+" 页";box.append(summary);
-    for(const item of d.items||[]){const row=document.createElement("p");row.textContent=[item.createdAt,item.email,item.planType,"开通："+item.status,"续费："+item.cancellation,"扣点："+item.points,"任务："+item.taskNo].join(" · ");box.append(row)}
-    if(!d.items?.length){const empty=document.createElement("p");empty.textContent="本页暂无记录";box.append(empty)}
-    document.getElementById("zzshuUsagePrevious").disabled=zzshuUsagePage<=1;document.getElementById("zzshuUsageNext").disabled=zzshuUsagePage*20>=d.total;message("zzshuUsageMessage","");
-  }catch(e){message("zzshuUsageMessage",e instanceof SyntaxError?"上游或本站网关返回了非 JSON 页面，请稍后重试。":e.message,true)}finally{button.disabled=false}
-}
-async function loadAll(){await Promise.all([loadCredential("hifupay","/api/admin/hifupay/credential"),loadCredential("zzshu","/api/admin/zzshu/credential"),loadProvider()])}
-document.getElementById("queryZzshuUsage").onclick=()=>loadZzshuUsage(1);
-document.getElementById("zzshuUsagePrevious").onclick=()=>loadZzshuUsage(zzshuUsagePage-1);
-document.getElementById("zzshuUsageNext").onclick=()=>loadZzshuUsage(zzshuUsagePage+1);
-document.getElementById("saveHifupay").onclick=()=>save("hifupay","/api/admin/hifupay/credential/verify-and-save");
-document.getElementById("saveZzshu").onclick=()=>save("zzshu","/api/admin/zzshu/credential/verify-and-save");
-document.getElementById("checkHifupay").onclick=()=>check("hifupay","/api/admin/hifupay/credential/check");
-document.getElementById("checkZzshu").onclick=()=>check("zzshu","/api/admin/zzshu/credential/check");
-document.getElementById("probeZzshu").onclick=async()=>{try{const d=await api("/api/admin/zzshu/credential/probe");message("zzshuMessage",d.networkReachable?"上游接口可达：测试 Key 按预期被拒绝（HTTP "+d.httpStatus+"，code "+d.code+"）。":"上游接口异常：标准 HTTP "+(d.httpStatus||"?")+"，IPv4 "+(d.ipv4?.status||"?")+"，IPv6 "+(d.ipv6?.status||"?")+"。"+(d.upstreamRay?" CF Ray "+d.upstreamRay:""),!d.networkReachable)}catch(e){message("zzshuMessage",e.message,true)}};
-document.querySelectorAll("[data-provider]").forEach(b=>b.onclick=async()=>{try{const d=await api("/api/admin/plus-provider",{method:"POST",body:JSON.stringify({provider:b.dataset.provider})});message("providerMessage","新 Plus 卡密已切换到 "+(d.plusProvider==="zzshu"?"ZZS":"嗨付"));await loadProvider()}catch(e){message("providerMessage",e.message,true)}});
-loadAll();
-</script></main></body></html>`;
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
-  res.end(html);
-}
+function serveAdminOverview(res) { serveAdminAsset(res, "workbench.html"); }
+
 function clientIp(req) {
   const realIp = req.headers["x-real-ip"];
   if (typeof realIp === "string" && realIp.trim()) return realIp.trim().slice(0, 80);
@@ -1521,6 +1470,10 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js"].includes(url.pathname)) {
+      serveAdminAsset(res,path.basename(url.pathname),"application/javascript; charset=utf-8"); return;
+    }
+
     if (req.method === "GET" && (url.pathname === "/admin/cards/library" || url.pathname === "/admin/cards/library/")) {
       serveHCardLibraryAdmin(res);
       return;
@@ -1677,6 +1630,10 @@ export const server = http.createServer(async (req, res) => {
       const result = rechargeService.listHifupayCards();
       sendJson(res, result.status, { success: true, data: result.data });
       return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/admin/workbench") {
+      sendJson(res,200,{success:true,data:rechargeService.getAdminWorkbench(Object.fromEntries(url.searchParams))});return;
     }
 
     if (req.method === "GET" && url.pathname === "/api/admin/recharge-dashboard") {

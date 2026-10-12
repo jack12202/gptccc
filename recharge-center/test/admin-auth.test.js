@@ -130,7 +130,7 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
       assert.match(html, /ZZS API/);
       assert.match(html, /Plus 通道选择/);
       assert.match(html, /id="protocol-settings"/);
-      assert.doesNotMatch(html, /value="[^\"]+"/);
+      assert.doesNotMatch(html, /(?:id="(?:hifupayKey|zzshuKey)"[^>]*value=|value="fixture)/);
     }
     assert.doesNotMatch(html, /X-Admin-Token|localStorage\.setItem|tokenFromQuery/);
     for (const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(script[1]);
