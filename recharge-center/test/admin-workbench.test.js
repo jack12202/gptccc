@@ -55,11 +55,21 @@ test('card origin labels stay independent of the recharge protocol',()=>{
   const rows=workbenchPaymentCards([],[
     fixture('sky',{source:'天空卡台'}),
     fixture('mouse',{source:'zzs'}),
-    fixture('custom',{source:'其他渠道'})
+    fixture('custom',{source:'其他渠道'}),
+    fixture('legacy-sky',{source:'手动导入',note:'天空'}),
+    fixture('legacy-mouse',{source:'手动导入',note:'吱吱鼠'}),
+    fixture('unknown',{source:'手动导入',note:'待核查，可能不是天空'}),
+    fixture('explicit',{source:'ZZS',note:'天空'})
   ]);
   assert.equal(rows.find(c=>c.id==='sky').sourceLabel,'天空');
   assert.equal(rows.find(c=>c.id==='mouse').sourceLabel,'ZZS / 吱吱鼠');
   assert.equal(rows.find(c=>c.id==='custom').sourceLabel,'其他渠道');
+  assert.equal(rows.find(c=>c.id==='legacy-sky').sourceLabel,'天空');
+  assert.equal(rows.find(c=>c.id==='legacy-sky').sourceInferred,true);
+  assert.equal(rows.find(c=>c.id==='legacy-mouse').sourceLabel,'ZZS / 吱吱鼠');
+  assert.equal(rows.find(c=>c.id==='unknown').sourceLabel,'未标注');
+  assert.equal(rows.find(c=>c.id==='unknown').sourceMissing,true);
+  assert.equal(rows.find(c=>c.id==='explicit').sourceLabel,'ZZS / 吱吱鼠');
   for(const card of rows)assert.deepEqual(card.channels,['ZZS']);
 });
 
@@ -73,7 +83,7 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   const order=store.createOrder({provider:'h',status:'needs_review',hCardId:cards[0].id},{userEmail:'old@example.test',accountId:'old-account'});
   store.updateOrder(order.id,{createdAt:'2020-01-01T00:00:00Z'});
   for(let i=1;i<15;i++)store.createOrder({provider:'h',status:'success',hCardId:cards[i].id},{userEmail:'user-'+i+'@example.test'});
-  await zzshuService.importCards({text:'4242424242424242,12/40,123\n4000056655665556,12/40,123',source:'fixture',maxSuccess:4});
+  await zzshuService.importCards({text:'4242424242424242,12/40,123\n4000056655665556,12/40,123',source:'手动导入',note:'天空',maxSuccess:4});
   const [active,stopped]=zzshuService.store.listCards();zzshuService.store.updateCard(stopped.id,{enabled:false});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -85,8 +95,12 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   const get=suffix=>fetch(base+suffix,{headers:{Cookie:cookie}});
   const snap=async query=>(await (await get('/api/admin/workbench'+(query?'?'+query:''))).json()).data;
   const html=await (await get('/admin')).text();assert.match(html,/正在使用的支付卡/);assert.match(html,/最近客户卡密/);assert.match(html,/最近充值订单/);assert.match(html,/录入支付卡/);
-  for(const asset of ['workbench.js','workbench-settings.js']){const response=await get('/admin/cards/'+asset);assert.equal(response.status,200);new vm.Script(await response.text());}
+  for(const asset of ['workbench.js','workbench-settings.js','payment-card-source-ui.js']){const response=await get('/admin/cards/'+asset);assert.equal(response.status,200);new vm.Script(await response.text());}
   const initial=await snap();assert.equal(initial.orders.items.length,10);assert.equal(initial.vouchers.items.length,20);assert.equal(initial.cards.length,1);assert.equal(initial.cards[0].id,active.id);
+  const fullPool=(await (await get('/api/admin/zzshu/cards')).json()).data;
+  assert.equal(initial.cards[0].sourceLabel,'天空');
+  assert.equal(fullPool.find(c=>c.id===active.id).sourceLabel,'天空');
+  assert.equal(fullPool.find(c=>c.id===active.id).sourceInferred,true);
   assert.equal(initial.summary.unusedVouchers,15);assert.equal((await snap('orderView=attention')).orders.items[0].id,order.id);
   assert.equal((await snap('voucherSearch='+cards[0].code)).vouchers.items[0].operationalStatus,'needs_review');
   const before=initial.summary.remainingUses;

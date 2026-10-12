@@ -1,4 +1,4 @@
-import { paymentCardSource } from './payment-card-source.js';
+import { paymentCardOrigin } from './payment-card-source.js';
 const shanghaiDate = date => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(date));
 const value = input => String(input || '').trim().toLowerCase();
 const matches = (parts, query) => !query || parts.some(part => value(part).includes(query));
@@ -25,7 +25,7 @@ export function workbenchPaymentCards(hifupay, usageCards, chargeThreshold = 16)
   });
   const manual = usageCards.filter(card => card.credentialSource === 'manual').map(card => {
     const enabled = Boolean(card.enabled),paused = Boolean(card.paused),occupied = Boolean(card.occupiedOrderId);
-    return {...card,kind:'manual',uid:'manual:'+card.id,usageId:card.id,enabled,paused,occupied,sourceLabel:paymentCardSource(card.source) || '手动导入',
+    return {...card,kind:'manual',uid:'manual:'+card.id,usageId:card.id,enabled,paused,occupied,...paymentCardOrigin(card.source,card.note),
       remaining:Number(card.remainingUses)||0,max:Number(card.maxSuccess)||0,used:Number(card.successCount)||0,frozen:Number(card.frozenUses)||0,
       state:!enabled?'disabled':paused?'paused':occupied?'reserved':card.remainingUses > 0?'ready':'uses_exhausted',
       channels:enabled && !paused && !occupied && card.remainingUses > 0?['ZZS']:[]};

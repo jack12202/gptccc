@@ -40,12 +40,12 @@ try {
     assert.equal(response.status, 200, `${page} must accept the shared session`);
     const html = await response.text();
     if (["/admin","/admin/hifupay/cards"].includes(page)) {
-      assert.ok(html.includes("<th>来源渠道</th>") && html.includes('list="paymentSources"'), "Payment card origin UI missing");
+      assert.ok(html.includes("<th>来源渠道</th>") && html.includes('/admin/cards/payment-card-source-ui.js') && html.includes('请选择卡片来源'), "Payment card origin UI missing");
     }
     const hasChannelCredentialInputs = page === "/admin" && html.includes('id="hifupayKey" type="password"') && html.includes('id="zzshuKey" type="password"') && html.includes('/admin/cards/workbench-settings.js');
     assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasChannelCredentialInputs), `${page} still contains legacy authentication`);
   }
-  for (const asset of ["workbench.js","workbench-settings.js"]) {
+  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js"]) {
     const response = await call("/admin/cards/" + asset, {headers:{Cookie:cookie}});
     assert.equal(response.status,200,"Workbench asset must be available behind the shared session");
     assert.match(response.headers.get("content-type") || "", /javascript/);
@@ -57,6 +57,14 @@ try {
   const snapshot = (await snapshotResponse.json()).data;
   assert.ok(snapshot && Array.isArray(snapshot.cards) && snapshot.cards.every(card=>card.enabled),"Workbench must show only active cards");
   assert.ok(snapshot.orders.items.length <= 10 && snapshot.vouchers.items.length <= 20,"Workbench recent windows exceed their limits");
+  const poolResponse=await call("/api/admin/zzshu/cards",{headers:{Cookie:cookie}});
+  assert.equal(poolResponse.status,200,"Full payment pool unavailable");
+  const pool=(await poolResponse.json()).data;
+  assert.ok(Array.isArray(pool),"Full payment pool response invalid");
+  const manualPool=new Map(pool.filter(card=>card.credentialSource==="manual").map(card=>[card.id,card]));
+  assert.ok(snapshot.cards.filter(card=>card.kind==="manual").every(card=>manualPool.get(card.id)?.sourceLabel===card.sourceLabel),"Channel labels differ between home and full pool");
+  assert.ok(pool.filter(card=>card.credentialSource==="manual" && ["","手动导入","未分类","未标注"].includes(String(card.source||"").trim()) && ["天空","天空卡台"].includes(String(card.note||"").trim())).every(card=>card.sourceLabel==="天空"),"Legacy Sky notes are not shown as Sky origin");
+  console.log("Origin selectors and legacy Sky labels match across home and full payment pool.");
   // Synthetic fixture only. Preview does not import credentials or spend card uses.
   const previewResponse = await call("/api/admin/zzshu/preview", {
     method:"POST", headers:{"Content-Type":"application/json",Cookie:cookie,Origin:base,"X-CSRF-Token":csrf},

@@ -3,7 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { config } from "./config.js";
-import { paymentCardSource } from "./payment-card-source.js";
+import { paymentCardSource, paymentCardOrigin } from "./payment-card-source.js";
 
 export class ZzshuStore {
   constructor(file = config.zzshuDbFile) {
@@ -234,7 +234,7 @@ export class ZzshuStore {
       if (!frozenByCard.has(item.cardId)) frozenByCard.set(item.cardId, []);
       frozenByCard.get(item.cardId).push({ orderId:item.orderId, email:item.email || '', status:item.status, provider:item.provider });
     }
-    return cards.map(card => ({ ...card, successfulAccounts: byCard.get(card.id) || [],
+    return cards.map(card => ({ ...card, ...paymentCardOrigin(card.source,card.note), successfulAccounts: byCard.get(card.id) || [],
       pendingAccount: pendingByCard.get(card.id) || null, frozenOrders:frozenByCard.get(card.id) || [] }));
   }
   addCardUses(id, amount, requestId, operator = 'admin') {

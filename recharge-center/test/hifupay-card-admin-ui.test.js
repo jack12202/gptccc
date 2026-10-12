@@ -55,6 +55,7 @@ test("one payment-card page lists H and manual cards with shared counts and sour
     if (url === "/api/admin/zzshu/import-status") return { ready: true, message: "可导入" };
     throw Error("unexpected endpoint: " + url);
   } }, confirm: () => true, prompt: () => "5" });
+  vm.runInContext(fs.readFileSync(new URL('../admin/payment-card-source-ui.js',import.meta.url),'utf8'),context);
   vm.runInContext(script, context);
   await vm.runInContext("load()", context);
   const rows = document.getElementById("cards");
@@ -63,6 +64,7 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.doesNotMatch(rows.innerHTML, /duplicate/);
   assert.match(rows.innerHTML, /嗨付同步/);
   assert.match(rows.innerHTML, /团购/);
+  assert.match(rows.innerHTML, /data-card-source="manual:m-1"/);
   assert.match(rows.innerHTML, /冻结 1/);
   assert.match(rows.innerHTML, /ZZS/);
   assert.match(document.getElementById("stats").innerHTML, /卡池总数/);
@@ -84,6 +86,8 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(rows.innerHTML, /•••• 2002/);
   assert.doesNotMatch(rows.innerHTML, /•••• 1001/);
   assert.ok(calls.includes("/api/admin/zzshu/cards"));
+  await document.getElementById("cards").onchange({target:{dataset:{cardSource:'manual:m-1'},value:'天空'}});
+  assert.deepEqual(writes.pop(),{url:'/api/admin/zzshu/cards/m-1',body:{source:'天空'}});
   document.getElementById("search").value = "";
   document.getElementById("search").oninput();
   document.getElementById("selectPage").onclick();

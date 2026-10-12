@@ -1470,7 +1470,7 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js"].includes(url.pathname)) {
+    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js","/admin/cards/payment-card-source-ui.js"].includes(url.pathname)) {
       serveAdminAsset(res,path.basename(url.pathname),"application/javascript; charset=utf-8"); return;
     }
 
