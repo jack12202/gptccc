@@ -1056,10 +1056,10 @@ function serveRecoveryAdmin(res) {
     const recoveryReasonOptions = ${JSON.stringify(recoveryReasons)};
     async function chooseRecoveryEvidence(record, outcome) {
       const dialog = document.getElementById('recoveryDialog');
-      const labels = {unlock:'解锁卡密',freeze:'冻结待查',success:'确认充值成功',release:'释放冻结次数',consume:'记为已消耗',cancellation:'确认续费已关闭'};
+      const labels = {unlock:'解锁卡密',freeze:'冻结待查',success:'确认充值成功',release:'解锁冻结',consume:'记为已消耗',cancellation:'确认续费已关闭'};
       document.getElementById('recoveryDialogTitle').textContent = labels[outcome];
       document.getElementById('recoveryDialogAccount').textContent = '账号：' + (record.userEmail || '-') + ' · 订单：' + record.id + ' · 卡密尾号：' + cardValue(record).slice(-6);
-      document.getElementById('recoveryDialogEffect').textContent = outcome === 'unlock' ? '仅在已核实未开通、未扣款时解锁；原订单保留，原卡密可为原账号重新提交。' : outcome === 'freeze' ? '暂停原卡密使用，保留相关支付占用。后续仍可解锁或确认成功。' : outcome === 'success' ? '确认账号已开通后更新订单和卡密；不会再次发起充值。' : '核查完成后记录处理结果。';
+      document.getElementById('recoveryDialogEffect').textContent = outcome === 'unlock' ? '仅在已核实未开通、未扣款时解锁；原订单保留，原卡密可为原账号重新提交。' : outcome === 'freeze' ? '暂停原卡密使用，保留相关支付占用。后续仍可解锁或确认成功。' : outcome === 'success' ? '确认账号已开通后更新订单和卡密；不会再次发起充值。' : outcome === 'release' ? '已核实本次未扣款后，恢复这笔订单冻结的 1 次可用次数，总次数不变。待确认订单同时结为失败并允许原卡密为原账号重试；失败订单只恢复支付卡次数。' : '核查完成后记录处理结果。';
       const select = document.getElementById('recoveryReason');
       select.innerHTML = '<option value="">请选择核查依据</option>' + Object.entries(recoveryReasonOptions[outcome] || {}).map(([code,label]) => '<option value="' + escapeHtml(code) + '">' + escapeHtml(label) + '</option>').join('');
       document.getElementById('recoveryNote').value = '';
@@ -1123,10 +1123,15 @@ function serveRecoveryAdmin(res) {
         + (item.provider === 'zzshu' && item.autoQuery && item.hasUpstreamQueryKey && pending ? '<button data-action="refresh-zzshu" data-order-id="' + id + '">安全补查</button>' : '')
         + (item.provider === 'zzshu' && (pending || item.status === 'failed') ? '<button data-action="disposition-unlock" data-order-id="' + id + '">解锁卡密</button>' + (pending ? '<button class="secondary" data-action="disposition-freeze" data-order-id="' + id + '">' + (item.adminFrozen ? '继续冻结待查' : '冻结待查') + '</button>' : '') + '<button data-action="disposition-success" data-order-id="' + id + '">确认充值成功</button>' : '')
         + (item.provider === 'zzshu' && !item.hasUpstreamQueryKey && pending ? '<span class="hint">没有上游查询标识，请人工核查；不要重新下单。</span>' : '')
-        + (item.provider === 'zzshu' && item.status === 'failed' && item.useResolution === 'frozen' ? '<button class="secondary" data-action="release-zzshu-use" data-order-id="' + id + '">释放冻结次数</button><button class="secondary" data-action="consume-zzshu-use" data-order-id="' + id + '">记为已消耗</button>' : '')
+        + renderFrozenUseAction(item)
+        + (item.provider === 'zzshu' && item.status === 'failed' && item.useResolution === 'frozen' ? '<button class="secondary" data-action="consume-zzshu-use" data-order-id="' + id + '">记为已消耗</button>' : '')
         + (item.provider === 'zzshu' && item.status === 'success' && item.subscriptionCancellationStatus !== 'cancelled' ? '<button class="secondary" data-action="confirm-zzshu-cancellation" data-order-id="' + id + '">核实续费已关闭</button>' : '')
         + (canConfirmProManual(item) ? '<button data-action="mark-pro-success" data-order-id="' + id + '">确认充值成功</button>' : !isPro(item) && item.provider !== 'zzshu' && ['failed','needs_review'].includes(item.status) ? '<button data-action="mark-success" data-order-id="' + id + '">同步成功</button>' : '')
         + (item.needsAttention && item.provider !== 'zzshu' ? '<button data-action="mark-subscription-handled" data-order-id="' + id + '">标记已处理</button>' : '');
+    }
+    function renderFrozenUseAction(item) {
+      return item.provider === 'zzshu' && ['failed','needs_review'].includes(item.status) && item.useResolution === 'frozen'
+        ? '<button class="secondary" data-action="release-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">解锁冻结</button>' : '';
     }
     function renderResponseHistory(item) {
       if (item.provider !== 'zzshu') return '';
@@ -1166,7 +1171,7 @@ function serveRecoveryAdmin(res) {
           + '<td class="mono">' + (item.paymentCardLastFour || item.hifupayCardLastFour ? '****' + escapeHtml(item.paymentCardLastFour || item.hifupayCardLastFour) : '-') + '</td>'
           + '<td><span class="state-badge ' + badge + '">' + escapeHtml(statusLabel(item.status)) + '</span><div class="muted status-note">' + escapeHtml(note) + '</div></td>'
           + '<td><time>' + escapeHtml(date).split(' ').map((part, index) => index ? '<span class="muted">' + part + '</span>' : part).join('<br>') + '</time></td>'
-          + '<td class="action-cell"><div class="row-actions">' + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制原始 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情') + '</button></div></td></tr>'
+          + '<td class="action-cell"><div class="row-actions">' + renderFrozenUseAction(item) + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制原始 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情') + '</button></div></td></tr>'
           + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div>' + renderSessionSubmission(item) + (item.provider === 'zzshu' ? '<div><span class="detail-label">ZZS 上游订单号</span><div class="mono">' + escapeHtml(item.upstreamTaskId || "尚未取得") + '</div></div><div><span class="detail-label">最近查单</span><div>' + escapeHtml(item.lastCheckAt ? formatDate(item.lastCheckAt) + ' · ' + ({paid:'已确认付款',unpaid:'明确未付',processing:'处理中',needs_review:'结果待核查',verification_required:'需要持卡人验证',unknown:'未知结果',api_rejected:'API 凭据被拒绝',upstream_error:'上游接口错误',invalid_response:'响应格式异常',order_mismatch:'订单信息不匹配',network_error:'连接失败或超时'})[item.lastCheckResult] + (item.lastCheckHttpStatus ? ' · HTTP ' + item.lastCheckHttpStatus : '') + (item.lastCheckCode !== null && item.lastCheckCode !== undefined ? ' · code ' + item.lastCheckCode : '') : '尚无查单记录') + '</div></div>' : '') + '</div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再选择核查依据确认成功。</p>' : '') + renderResponseHistory(item) + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
       }).join("");
     }
@@ -1357,7 +1362,7 @@ function serveRecoveryAdmin(res) {
           const evidence = await chooseRecoveryEvidence(record,outcome);
           if (!evidence) return;
           await api('/api/admin/recoveries/' + encodeURIComponent(orderId) + '/disposition', {method:'POST',body:JSON.stringify({outcome,...evidence})});
-          setStatus(({unlock:'卡密已解锁，原账号可以重新提交。',freeze:'卡密已冻结待查。',success:'已确认充值成功。',release:'已释放冻结次数。',consume:'已记录消耗次数。',cancellation:'已确认续费关闭。'})[outcome]);
+          setStatus(({unlock:'卡密已解锁，原账号可以重新提交。',freeze:'卡密已冻结待查。',success:'已确认充值成功。',release:'已解锁冻结，剩余可用次数恢复 1 次。',consume:'已记录消耗次数。',cancellation:'已确认续费关闭。'})[outcome]);
           await loadRecoveries();
         } else {
           const endpoint = action === "mark-pro-success"
@@ -1838,6 +1843,11 @@ export const server = http.createServer(async (req, res) => {
         else if (req.method === "POST" && endpoint === "preview") data = zzshuService.preview(body.text);
         else if (req.method === "POST" && endpoint === "import") { const result=await zzshuService.importCards(body); if(!result.ok){sendJson(res,400,{success:false,message:result.message});return;} data=result.rows; }
         else if (req.method === "POST" && endpoint === "vouchers") data = zzshuService.createVouchers(body);
+        else if (req.method === "POST" && /^cards\/[^/]+\/add-uses$/.test(endpoint)) {
+          const id=decodeURIComponent(endpoint.split("/")[1]);
+          const result=zzshuService.store.addCardUses(id,body.amount,body.requestId,'admin:'+auth.session.id.slice(0,12));
+          if (!result.ok) {sendJson(res,result.status,{success:false,message:result.message});return;} data=result.data;
+        }
         else if (req.method === "POST" && /^cards\/[^/]+$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.updateCard(id,body)){sendJson(res,400,{success:false,message:"卡片不存在或次数上限无效"});return;} data={ok:true}; }
         else if (req.method === "POST" && /^cards\/[^/]+\/retire$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]), result=zzshuService.store.retireManualCard(id); if(!result.ok){sendJson(res,409,{success:false,message:result.reason});return;} data={ok:true}; }
         else if (req.method === "POST" && /^orders\/[^/]+\/refresh$/.test(endpoint)) { const result=await zzshuService.refresh(decodeURIComponent(endpoint.split("/")[1])); data=result.data; }

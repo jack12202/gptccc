@@ -24,6 +24,8 @@ export class ZzshuStore {
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
       CREATE UNIQUE INDEX IF NOT EXISTS zzshu_card_active ON orders(card_id) WHERE status IN ('reserved','submitting','processing','needs_review');
       CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, at TEXT NOT NULL, order_id TEXT NOT NULL, action TEXT NOT NULL, reason TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS card_usage_adjustments (request_id TEXT PRIMARY KEY, card_id TEXT NOT NULL REFERENCES payment_cards(id),
+        amount INTEGER NOT NULL, operator TEXT NOT NULL, created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS response_history (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL,
         order_id TEXT NOT NULL, stage TEXT NOT NULL, http_status INTEGER, code INTEGER, result TEXT NOT NULL, reasons TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS zzshu_response_order ON response_history(order_id,id);
@@ -222,8 +224,39 @@ export class ZzshuStore {
     }
     const pendingByCard = new Map(pending.map(item => [item.cardId, { orderId: item.orderId,
       email: item.email, accountId: item.accountId, status: item.status, submittedAt: item.submittedAt }]));
+    const frozen = this.db.prepare(`SELECT card_id AS cardId,id AS orderId,email,status,'zzshu' AS provider
+      FROM orders WHERE use_resolution='frozen' AND status IN ('failed','needs_review') ORDER BY created_at,id`).all();
+    const frozenH = this.db.prepare(`SELECT c.id AS cardId,f.order_id AS orderId,'needs_review' AS status,'h' AS provider
+      FROM h_frozen_claims f JOIN payment_cards c ON c.credential_ref='hifupay:'||f.hifupay_id`).all();
+    const frozenByCard = new Map();
+    for (const item of [...frozen, ...frozenH]) {
+      if (!frozenByCard.has(item.cardId)) frozenByCard.set(item.cardId, []);
+      frozenByCard.get(item.cardId).push({ orderId:item.orderId, email:item.email || '', status:item.status, provider:item.provider });
+    }
     return cards.map(card => ({ ...card, successfulAccounts: byCard.get(card.id) || [],
-      pendingAccount: pendingByCard.get(card.id) || null }));
+      pendingAccount: pendingByCard.get(card.id) || null, frozenOrders:frozenByCard.get(card.id) || [] }));
+  }
+  addCardUses(id, amount, requestId, operator = 'admin') {
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100 ||
+        typeof requestId !== 'string' || !/^[a-zA-Z0-9-]{16,80}$/.test(requestId))
+      return { ok:false, status:400, message:'增加次数需为 1–100 的整数，并提供有效请求标识。' };
+    return this.transaction(() => {
+      const previous = this.db.prepare('SELECT card_id,amount FROM card_usage_adjustments WHERE request_id=?').get(requestId);
+      if (previous && (previous.card_id !== id || previous.amount !== amount))
+        return { ok:false, status:409, message:'请求标识已用于其他次数调整，请刷新后重试。' };
+      const card = this.db.prepare('SELECT * FROM payment_cards WHERE id=? AND retired_at IS NULL').get(id);
+      if (!card) return { ok:false, status:404, message:'支付卡不存在或已移出卡池。' };
+      if (!previous) {
+        if (card.max_success + amount > 100) return { ok:false, status:400, message:'增加后总次数不能超过 100。' };
+        this.db.prepare('UPDATE payment_cards SET max_success=max_success+? WHERE id=?').run(amount,id);
+        this.db.prepare('INSERT INTO card_usage_adjustments(request_id,card_id,amount,operator,created_at) VALUES(?,?,?,?,?)')
+          .run(requestId,id,amount,String(operator),new Date().toISOString());
+        this.audit('card:'+id,'add_remaining_uses',JSON.stringify({amount,requestId,operator}));
+      }
+      const maxSuccess = card.max_success + (previous ? 0 : amount);
+      return { ok:true, status:200, data:{cardId:id,amount,maxSuccess,
+        remainingUses:Math.max(0,maxSuccess-card.success_count-card.h_success_count-card.frozen_count),duplicate:Boolean(previous)} };
+    });
   }
   updateCard(id, { enabled, note, maxSuccess, resume } = {}) {
     const card = this.db.prepare("SELECT * FROM payment_cards WHERE id=?").get(id);

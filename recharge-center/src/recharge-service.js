@@ -930,8 +930,17 @@ export const rechargeService = {
     const intake = record?.order;
     let changed;
     if (['release','consume','cancellation'].includes(outcome)) {
+      // A reviewed attempt still owns its voucher. Use the guarded unpaid
+      // disposition to release both the attempt and its payment use together.
+      if (outcome === 'release' && id && zzshuService.store.order(id)?.status === 'needs_review') {
+        if (zzshuService.store.order(id).use_resolution !== 'frozen')
+          return {ok:false,status:409,message:'这笔订单没有冻结次数，请刷新核查。'};
+        const result = this.applyZzshuDisposition(orderId,'unlock',evidence);
+        return result.ok ? {...result,data:{orderId,outcome}} : result;
+      }
       changed = id && (outcome === 'cancellation' ? zzshuService.store.confirmCancellation(id,JSON.stringify(evidence)) : zzshuService.store.resolveFrozenUse(id,outcome,JSON.stringify(evidence)));
       if (!changed) return {ok:false,status:409,message:'订单当前状态不允许此操作，请刷新核查。'};
+      if (outcome === 'release') { zzshuService.syncUnifiedOrder(id); this.syncZzshuIntakes(); }
       return {ok:true,status:200,data:{orderId,outcome}};
     }
     if (id) {

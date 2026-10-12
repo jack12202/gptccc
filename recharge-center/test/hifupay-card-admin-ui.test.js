@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
+import crypto from "node:crypto";
 
 test("one payment-card page lists H and manual cards with shared counts and source-specific actions", async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gptc-unified-card-ui-"));
@@ -36,19 +37,19 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   const elements = new Map();
   const document = { getElementById(id) {
     if (!elements.has(id)) elements.set(id, { value: "", innerHTML: "", textContent: "", disabled: false, dataset: {},
-      classList: { toggle() {}, add() {}, remove() {} }, querySelectorAll() { return []; } });
+      listeners:new Map(),addEventListener(name,fn){this.listeners.set(name,fn)},removeEventListener(name){this.listeners.delete(name)},reportValidity(){return true},showModal(){},close(){},setAttribute(){},scrollIntoView(){},classList: { toggle() {}, add() {}, remove() {} }, querySelectorAll() { return []; } });
     return elements.get(id);
   } };
   const h = { id: "h-1", lastFour: "1001", enabled: true, status: "active", poolStatus: "ready", balance: 40,
-    usedCount: 1, frozenCount: 1, maxUses: 4, remainingUses: 2, priority: 0, plusUsers: [{ email: "h@example.test" }] };
+    sharedUsageId:"h-usage",usedCount: 1, frozenCount: 1, maxUses: 4, remainingUses: 2, priority: 0, plusUsers: [{ email: "h@example.test" }] };
   const manual = { id: "m-1", lastFour: "2002", credentialSource: "manual", source: "团购", enabled: true,
     successCount: 1, frozenUses: 0, maxSuccess: 3, remainingUses: 2, successfulAccounts: [{ email: "m@example.test" }] };
   const calls = [], writes = [];
-  const context = vm.createContext({ document, window: { adminApi: async (url, options) => {
+  const context = vm.createContext({ document, crypto,window: { adminApi: async (url, options) => {
     calls.push(url);
     if (options?.method === "POST") { writes.push({ url, body: JSON.parse(options.body) }); return {}; }
     if (url.startsWith("/api/admin/hifupay/cards")) return { cards: [h] };
-    if (url === "/api/admin/zzshu/cards") return [manual, { ...manual, credentialSource: "hifupay", id: "duplicate" }];
+    if (url === "/api/admin/zzshu/cards") return [manual, { ...manual, credentialSource: "hifupay", id: "duplicate",hifupayId:h.id,frozenOrders:[{orderId:"h-review",provider:"h",status:"needs_review"},{orderId:"z-review",provider:"zzshu",status:"needs_review"}] }];
     if (url === "/api/admin/zzshu/import-status") return { ready: true, message: "可导入" };
     throw Error("unexpected endpoint: " + url);
   } }, confirm: () => true, prompt: () => "5" });
@@ -93,6 +94,29 @@ test("one payment-card page lists H and manual cards with shared counts and sour
     { url: "/api/admin/hifupay/cards/h-1/settings", body: { field: "maxUses", value: 5 } },
     { url: "/api/admin/zzshu/cards/m-1", body: { maxSuccess: 5, note: "" } }
   ]);
+  assert.match(rows.innerHTML,/data-action="add-one"/);
+  assert.match(rows.innerHTML,/data-action="unlock-frozen"/);
+  // One click increases a manual card without opening details or asking for a note.
+  await vm.runInContext("runQuickAction(cards.find(c=>c.kind==='manual'),'add-one')",context);
+  const added=writes.at(-1);
+  assert.equal(added.url,'/api/admin/zzshu/cards/m-1/add-uses');assert.equal(added.body.amount,1);
+  assert.match(added.body.requestId,/^[0-9a-f-]{36}$/);
+  await vm.runInContext("runQuickAction(cards.find(c=>c.kind==='h'),'add-one')",context);
+  assert.equal(writes.at(-1).url,'/api/admin/zzshu/cards/h-usage/add-uses');
+  // Multiple frozen orders are selectable and route through their own provider.
+  const releasing=vm.runInContext("runQuickAction(cards.find(c=>c.kind==='h'),'unlock-frozen')",context);
+  assert.match(document.getElementById('frozenOrder').innerHTML,/h-review/);
+  assert.match(document.getElementById('frozenOrder').innerHTML,/z-review/);
+  document.getElementById('frozenOrder').value='1';document.getElementById('noCharge').checked=true;
+  document.getElementById('cardActionForm').listeners.get('submit')({preventDefault(){}});
+  await releasing;
+  assert.equal(writes.at(-1).url,'/api/admin/recoveries/z-review/disposition');
+  assert.equal(writes.at(-1).body.outcome,'release');
+  document.getElementById('poolSummary').onclick({target:{closest:selector=>selector==='[data-pool-filter]'?{dataset:{poolFilter:'frozen'}}:null}});
+  assert.equal(document.getElementById('cardsPanel').hidden,false);
+  assert.match(rows.innerHTML,/•••• 1001/);assert.doesNotMatch(rows.innerHTML,/•••• 2002/);
+  document.getElementById('poolSummary').onclick({target:{closest:selector=>selector==='[data-pool-filter]'?{dataset:{poolFilter:'ready'}}:null}});
+  assert.match(rows.innerHTML,/•••• 2002/);
   vm.runInContext("cards.push({...cards[0],uid:'h:paused',id:'paused',state:'disabled',channels:[],remaining:5});render()", context);
   assert.match(document.getElementById("stats").innerHTML, /<strong>4<\/strong><small>当前可轮选次数/);
   assert.match(document.getElementById("stats").innerHTML, /<strong>9<\/strong><small>卡池剩余总次数（含不可轮选）/);

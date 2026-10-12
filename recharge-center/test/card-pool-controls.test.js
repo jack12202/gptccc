@@ -1,0 +1,101 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import crypto from 'node:crypto';
+import vm from 'node:vm';
+
+const apiDir=fs.mkdtempSync(path.join(os.tmpdir(),'gptc-card-control-api-'));
+process.env.DATA_FILE=path.join(apiDir,'orders.json');process.env.ZZSHU_DB_FILE=path.join(apiDir,'cards.sqlite');
+process.env.ADMIN_TOKEN='fixture-admin';process.env.RECOVERY_ENCRYPTION_KEY='fixture-encryption';
+
+test('card-pool additions survive retries and restart without changing spent or frozen uses', async t => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gptc-card-controls-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const {ZzshuStore}=await import('../src/zzshu-store.js');
+  const {parsePaymentCards}=await import('../src/zzshu-cards.js');
+  const file=path.join(dir,'cards.sqlite'),a=new ZzshuStore(file),b=new ZzshuStore(file);
+  t.after(()=>{a.db.close();b.db.close();});
+  a.addPaymentCard(parsePaymentCards('4242424242424242,12/40,123')[0],{credentialRef:'fixture',source:'fixture',note:'keep',enabled:true,maxSuccess:4});
+  const id=a.listCards()[0].id,request=crypto.randomUUID();
+  a.db.prepare('UPDATE payment_cards SET success_count=1,frozen_count=1,paused=1,enabled=0 WHERE id=?').run(id);
+  assert.equal(a.addCardUses(id,1,request,'fixture-admin').data.remainingUses,3);
+  // Another connection makes a separate adjustment. Retrying the first request
+  // must preserve it and spend no extra capacity.
+  assert.equal(b.addCardUses(id,2,crypto.randomUUID()).data.maxSuccess,7);
+  assert.equal(a.addCardUses(id,1,request).data.duplicate,true);
+  const reopened=new ZzshuStore(file);
+  assert.equal(reopened.addCardUses(id,1,request).data.maxSuccess,7);
+  reopened.db.close();
+  const card=a.listCards()[0];
+  assert.equal(card.remainingUses,5);assert.equal(card.successCount,1);assert.equal(card.frozenUses,1);
+  assert.equal(card.paused,1);assert.equal(card.enabled,0);assert.equal(card.note,'keep');
+  assert.equal(a.addCardUses(id,2,request).status,409);
+  for(const amount of [0,-1,1.5,'1',101])assert.equal(a.addCardUses(id,amount,crypto.randomUUID()).status,400);
+  assert.equal(a.addCardUses(id,1,'invalid').status,400);
+  assert.equal(a.addCardUses(id,94,crypto.randomUUID()).status,400);
+  assert.equal(a.addCardUses('missing',1,crypto.randomUUID()).status,404);
+  assert.equal(a.db.prepare("SELECT count(*) AS n FROM audit WHERE action='add_remaining_uses'").get().n,2);
+  const shared=a.ensureHifupayCard({id:'h-fixture',lastFour:'1001'},4,1);
+  assert.equal(a.addCardUses(shared,1,crypto.randomUUID()).data.remainingUses,4);
+  assert.equal(a.hifupayUsage('h-fixture').maxSuccess,5);
+  assert.equal(a.claimH('h-fixture','h-order'),true);
+  a.freezeH('h-fixture','h-order');
+  assert.deepEqual(a.listCards().find(c=>c.id===shared).frozenOrders,[{orderId:'h-order',email:'',status:'needs_review',provider:'h'}]);
+});
+
+test('authenticated controls restore failed and reviewed uses exactly once while preserving later voucher attempts', async t => {
+  const dir=apiDir;
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const {sharedZzshuStore:s}=await import('../src/zzshu-store.js');
+  const {parsePaymentCards}=await import('../src/zzshu-cards.js');
+  const {encryptSecretText}=await import('../src/utils.js');
+  const {server}=await import('../src/server.js');
+  s.addPaymentCard(parsePaymentCards('4242424242424242,12/40,123')[0],{credentialRef:'fixture',source:'fixture',note:'keep',enabled:true,maxSuccess:4});
+  const cardId=s.listCards()[0].id;
+  const codes=s.createVouchers(4,'fixture',3,code=>encryptSecretText(code,'fixture-encryption','zzshu-voucher'));
+  const reviewed=s.reserve(codes[0].code,'review@example.test','review-account');
+  s.markSubmitting(reviewed.orderId);s.review(reviewed.orderId,'response lost');
+  assert.equal(s.listCards()[0].frozenOrders[0].orderId,reviewed.orderId);
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const login=await fetch(base+'/api/admin/login',{method:'POST',headers:{Origin:'https://www.gptc.cc','Content-Type':'application/json','X-Admin-Request':'1'},body:JSON.stringify({password:'fixture-admin'})});
+  const cookie=login.headers.get('set-cookie').split(';')[0],csrf=(await login.json()).data.csrf;
+  const headers={Cookie:cookie,Origin:'https://www.gptc.cc','Content-Type':'application/json','X-CSRF-Token':csrf};
+  const post=(url,body)=>fetch(base+url,{method:'POST',headers,body:JSON.stringify(body)});
+  const addUrl=`/api/admin/zzshu/cards/${cardId}/add-uses`,body={amount:1,requestId:crypto.randomUUID()};
+  assert.equal((await fetch(base+addUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).status,401);
+  assert.equal((await fetch(base+addUrl,{method:'POST',headers:{...headers,'X-CSRF-Token':''},body:JSON.stringify(body)})).status,403);
+  assert.equal((await post(addUrl,body)).status,200);
+  assert.equal((await (await post(addUrl,body)).json()).data.duplicate,true);
+  assert.equal(s.listCards()[0].maxSuccess,5);assert.equal(s.listCards()[0].frozenUses,1);
+  const release=id=>post(`/api/admin/recoveries/${id}/disposition`,{outcome:'release',reasonCode:'no_charge'});
+  assert.equal((await post(`/api/admin/recoveries/${reviewed.orderId}/disposition`,{outcome:'release',reasonCode:'charged'})).status,400);
+  assert.equal((await release(reviewed.orderId)).status,200);
+  assert.equal(s.order(reviewed.orderId).status,'failed');assert.equal(s.order(reviewed.orderId).use_resolution,'released');
+  assert.equal(s.voucher(codes[0].code).status,'unused');assert.equal(s.order(reviewed.orderId).retry_allowed,1);
+  assert.equal((await release(reviewed.orderId)).status,409);
+  assert.equal(s.listCards()[0].remainingUses,5);assert.equal(s.listCards()[0].frozenOrders.length,0);
+  const failed=s.reserve(codes[1].code,'failed@example.test','failed-account');s.settle(failed.orderId,'failed');
+  const retry=s.reserve(codes[1].code,'failed@example.test','failed-account');
+  assert.notEqual(retry.orderId,failed.orderId);
+  // Restoring an old payment use must not unlock a newer voucher attempt.
+  assert.equal((await release(failed.orderId)).status,200);
+  assert.equal(s.voucher(codes[1].code).orderId,retry.orderId);
+  assert.equal(s.voucher(codes[1].code).status,'reserved');
+  assert.equal((await release(failed.orderId)).status,409);
+  s.settle(retry.orderId,'success');
+  assert.equal((await release(retry.orderId)).status,409);
+  assert.equal(s.listCards()[0].successCount,1);assert.equal(s.listCards()[0].maxSuccess,5);
+  const html=await fetch(base+'/admin/recoveries',{headers:{Cookie:cookie}}).then(r=>r.text());
+  const script=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].at(-1)[1];
+  const context=vm.createContext({URLSearchParams,document:{getElementById:()=>({addEventListener(){}})},window:{location:{search:''},setInterval(){},adminApi:async()=>({records:[]})},setTimeout(){}});
+  // Extract the renderer without starting the page's refresh loop.
+  vm.runInContext(script.slice(0,script.indexOf('    async function lookupCardBinding()')),context);
+  const row=vm.runInContext("renderRows([{id:'review',provider:'zzshu',status:'needs_review',useResolution:'frozen'}])",context);
+  assert.match(row,/data-action="release-zzshu-use"/);
+  assert.doesNotMatch(row,/class="detail-row"/);
+  assert.doesNotMatch(vm.runInContext("renderRows([{id:'done',provider:'zzshu',status:'failed',useResolution:'released'}])",context),/release-zzshu-use/);
+});
