@@ -24,6 +24,8 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(html, /<h1>支付卡池<\/h1>/);
   assert.match(html, /全部支付卡/);
   assert.match(html, /导入手动支付卡/);
+  assert.match(html, /<th>来源渠道<\/th>/);
+  assert.match(html, /天空“卡号:…;CVV…;有效期:MM\/YY”/);
   assert.match(html, /批量设置总次数/);
   assert.ok(html.indexOf('id="cardsPanel"') < html.indexOf('id="importPanel"'));
   assert.match(html, /id="cardsPanel" hidden/);
@@ -72,6 +74,7 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(rows.innerHTML, /class="history-email">m@example.test/);
   assert.match(rows.innerHTML, /class="history-meta"/);
   assert.match(rows.innerHTML, /data-action="manual-cap"/);
+  assert.match(rows.innerHTML, /data-action="manual-source"/);
   assert.match(rows.innerHTML, /data-action="manual-retire"/);
   vm.runInContext("expanded.add('h:h-1');render()", context);
   assert.match(rows.innerHTML, /data-setting="priority"/);

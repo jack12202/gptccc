@@ -24,6 +24,35 @@ test("ZZS space-separated card format imports with year-month expiry and masked 
   assert.equal(JSON.stringify(publicPreview(rows)).includes("813"), false);
 });
 
+test("Sky labeled format accepts omitted CVV colon, full-width punctuation and reordered labels", () => {
+  const now = new Date("2026-10-12");
+  for (const input of [
+    `卡号:${fakePan};CVV321;有效期:10/28`,
+    ` 卡号：${fakePan} ；cvv：321； 有效期：10/28 `,
+    `有效期:10/28;CVV 321;卡号:${fakePan}`
+  ]) {
+    const [row] = parsePaymentCards(input, new Set(), now);
+    assert.equal(row.status, "ready");
+    assert.deepEqual(row.payment, {cardNumber:fakePan, expMonth:10, expYear:2028, cvv:"321"});
+    const preview = JSON.stringify(publicPreview([row]));
+    assert.equal(preview.includes(fakePan), false);
+    assert.equal(preview.includes("321"), false);
+    assert.equal(parsePaymentCards(`${fakePan},10/28,321`, new Set([row.fingerprint]), now)[0].status, "duplicate");
+  }
+});
+
+test("Sky import rejects missing, duplicated or extra fields and invalid or expired values", () => {
+  for (const input of [
+    `卡号:${fakePan};有效期:10/28`,
+    `卡号:${fakePan};CVV321;CVV456`,
+    `卡号:${fakePan};CVV321;有效期:10/28;备注:fixture`,
+    `卡号:${fakePan};CVV321;有效期:13/28`,
+    `卡号:${fakePan};CVV321;有效期:01/20`,
+    `卡号:${fakePan};CVV32;有效期:10/28`,
+    `卡号:${fakePan};CVV321;有效期:10/28junk`
+  ]) assert.equal(parsePaymentCards(input, new Set(), new Date("2026-10-12"))[0].status, "error");
+});
+
 test("atomic reservation, provider-scoped vouchers, serial card, exactly-once success and restart", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(),"zzshu-test-"));
   try {
@@ -123,6 +152,7 @@ test("ZZS retirement cannot remove a Hifupay sourced card", () => {
     const s = new ZzshuStore(path.join(dir, "test.sqlite"));
     assert.equal(s.assignHifupay({ id: "7172", lastFour: "4113" }, "zzshu").ok, true);
     const card = s.listCards().find(item => item.credentialSource === "hifupay");
+    assert.equal(s.updateCard(card.id,{source:"天空"}),false);
     assert.match(s.retireManualCard(card.id).reason, /嗨付来源/);
     assert.equal(s.listCards().length, 1);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -175,6 +205,16 @@ test("unknown result freezes one use while remaining card uses stay available", 
     const second=s.reserve(vouchers[1].code,"second@example.test","second");
     assert.equal(second.ok,true);
     assert.equal(s.listCards()[0].frozenUses,1);
+    const cardId = s.listCards()[0].id, before = s.listCards()[0];
+    assert.equal(s.updateCard(cardId,{source:"天空卡台"}),true);
+    assert.equal(s.updateCard(cardId,{source:" "}),false);
+    const restored = new ZzshuStore(path.join(dir,"test.sqlite"));
+    const after = restored.listCards()[0];
+    assert.equal(after.source,"天空");
+    for (const key of ["remainingUses","maxSuccess","successCount","frozenUses","enabled","paused","occupiedOrderId","note"]) {
+      assert.equal(after[key],before[key],key);
+    }
+    restored.db.close();
     assert.equal(s.manualResolve(first.orderId,"unpaid","checked payment ledger"),true);
     assert.equal(s.manualResolve(first.orderId,"unpaid","checked payment ledger"),false);
     assert.equal(s.order(first.orderId).status,"failed");

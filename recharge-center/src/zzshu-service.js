@@ -1,6 +1,7 @@
 import { config } from "./config.js";
 import { sharedZzshuStore } from "./zzshu-store.js";
 import { parsePaymentCards, publicPreview } from "./zzshu-cards.js";
+import { paymentCardSource } from "./payment-card-source.js";
 import { zzshuAdapter } from "./providers/zzshu-adapter.js";
 import { hifupayAdapter } from "./providers/hifupay-adapter.js";
 import { JsonStore } from "./store.js";
@@ -176,7 +177,7 @@ export const zzshuService = {
     for (const row of rows.filter(item => ["ready", "restore"].includes(item.status))) {
       try {
         const paymentCipher = encryptSecretText(JSON.stringify(row.payment), config.recoveryEncryptionKey, "zzshu-payment-card");
-        const cardOptions = { credentialRef: `local:${row.fingerprint}`, paymentCipher, source: String(source).trim().slice(0, 40),
+        const cardOptions = { credentialRef: `local:${row.fingerprint}`, paymentCipher, source: paymentCardSource(source),
           note: String(note).slice(0, 200), enabled, maxSuccess: limit };
         const restored = row.status === "restore" ? store.restorePaymentCard(row, cardOptions) : null;
         const added = row.status === "ready" ? store.addPaymentCard(row, cardOptions) : false;

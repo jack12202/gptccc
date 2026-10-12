@@ -1,3 +1,4 @@
+import { paymentCardSource } from './payment-card-source.js';
 const shanghaiDate = date => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(date));
 const value = input => String(input || '').trim().toLowerCase();
 const matches = (parts, query) => !query || parts.some(part => value(part).includes(query));
@@ -18,13 +19,13 @@ export function workbenchPaymentCards(hifupay, usageCards, chargeThreshold = 16)
     if (baseReady && card.poolStatus === 'ready') channels.push('嗨付');
     if (baseReady && card.balance != null && Number(card.balance) >= chargeThreshold) channels.push('ZZS');
     return { ...card,kind:'h',uid:'h:'+card.id,usageId:card.sharedUsageId || usage?.id || '',enabled,paused,occupied,
-      sourceLabel:'嗨付同步',note:usage?.note || '',remaining,max:Number(card.maxUses)||0,used:Number(card.usedCount)||0,
+      sourceLabel:'嗨付',note:usage?.note || '',remaining,max:Number(card.maxUses)||0,used:Number(card.usedCount)||0,
       frozen:Number(card.frozenCount)||0,channels,state:!enabled?'disabled':paused?'paused':occupied?'reserved':card.poolStatus,
       frozenOrders:(usage?.frozenOrders || []).map(item => ({...item,email:item.email || (card.inFlightOrders || []).find(x=>x.orderId===item.orderId)?.email || ''})) };
   });
   const manual = usageCards.filter(card => card.credentialSource === 'manual').map(card => {
     const enabled = Boolean(card.enabled),paused = Boolean(card.paused),occupied = Boolean(card.occupiedOrderId);
-    return {...card,kind:'manual',uid:'manual:'+card.id,usageId:card.id,enabled,paused,occupied,sourceLabel:card.source || '手动导入',
+    return {...card,kind:'manual',uid:'manual:'+card.id,usageId:card.id,enabled,paused,occupied,sourceLabel:paymentCardSource(card.source) || '手动导入',
       remaining:Number(card.remainingUses)||0,max:Number(card.maxSuccess)||0,used:Number(card.successCount)||0,frozen:Number(card.frozenUses)||0,
       state:!enabled?'disabled':paused?'paused':occupied?'reserved':card.remainingUses > 0?'ready':'uses_exhausted',
       channels:enabled && !paused && !occupied && card.remainingUses > 0?['ZZS']:[]};

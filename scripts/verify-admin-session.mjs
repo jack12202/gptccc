@@ -39,6 +39,9 @@ try {
     }
     assert.equal(response.status, 200, `${page} must accept the shared session`);
     const html = await response.text();
+    if (["/admin","/admin/hifupay/cards"].includes(page)) {
+      assert.ok(html.includes("<th>来源渠道</th>") && html.includes('list="paymentSources"'), "Payment card origin UI missing");
+    }
     const hasChannelCredentialInputs = page === "/admin" && html.includes('id="hifupayKey" type="password"') && html.includes('id="zzshuKey" type="password"') && html.includes('/admin/cards/workbench-settings.js');
     assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasChannelCredentialInputs), `${page} still contains legacy authentication`);
   }
@@ -54,6 +57,16 @@ try {
   const snapshot = (await snapshotResponse.json()).data;
   assert.ok(snapshot && Array.isArray(snapshot.cards) && snapshot.cards.every(card=>card.enabled),"Workbench must show only active cards");
   assert.ok(snapshot.orders.items.length <= 10 && snapshot.vouchers.items.length <= 20,"Workbench recent windows exceed their limits");
+  // Synthetic fixture only. Preview does not import credentials or spend card uses.
+  const previewResponse = await call("/api/admin/zzshu/preview", {
+    method:"POST", headers:{"Content-Type":"application/json",Cookie:cookie,Origin:base,"X-CSRF-Token":csrf},
+    body:JSON.stringify({text:"卡号:4242424242424242;CVV321;有效期:12/40"})
+  });
+  assert.equal(previewResponse.status,200,"Sky preview endpoint unavailable");
+  const preview=(await previewResponse.json()).data;
+  assert.ok(preview?.length===1 && ["ready","duplicate","restore","pending"].includes(preview[0].status),"Sky format preview failed");
+  assert.ok(!JSON.stringify(preview).includes("4242424242424242") && !JSON.stringify(preview).includes("321"),"Payment preview leaked credentials");
+  console.log("Payment card origin columns and Sky format masked preview verified without importing cards.");
   console.log("Production workbench panels, assets and bounded snapshot verified without business mutations.");
   console.log("Admin login, shared session, protected pages and secure cookie verified.");
 } finally {

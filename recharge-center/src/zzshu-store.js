@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { config } from "./config.js";
+import { paymentCardSource } from "./payment-card-source.js";
 
 export class ZzshuStore {
   constructor(file = config.zzshuDbFile) {
@@ -258,17 +259,19 @@ export class ZzshuStore {
         remainingUses:Math.max(0,maxSuccess-card.success_count-card.h_success_count-card.frozen_count),duplicate:Boolean(previous)} };
     });
   }
-  updateCard(id, { enabled, note, maxSuccess, resume } = {}) {
+  updateCard(id, { enabled, note, maxSuccess, resume, source } = {}) {
     const card = this.db.prepare("SELECT * FROM payment_cards WHERE id=?").get(id);
     if (!card || card.retired_at) return false;
+    const nextSource = source === undefined ? card.source : paymentCardSource(source);
+    if (!nextSource || source !== undefined && card.credential_ref.startsWith("hifupay:")) return false;
     const cap = maxSuccess === undefined ? card.max_success : Number(maxSuccess);
     const activeZ = this.db.prepare("SELECT COUNT(*) AS n FROM orders WHERE card_id=? AND status IN ('reserved','submitting','processing')").get(id).n;
     const activeH = card.credential_ref.startsWith('hifupay:')
       ? this.db.prepare("SELECT COUNT(*) AS n FROM h_card_claims WHERE hifupay_id=?").get(card.credential_ref.slice(8)).n : 0;
     if (!Number.isInteger(cap) || cap < Math.max(1,card.success_count+card.h_success_count+card.frozen_count+activeZ+activeH) || cap > 100) return false;
-    this.db.prepare("UPDATE payment_cards SET enabled=?,note=?,max_success=?,paused=?,failures=? WHERE id=?")
+    this.db.prepare("UPDATE payment_cards SET enabled=?,note=?,max_success=?,paused=?,failures=?,source=? WHERE id=?")
       .run(enabled === undefined ? card.enabled : Number(Boolean(enabled)), note === undefined ? card.note : String(note).slice(0, 200), cap,
-        resume ? 0 : card.paused, resume ? 0 : card.failures, id);
+        resume ? 0 : card.paused, resume ? 0 : card.failures, nextSource, id);
     return true;
   }
   retireManualCard(id) {

@@ -51,6 +51,18 @@ test('recent windows do not truncate full searches or older unresolved orders an
   assert.equal(failedCard.operationalStatus,'needs_review');assert.equal(failedCard.boundEmail,'bound@example.test');assert.equal(failedCard.hasSubmission,true);
 });
 
+test('card origin labels stay independent of the recharge protocol',()=>{
+  const rows=workbenchPaymentCards([],[
+    fixture('sky',{source:'天空卡台'}),
+    fixture('mouse',{source:'zzs'}),
+    fixture('custom',{source:'其他渠道'})
+  ]);
+  assert.equal(rows.find(c=>c.id==='sky').sourceLabel,'天空');
+  assert.equal(rows.find(c=>c.id==='mouse').sourceLabel,'ZZS / 吱吱鼠');
+  assert.equal(rows.find(c=>c.id==='custom').sourceLabel,'其他渠道');
+  for(const card of rows)assert.deepEqual(card.channels,['ZZS']);
+});
+
 test('home and assets require the shared session; bounded snapshot joins card, voucher and order mutations',async t=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gptc-workbench-api-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   process.env.ADMIN_TOKEN='workbench-fixture';process.env.DATA_FILE=path.join(dir,'orders.json');process.env.ZZSHU_DB_FILE=path.join(dir,'usage.sqlite');process.env.RECOVERY_ENCRYPTION_KEY='workbench-fixture-key';
@@ -78,6 +90,26 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   assert.equal(initial.summary.unusedVouchers,15);assert.equal((await snap('orderView=attention')).orders.items[0].id,order.id);
   assert.equal((await snap('voucherSearch='+cards[0].code)).vouchers.items[0].operationalStatus,'needs_review');
   const before=initial.summary.remainingUses;
+  const sourceUpdate=await fetch(base+'/api/admin/zzshu/cards/'+active.id,{method:'POST',headers,body:JSON.stringify({source:'天空卡台'})});
+  assert.equal(sourceUpdate.status,200);
+  const sourced=await snap();
+  assert.equal(sourced.cards[0].sourceLabel,'天空');
+  assert.equal(sourced.cards[0].source,'天空');
+  assert.deepEqual(sourced.cards[0].channels,['ZZS']);
+  assert.equal(sourced.summary.remainingUses,before);
+  const preview=await fetch(base+'/api/admin/zzshu/preview',{method:'POST',headers,body:JSON.stringify({text:'卡号:4000000000000002;CVV321;有效期:10/28'})});
+  assert.equal(preview.status,200);
+  const previewResult=JSON.stringify(await preview.json());
+  assert.equal(previewResult.includes('4000000000000002'),false);
+  assert.equal(previewResult.includes('321'),false);
+  const imported=await fetch(base+'/api/admin/zzshu/import',{method:'POST',headers,body:JSON.stringify({text:'卡号:4000000000000002;CVV321;有效期:10/28',source:'zzs',maxSuccess:4})});
+  assert.equal(imported.status,200);
+  const importedRows=(await imported.json()).data;
+  assert.equal(importedRows[0].status,'imported');
+  const newCard=zzshuService.store.listCards().find(c=>c.lastFour==='0002');
+  assert.equal(newCard.source,'ZZS / 吱吱鼠');
+  assert.equal(newCard.credentialSource,'manual');
+  zzshuService.store.updateCard(newCard.id,{enabled:false});
   const result=await fetch(base+'/api/admin/zzshu/cards/'+active.id+'/add-uses',{method:'POST',headers,body:JSON.stringify({amount:1,requestId:'workbench-fixture-request-1'})});assert.equal(result.status,200);
   const after=await snap();assert.equal(after.summary.remainingUses,before+1);assert.equal(after.cards.length,1);
   const visible=JSON.stringify(after);assert.equal(visible.includes('4242424242424242'),false);assert.equal(visible.includes('workbench-fixture-key'),false);assert.equal(visible.includes('payment_cipher'),false);assert.equal(visible.includes('secretJsonText'),false);

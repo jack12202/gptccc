@@ -1805,7 +1805,7 @@ export const server = http.createServer(async (req, res) => {
           const result=zzshuService.store.addCardUses(id,body.amount,body.requestId,'admin:'+auth.session.id.slice(0,12));
           if (!result.ok) {sendJson(res,result.status,{success:false,message:result.message});return;} data=result.data;
         }
-        else if (req.method === "POST" && /^cards\/[^/]+$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.updateCard(id,body)){sendJson(res,400,{success:false,message:"卡片不存在或次数上限无效"});return;} data={ok:true}; }
+        else if (req.method === "POST" && /^cards\/[^/]+$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.updateCard(id,body)){sendJson(res,400,{success:false,message:"卡片不存在、次数上限无效或来源渠道无效"});return;} data={ok:true}; }
         else if (req.method === "POST" && /^cards\/[^/]+\/retire$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]), result=zzshuService.store.retireManualCard(id); if(!result.ok){sendJson(res,409,{success:false,message:result.reason});return;} data={ok:true}; }
         else if (req.method === "POST" && /^orders\/[^/]+\/refresh$/.test(endpoint)) { const result=await zzshuService.refresh(decodeURIComponent(endpoint.split("/")[1])); data=result.data; }
         else if (req.method === "POST" && /^orders\/[^/]+\/resolve$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!["success","unpaid"].includes(body.outcome)||!zzshuService.store.manualResolve(id,body.outcome,String(body.reason||""))){sendJson(res,409,{success:false,message:"仅已创建上游任务的处理中或待确认订单可凭至少 8 字核查依据人工结案"});return;} zzshuService.syncUnifiedOrder(id); data={ok:true}; }
