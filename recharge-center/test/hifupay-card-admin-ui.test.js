@@ -48,9 +48,10 @@ test("one payment-card page lists H and manual cards with shared counts and sour
     sharedUsageId:"h-usage",usedCount: 1, frozenCount: 1, maxUses: 4, remainingUses: 2, priority: 0, plusUsers: [{ email: "h@example.test" }] };
   const manual = { id: "m-1", lastFour: "2002", credentialSource: "manual", source: "团购", enabled: true,
     successCount: 1, frozenUses: 0, maxSuccess: 3, remainingUses: 2, successfulAccounts: [{ email: "m@example.test" }] };
-  const calls = [], writes = [];
-  const context = vm.createContext({ document, crypto,window: { paymentCardFormatter:{mount(){return {refresh(){}}}}, adminApi: async (url, options) => {
+  const calls = [], writes = [], copied = [];
+  const context = vm.createContext({ document, crypto,navigator:{clipboard:{async writeText(value){copied.push(value)}}},window: { paymentCardFormatter:{mount(){return {refresh(){}}}}, adminApi: async (url, options) => {
     calls.push(url);
+    if(url.endsWith('/copy-standard'))return {text:"4242424242424242----12/40----096----"};
     if (options?.method === "POST") { writes.push({ url, body: JSON.parse(options.body) }); return {}; }
     if (url.startsWith("/api/admin/hifupay/cards")) return { cards: [h] };
     if (url === "/api/admin/zzshu/cards") return [manual, { ...manual, credentialSource: "hifupay", id: "duplicate",hifupayId:h.id,frozenOrders:[{orderId:"h-review",provider:"h",status:"needs_review"},{orderId:"z-review",provider:"zzshu",status:"needs_review"}] }];
@@ -67,6 +68,7 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(rows.innerHTML, /嗨付同步/);
   assert.match(rows.innerHTML, /团购/);
   assert.match(rows.innerHTML, /data-card-source="manual:m-1"/);
+  assert.match(rows.innerHTML, /data-action="copy-standard"/);
   assert.match(rows.innerHTML, /冻结 1/);
   assert.match(rows.innerHTML, /ZZS/);
   assert.match(document.getElementById("stats").innerHTML, /卡池总数/);
@@ -88,6 +90,10 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(rows.innerHTML, /•••• 2002/);
   assert.doesNotMatch(rows.innerHTML, /•••• 1001/);
   assert.ok(calls.includes("/api/admin/zzshu/cards"));
+  await vm.runInContext("runQuickAction(cards.find(c=>c.kind==='manual'),'copy-standard')",context);
+  assert.equal(copied.at(-1),"4242424242424242----12/40----096----");
+  assert.ok(calls.includes("/api/admin/payment-cards/manual/m-1/copy-standard"));
+  assert.equal(writes.length,0);
   await document.getElementById("cards").onchange({target:{dataset:{cardSource:'manual:m-1'},value:'天空'}});
   assert.deepEqual(writes.pop(),{url:'/api/admin/zzshu/cards/m-1',body:{source:'天空'}});
   document.getElementById("search").value = "";

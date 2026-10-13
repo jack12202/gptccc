@@ -33,7 +33,7 @@ $('cards').onchange=async e=>{const box=e.target.closest('[data-select]');if(box
 $('selectPage').onclick=()=>{const search=$('search').value.trim().toLowerCase();const shown=cards.filter(c=>matchesFilter(c)&&(!search||cardText(c).includes(search)));for(const c of shown.slice(page*pageSize,(page+1)*pageSize))selected.add(c.uid);render()};
 $('clearSelection').onclick=()=>{selected.clear();render()};
 $('bulkbar').onclick=async e=>{const button=e.target.closest('[data-bulk]');if(!button||bulkBusy)return;const targets=cards.filter(c=>selected.has(c.uid));if(!targets.length)return;const action=button.dataset.bulk;let cap;if(action==='cap'){const value=prompt('设置所选卡的总可用次数（含已用和冻结，1–100）');if(value===null)return;cap=Number(value);if(!Number.isInteger(cap)||cap<1||cap>100){notice('总次数需为 1–100 的整数。',true);return}}const label=action==='enable'?'启用':action==='disable'?'停用':'设置总次数为 '+cap;if(!confirm('确认批量'+label+' '+targets.length+' 张支付卡？'))return;bulkBusy=true;render();let completed=0;const errors=[];for(const c of targets){try{if(c.kind==='manual')await api('/api/admin/zzshu/cards/'+encodeURIComponent(c.id),action==='cap'?{maxSuccess:cap,note:c.note||''}:{enabled:action==='enable'});else await api('/api/admin/hifupay/cards/'+encodeURIComponent(c.id)+(action==='cap'?'/settings':'/'+action),action==='cap'?{field:'maxUses',value:cap}:{});selected.delete(c.uid);completed++}catch(err){errors.push('尾号 '+(c.lastFour||'----')+'：'+err.message)}}bulkBusy=false;await load();notice('批量'+label+'：成功 '+completed+' 张，失败 '+errors.length+' 张。'+(errors.length?'\n'+errors.join('\n'):'') ,errors.length>0)};
-function quickActions(c){const uid=esc(c.uid),disabled=cardBusy.has(c.uid)?' disabled':'';return '<div class="quick-actions"><button class="secondary" data-action="add-one" data-uid="'+uid+'"'+(c.usageId&&c.max<100?disabled:' disabled')+'>＋1 次</button><button class="secondary" data-action="add-uses" data-uid="'+uid+'"'+(c.usageId&&c.max<100?disabled:' disabled')+'>增加…</button>'+(c.frozen?'<button class="secondary" data-action="unlock-frozen" data-uid="'+uid+'"'+disabled+'>解锁冻结</button>':'')+'</div>'}
+function quickActions(c){const uid=esc(c.uid),disabled=cardBusy.has(c.uid)?' disabled':'';return '<div class="quick-actions"><button class="secondary" data-action="add-one" data-uid="'+uid+'"'+(c.usageId&&c.max<100?disabled:' disabled')+'>＋1 次</button><button class="secondary" data-action="add-uses" data-uid="'+uid+'"'+(c.usageId&&c.max<100?disabled:' disabled')+'>增加…</button>'+(c.frozen?'<button class="secondary" data-action="unlock-frozen" data-uid="'+uid+'"'+disabled+'>解锁冻结</button>':'')+'<button class="secondary" data-action="copy-standard" data-uid="'+uid+'"'+disabled+'>复制标准格式</button></div>'}
 async function chooseCardAction(c,release=false){
  const dialog=$('cardActionDialog'),form=$('cardActionForm');
  $('cardActionTitle').textContent=release?'解锁冻结':'增加剩余次数';
@@ -49,7 +49,10 @@ async function chooseCardAction(c,release=false){
 }
 async function runQuickAction(c,action){
  if(cardBusy.has(c.uid))return;cardBusy.add(c.uid);render();
- try{if(action==='unlock-frozen'){
+ try{if(action==='copy-standard'){
+   const result=await api('/api/admin/payment-cards/'+c.kind+'/'+encodeURIComponent(c.id)+'/copy-standard',{});
+   await navigator.clipboard.writeText(result.text);notice('尾号 '+c.lastFour+' 的标准格式已复制。');
+ }else if(action==='unlock-frozen'){
    if(!(c.frozenOrders||[]).length)throw Error('未找到关联的冻结订单，请刷新卡池后核查充值订单。');
    const result=await chooseCardAction(c,true);if(!result)return;const o=result.order;
    if(o.provider==='h')await api('/api/admin/hifupay/cards/'+encodeURIComponent(c.id)+'/release',{orderId:o.orderId,reason:'已核实本次未扣款、未开通'+(result.note?'；'+result.note:'')});

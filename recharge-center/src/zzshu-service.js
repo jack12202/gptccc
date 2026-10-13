@@ -2,6 +2,7 @@ import { config } from "./config.js";
 import { sharedZzshuStore } from "./zzshu-store.js";
 import { parsePaymentCards, publicPreview } from "./zzshu-cards.js";
 import { paymentCardSource } from "./payment-card-source.js";
+import { formatPaymentCard, parseCardInputs } from "./payment-card-input.js";
 import { zzshuAdapter } from "./providers/zzshu-adapter.js";
 import { hifupayAdapter } from "./providers/hifupay-adapter.js";
 import { JsonStore } from "./store.js";
@@ -107,6 +108,32 @@ export const zzshuService = {
     if (role === "zzshu" && card.proProtected)
       return {ok:false,reason:"这张卡仍受 Pro 保护，请先解除保护后再分配给吱吱鼠"};
     return store.assignHifupay({id:card.id,lastFour:card.lastFour},role);
+  },
+  async copyPaymentCard({kind,id,operator="admin"}) {
+    if (!["manual","h"].includes(kind)) return {ok:false,status:400,message:"支付卡类型无效。"};
+    try {
+      let card,payment;
+      if (kind === "h") {
+        card=hifupayStore.listHifupayCards().find(item=>item.id===String(id));
+        if (!card) return {ok:false,status:404,message:"支付卡不存在，请刷新卡池。"};
+        payment=await hifupayAdapter.getPaymentCard({cardId:card.id,expectedLastFour:card.lastFour});
+      } else {
+        card=store.paymentCardForCopy(String(id));
+        if (!card) return {ok:false,status:404,message:"支付卡不存在或已移出卡池。"};
+        payment=card.credentialRef.startsWith("local:")
+          ? JSON.parse(decryptSecretText(card.paymentCipher,config.recoveryEncryptionKey,"zzshu-payment-card"))
+          : await vaultRequest("GET",`/credentials/${encodeURIComponent(card.credentialRef)}`);
+      }
+      if (!payment || !Number.isInteger(payment.expYear) || payment.expYear<2000 || payment.expYear>2099 ||
+          !Number.isInteger(payment.expMonth) || payment.expMonth<1 || payment.expMonth>12) throw Error("invalid payment");
+      const text=formatPaymentCard(payment),parsed=parseCardInputs(text)[0];
+      if (parsed?.status!=="ready" || parsed.payment.cardNumber.slice(-4)!==String(card.lastFour) ||
+          kind==="manual" && sha256(parsed.payment.cardNumber)!==card.fingerprint) throw Error("invalid payment");
+      store.audit("card:"+kind+":"+card.id,"card_standard_format_read",JSON.stringify({operator:String(operator).slice(0,80)}));
+      return {ok:true,status:200,data:{text,lastFour:card.lastFour}};
+    } catch {
+      return {ok:false,status:503,message:"完整支付卡资料暂时无法读取，或资料已过期。请核查卡片资料后重试。"};
+    }
   },
   preview(text) {
     const parsedRows = parsePaymentCards(text);

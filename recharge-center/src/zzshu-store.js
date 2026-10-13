@@ -202,6 +202,10 @@ export class ZzshuStore {
   paymentCipher(ref) {
     return this.db.prepare("SELECT payment_cipher AS cipher FROM payment_cards WHERE credential_ref=? AND retired_at IS NULL").get(ref)?.cipher || "";
   }
+  paymentCardForCopy(id) {
+    return this.db.prepare(`SELECT id,fingerprint,last_four AS lastFour,credential_ref AS credentialRef,payment_cipher AS paymentCipher
+      FROM payment_cards WHERE id=? AND retired_at IS NULL AND credential_ref NOT LIKE 'hifupay:%' AND credential_ref NOT LIKE 'queued:%'`).get(id) || null;
+  }
   listCards() {
     const cards = this.db.prepare(`SELECT id,last_four AS lastFour,source,note,enabled,max_success AS maxSuccess,
       CASE WHEN credential_ref LIKE 'hifupay:%' THEN 'hifupay' ELSE 'manual' END AS credentialSource,

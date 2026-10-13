@@ -50,6 +50,7 @@ try {
     const response = await call("/admin/cards/" + asset, {headers:{Cookie:cookie}});
     assert.equal(response.status,200,"Workbench asset must be available behind the shared session");
     assert.match(response.headers.get("content-type") || "", /javascript/);
+    if(asset==="workbench.js")assert.ok((await response.text()).includes("card-copy-standard"),"Home stored-card copy button missing");
   }
   const home = await call("/admin", {headers:{Cookie:cookie}}).then(response=>response.text());
   assert.ok(["正在使用的支付卡","最近客户卡密","最近充值订单","录入支付卡"].every(text=>home.includes(text)),"Production workbench panels missing");
@@ -58,6 +59,15 @@ try {
   const snapshot = (await snapshotResponse.json()).data;
   assert.ok(snapshot && Array.isArray(snapshot.cards) && snapshot.cards.every(card=>card.enabled),"Workbench must show only active cards");
   assert.ok(snapshot.orders.items.length <= 10 && snapshot.vouchers.items.length <= 20,"Workbench recent windows exceed their limits");
+  const poolPage=await call("/admin/hifupay/cards",{headers:{Cookie:cookie}}).then(response=>response.text());
+  assert.ok(poolPage.includes('data-action="copy-standard"') && poolPage.includes("复制标准格式"),"Full pool stored-card copy button missing");
+  const copyMissing=await call("/api/admin/payment-cards/manual/GPTC-COPY-SMOKE-NOT-A-CARD/copy-standard", {
+    method:"POST",headers:{"Content-Type":"application/json",Cookie:cookie,Origin:base,"X-CSRF-Token":csrf},body:"{}"
+  });
+  assert.equal(copyMissing.status,404,"Stored-card copy route must reject unknown cards");
+  assert.equal((await copyMissing.json()).message,"支付卡不存在或已移出卡池。","Stored-card copy handler unavailable");
+  assert.equal(copyMissing.headers.get("cache-control"),"no-store","Stored-card copy response must not be cached");
+  console.log("Stored-card copy buttons and protected route verified without reading real card credentials.");
   const poolResponse=await call("/api/admin/zzshu/cards",{headers:{Cookie:cookie}});
   assert.equal(poolResponse.status,200,"Full payment pool unavailable");
   const pool=(await poolResponse.json()).data;

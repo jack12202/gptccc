@@ -1635,6 +1635,14 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
+    const paymentCardCopy=url.pathname.match(/^\/api\/admin\/payment-cards\/(manual|h)\/([^/]+)\/copy-standard$/);
+    if (req.method==="POST" && paymentCardCopy) {
+      const auth=assertAdmin(req);
+      if(!auth.ok){sendJson(res,auth.status,{success:false,message:auth.message});return;}
+      const result=await zzshuService.copyPaymentCard({kind:paymentCardCopy[1],id:decodeURIComponent(paymentCardCopy[2]),operator:"admin:"+auth.session.id.slice(0,12)});
+      res.setHeader("Cache-Control","no-store");
+      sendJson(res,result.status,result.ok?{success:true,data:result.data}:{success:false,message:result.message});return;
+    }
     if (req.method === "GET" && url.pathname === "/api/admin/workbench") {
       sendJson(res,200,{success:true,data:rechargeService.getAdminWorkbench(Object.fromEntries(url.searchParams))});return;
     }
