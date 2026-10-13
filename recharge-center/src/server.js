@@ -513,7 +513,7 @@ function serveHCardLibraryAdmin(res) {
     <section>
       <div class="topbar">
         <div><h1>产品与卡密 · 卡密库</h1><p class="hint">管理客户兑换卡密；按来源、状态和生成日期筛选，支持批量管理。提交过资料的卡密只能归档，不能删除。</p></div>
-        <div class="top-actions"><a class="back-link" href="/admin/cards">生成卡密</a><a class="back-link" href="/admin/cards/batch">批量查询</a><button class="secondary" id="refresh" type="button">刷新列表</button></div>
+        <div class="top-actions"><a class="back-link" href="/admin/cards/generate">生成卡密</a><a class="back-link" href="/admin/cards/batch">批量查询</a><button class="secondary" id="refresh" type="button">刷新列表</button></div>
       </div>
 
       <div class="status" id="statusBox">正在加载卡密…</div>
