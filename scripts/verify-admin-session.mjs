@@ -41,11 +41,12 @@ try {
     const html = await response.text();
     if (["/admin","/admin/hifupay/cards"].includes(page)) {
       assert.ok(html.includes("<th>来源渠道</th>") && html.includes('/admin/cards/payment-card-source-ui.js') && html.includes('请选择卡片来源'), "Payment card origin UI missing");
+      assert.ok(html.includes('id="importFormatter"') && html.includes('/admin/cards/payment-card-formatter.js'), "Payment card format output missing");
     }
     const hasChannelCredentialInputs = page === "/admin" && html.includes('id="hifupayKey" type="password"') && html.includes('id="zzshuKey" type="password"') && html.includes('/admin/cards/workbench-settings.js');
     assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasChannelCredentialInputs), `${page} still contains legacy authentication`);
   }
-  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js"]) {
+  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js","payment-card-formatter.js","payment-card-input.js"]) {
     const response = await call("/admin/cards/" + asset, {headers:{Cookie:cookie}});
     assert.equal(response.status,200,"Workbench asset must be available behind the shared session");
     assert.match(response.headers.get("content-type") || "", /javascript/);
@@ -74,6 +75,15 @@ try {
   const preview=(await previewResponse.json()).data;
   assert.ok(preview?.length===1 && ["ready","duplicate","restore","pending"].includes(preview[0].status),"Sky format preview failed");
   assert.ok(!JSON.stringify(preview).includes("4242424242424242") && !JSON.stringify(preview).includes("321"),"Payment preview leaked credentials");
+  const dashResponse=await call("/api/admin/zzshu/preview", {
+    method:"POST",headers:{"Content-Type":"application/json",Cookie:cookie,Origin:base,"X-CSRF-Token":csrf},
+    body:JSON.stringify({text:"4242424242424242----12/40----096----"})
+  });
+  assert.equal(dashResponse.status,200,"ZZS four-hyphen preview unavailable");
+  const dashPreview=(await dashResponse.json()).data;
+  assert.ok(dashPreview?.length===1 && ["ready","duplicate","restore","pending"].includes(dashPreview[0].status),"ZZS four-hyphen format rejected");
+  assert.ok(!JSON.stringify(dashPreview).includes("4242424242424242") && !JSON.stringify(dashPreview).includes("096"),"Four-hyphen preview leaked credentials");
+  console.log("Payment format output panels, shared parser and four-hyphen masked preview verified.");
   console.log("Payment card origin columns and Sky format masked preview verified without importing cards.");
   console.log("Production workbench panels, assets and bounded snapshot verified without business mutations.");
   console.log("Admin login, shared session, protected pages and secure cookie verified.");

@@ -25,6 +25,8 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(html, /全部支付卡/);
   assert.match(html, /导入手动支付卡/);
   assert.match(html, /<th>来源渠道<\/th>/);
+  assert.match(html, /id="importFormatter"/);
+  assert.match(html, /payment-card-formatter.js/);
   assert.match(html, /天空“卡号:…;CVV…;有效期:MM\/YY”/);
   assert.match(html, /批量设置总次数/);
   assert.ok(html.indexOf('id="cardsPanel"') < html.indexOf('id="importPanel"'));
@@ -47,7 +49,7 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   const manual = { id: "m-1", lastFour: "2002", credentialSource: "manual", source: "团购", enabled: true,
     successCount: 1, frozenUses: 0, maxSuccess: 3, remainingUses: 2, successfulAccounts: [{ email: "m@example.test" }] };
   const calls = [], writes = [];
-  const context = vm.createContext({ document, crypto,window: { adminApi: async (url, options) => {
+  const context = vm.createContext({ document, crypto,window: { paymentCardFormatter:{mount(){return {refresh(){}}}}, adminApi: async (url, options) => {
     calls.push(url);
     if (options?.method === "POST") { writes.push({ url, body: JSON.parse(options.body) }); return {}; }
     if (url.startsWith("/api/admin/hifupay/cards")) return { cards: [h] };

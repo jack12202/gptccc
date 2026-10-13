@@ -95,7 +95,12 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   const get=suffix=>fetch(base+suffix,{headers:{Cookie:cookie}});
   const snap=async query=>(await (await get('/api/admin/workbench'+(query?'?'+query:''))).json()).data;
   const html=await (await get('/admin')).text();assert.match(html,/正在使用的支付卡/);assert.match(html,/最近客户卡密/);assert.match(html,/最近充值订单/);assert.match(html,/录入支付卡/);
-  for(const asset of ['workbench.js','workbench-settings.js','payment-card-source-ui.js']){const response=await get('/admin/cards/'+asset);assert.equal(response.status,200);new vm.Script(await response.text());}
+  assert.match(html,/id="importFormatter"/);
+  for(const asset of ['workbench.js','workbench-settings.js','payment-card-source-ui.js','payment-card-formatter.js']){const response=await get('/admin/cards/'+asset);assert.equal(response.status,200);new vm.Script(await response.text());}
+  const parserAsset=await get('/admin/cards/payment-card-input.js');
+  assert.equal(parserAsset.status,200);
+  assert.match(parserAsset.headers.get('content-type'),/javascript/);
+  assert.match(await parserAsset.text(),/export function parseCardInputs/);
   const initial=await snap();assert.equal(initial.orders.items.length,10);assert.equal(initial.vouchers.items.length,20);assert.equal(initial.cards.length,1);assert.equal(initial.cards[0].id,active.id);
   const fullPool=(await (await get('/api/admin/zzshu/cards')).json()).data;
   assert.equal(initial.cards[0].sourceLabel,'天空');
@@ -116,7 +121,7 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   const previewResult=JSON.stringify(await preview.json());
   assert.equal(previewResult.includes('4000000000000002'),false);
   assert.equal(previewResult.includes('321'),false);
-  const imported=await fetch(base+'/api/admin/zzshu/import',{method:'POST',headers,body:JSON.stringify({text:'卡号:4000000000000002;CVV321;有效期:10/28',source:'zzs',maxSuccess:4})});
+  const imported=await fetch(base+'/api/admin/zzshu/import',{method:'POST',headers,body:JSON.stringify({text:'4000000000000002----10/28----321----',source:'zzs',maxSuccess:4})});
   assert.equal(imported.status,200);
   const importedRows=(await imported.json()).data;
   assert.equal(importedRows[0].status,'imported');

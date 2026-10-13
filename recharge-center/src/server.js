@@ -1341,9 +1341,9 @@ function assertAdmin(req) {
   return adminAuth.authorize(req);
 }
 
-function serveAdminAsset(res, name, contentType = "text/html; charset=utf-8") {
+function serveAdminAsset(res, name, contentType = "text/html; charset=utf-8", directory = "admin") {
   res.writeHead(200, { "Content-Type": contentType, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY" });
-  res.end(fs.readFileSync(path.join(config.rootDir, "admin", name), "utf8"));
+  res.end(fs.readFileSync(path.join(config.rootDir, directory, name), "utf8"));
 }
 
 async function handleAdminAuth(req, res, url) {
@@ -1470,7 +1470,10 @@ export const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js","/admin/cards/payment-card-source-ui.js"].includes(url.pathname)) {
+    if (req.method === "GET" && url.pathname === "/admin/cards/payment-card-input.js") {
+      serveAdminAsset(res,"payment-card-input.js","application/javascript; charset=utf-8","src"); return;
+    }
+    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js","/admin/cards/payment-card-source-ui.js","/admin/cards/payment-card-formatter.js"].includes(url.pathname)) {
       serveAdminAsset(res,path.basename(url.pathname),"application/javascript; charset=utf-8"); return;
     }
 
