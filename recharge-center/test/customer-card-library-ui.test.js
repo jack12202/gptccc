@@ -138,6 +138,16 @@ test('customer card library searches partial codes and copies the successful ord
   vm.runInContext('allRecords.push({id:"processing-zzshu",provider:"zzshu",status:"processing",hasUpstreamQueryKey:true})',orderContext);
   vm.runInContext('expandedRecoveryIds.add("processing-zzshu")',orderContext);
   assert.match(vm.runInContext('renderRows([allRecords.at(-1)])',orderContext),/data-action="disposition-success"/);
+  vm.runInContext('allRecords.push({id:"frozen-zzshu",provider:"zzshu",status:"needs_review",useResolution:"frozen",hasOriginalJson:true,hasUpstreamQueryKey:true,autoQuery:true})',orderContext);
+  const frozenRow = vm.runInContext('renderRows([allRecords.at(-1)])',orderContext);
+  assert.match(frozenRow,/详情 \/ 处理/);
+  assert.ok(frozenRow.indexOf('data-action="toggle-details"') < frozenRow.indexOf('data-action="release-zzshu-use"'));
+  assert.match(frozenRow,/data-action="copy-json"/);
+  vm.runInContext('expandedRecoveryIds.add("frozen-zzshu")',orderContext);
+  const frozenDetails = vm.runInContext('renderRows([allRecords.at(-1)])',orderContext);
+  for (const action of ['refresh-zzshu','disposition-unlock','disposition-freeze','disposition-success','release-zzshu-use']) {
+    assert.ok(frozenDetails.includes('data-action="'+action+'"'),action);
+  }
   cards[0].batchId='batch-one'; cards[0].sequence=1; cards[0].batchSize=3; cards[0].source='微信';
   cards[1].batchId='batch-one'; cards[1].sequence=2; cards[1].batchSize=3; cards[1].source='微信';
   const archived = 'HPLUS' + 'D'.repeat(28) + '5678';
