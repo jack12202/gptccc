@@ -1473,7 +1473,7 @@ export const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/admin/cards/payment-card-input.js") {
       serveAdminAsset(res,"payment-card-input.js","application/javascript; charset=utf-8","src"); return;
     }
-    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js","/admin/cards/payment-card-source-ui.js","/admin/cards/payment-card-formatter.js"].includes(url.pathname)) {
+    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js","/admin/cards/payment-card-source-ui.js","/admin/cards/payment-card-formatter.js","/admin/cards/card-inventory.js"].includes(url.pathname)) {
       serveAdminAsset(res,path.basename(url.pathname),"application/javascript; charset=utf-8"); return;
     }
 
@@ -1534,8 +1534,11 @@ export const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && (url.pathname === "/admin/cards" || url.pathname === "/admin/cards/")) {
-      serveHCardAdmin(res);
+      serveAdminAsset(res,"card-inventory.html");
       return;
+    }
+    if (req.method === "GET" && url.pathname === "/admin/cards/generate") {
+      serveHCardAdmin(res);return;
     }
 
     if (req.method === "GET" && url.pathname === "/admin/provider/switch") {
@@ -1642,6 +1645,9 @@ export const server = http.createServer(async (req, res) => {
       const result=await zzshuService.copyPaymentCard({kind:paymentCardCopy[1],id:decodeURIComponent(paymentCardCopy[2]),operator:"admin:"+auth.session.id.slice(0,12)});
       res.setHeader("Cache-Control","no-store");
       sendJson(res,result.status,result.ok?{success:true,data:result.data}:{success:false,message:result.message});return;
+    }
+    if (req.method === "GET" && url.pathname === "/api/admin/card-inventory") {
+      sendJson(res,200,{success:true,data:rechargeService.getCardInventory(Object.fromEntries(url.searchParams))});return;
     }
     if (req.method === "GET" && url.pathname === "/api/admin/workbench") {
       sendJson(res,200,{success:true,data:rechargeService.getAdminWorkbench(Object.fromEntries(url.searchParams))});return;

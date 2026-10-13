@@ -1,4 +1,5 @@
 import { buildWorkbench } from './admin-workbench.js';
+import { buildCardInventory } from './customer-card-inventory.js';
 import { config } from "./config.js";
 import { getProviderAdapter, listProviders } from "./providers/index.js";
 import { JsonStore } from "./store.js";
@@ -620,6 +621,9 @@ export const rechargeService = {
     };
   },
 
+  getCardInventory(query = {}) {
+    return buildCardInventory(store.listHCards(1,true,true,true),this.listRechargeSubmissions().data.records,query);
+  },
   getAdminWorkbench(query = {}) {
     const records = this.listRechargeSubmissions().data.records;
     return {...buildWorkbench({hifupay:store.listHifupayCards(),usageCards:zzshuService.store.listCards(),

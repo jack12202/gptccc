@@ -43,10 +43,11 @@ try {
       assert.ok(html.includes("<th>来源渠道</th>") && html.includes('/admin/cards/payment-card-source-ui.js') && html.includes('请选择卡片来源'), "Payment card origin UI missing");
       assert.ok(html.includes('id="importFormatter"') && html.includes('/admin/cards/payment-card-formatter.js'), "Payment card format output missing");
     }
+    if(page==="/admin/cards")assert.ok(["stockStats","inventoryRows","generateDialog"].every(id=>html.includes('id="'+id+'"')),"Inventory-first card management page missing");
     const hasChannelCredentialInputs = page === "/admin" && html.includes('id="hifupayKey" type="password"') && html.includes('id="zzshuKey" type="password"') && html.includes('/admin/cards/workbench-settings.js');
     assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasChannelCredentialInputs), `${page} still contains legacy authentication`);
   }
-  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js","payment-card-formatter.js","payment-card-input.js"]) {
+  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js","payment-card-formatter.js","payment-card-input.js","card-inventory.js"]) {
     const response = await call("/admin/cards/" + asset, {headers:{Cookie:cookie}});
     assert.equal(response.status,200,"Workbench asset must be available behind the shared session");
     assert.match(response.headers.get("content-type") || "", /javascript/);
@@ -68,6 +69,13 @@ try {
   assert.equal((await copyMissing.json()).message,"支付卡不存在或已移出卡池。","Stored-card copy handler unavailable");
   assert.equal(copyMissing.headers.get("cache-control"),"no-store","Stored-card copy response must not be cached");
   console.log("Stored-card copy buttons and protected route verified without reading real card credentials.");
+  const inventoryResponse=await call("/api/admin/card-inventory",{headers:{Cookie:cookie}});
+  assert.equal(inventoryResponse.status,200,"Card inventory snapshot unavailable");
+  assert.equal(inventoryResponse.headers.get("cache-control"),"no-store");
+  const inventory=(await inventoryResponse.json()).data;
+  assert.ok(inventory?.view==="unused" && inventory.items.length<=20 && inventory.items.every(card=>card.group==="unused" && !card.hasSubmission && !card.boundEmail && !card.boundAccountId && !card.archivedAt),"Default inventory contains non-distributable cards");
+  assert.equal(Object.values(inventory.stock).reduce((sum,count)=>sum+count,0),inventory.matched,"Stock counts disagree with default inventory");
+  console.log("Inventory-first entry, generation drawer, protected asset and unused-only snapshot verified without card mutations.");
   const poolResponse=await call("/api/admin/zzshu/cards",{headers:{Cookie:cookie}});
   assert.equal(poolResponse.status,200,"Full payment pool unavailable");
   const pool=(await poolResponse.json()).data;
