@@ -335,6 +335,7 @@ function serveHCardAdmin(res) {
       <div class="generated" id="generated"></div>
     </section>
   </main>
+  <script src="/admin/cards/card-download-names.js"></script>
   <script>
     const statusBox = document.getElementById("statusBox");
     const generated = document.getElementById("generated");
@@ -404,12 +405,13 @@ function serveHCardAdmin(res) {
       let offset = 0;
       const stamp = new Date().toLocaleDateString("sv-SE").replaceAll("-", "");
       const source = (currentSource() || "未分类").replace(/[\\/:*?"<>|]/g, "-");
+      const fileNames = window.cardDownloadNames.files(generatedCards);
       generatedCards.forEach((card, index) => {
-        const name = encoder.encode(stamp + "-" + source + "-" + String(card.sequence || index + 1).padStart(3, "0") + "-" + String(card.code || "").slice(-4) + ".txt");
+        const name = encoder.encode(fileNames[index]);
         const data = encoder.encode(String(card.link || "") + "\\n");
         const checksum = crc32(data);
-        const local = concatBytes([new Uint8Array([80,75,3,4,20,0,0,0,0,0,0,0,0,0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data]);
-        const central = concatBytes([new Uint8Array([80,75,1,2,20,0,20,0,0,0,0,0,0,0,0,0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name]);
+        const local = concatBytes([new Uint8Array([80,75,3,4,20,0,0,8,0,0,0,0,0,0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data]);
+        const central = concatBytes([new Uint8Array([80,75,1,2,20,0,20,0,0,8,0,0,0,0,0,0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name]);
         localParts.push(local); centralParts.push(central); offset += local.length;
       });
       const central = concatBytes(centralParts);
@@ -530,6 +532,7 @@ function serveHCardLibraryAdmin(res) {
       </div>
     </section>
   </main>
+  <script src="/admin/cards/card-download-names.js"></script>
   <script>
     const statusBox = document.getElementById("statusBox");
 
@@ -770,8 +773,8 @@ function serveHCardLibraryAdmin(res) {
         const name = encoder.encode(file.name);
         const data = encoder.encode(file.text);
         const checksum = crc32(data);
-        const local = concatBytes([new Uint8Array([80, 75, 3, 4, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data]);
-        const central = concatBytes([new Uint8Array([80, 75, 1, 2, 20, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name]);
+        const local = concatBytes([new Uint8Array([80, 75, 3, 4, 20, 0, 0, 8, 0, 0, 0, 0, 0, 0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data]);
+        const central = concatBytes([new Uint8Array([80, 75, 1, 2, 20, 0, 20, 0, 0, 8, 0, 0, 0, 0, 0, 0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name]);
         localParts.push(local);
         centralParts.push(central);
         offset += local.length;
@@ -798,8 +801,9 @@ function serveHCardLibraryAdmin(res) {
     function downloadBatchLinks() {
       const rows = completeBatch();
       if (!rows.length) return;
+      const fileNames = window.cardDownloadNames.files(rows);
       const files = rows.map((card, index) => ({
-        name: String(card.sequence || index + 1).padStart(3, "0") + "-" + card.code.slice(-4) + ".txt",
+        name: fileNames[index],
         text: cardLink(card) + "\\n"
       }));
       downloadBlob(zipFiles(files), "链接批次-" + rows[0].batchId + ".zip");
@@ -817,20 +821,22 @@ function serveHCardLibraryAdmin(res) {
     function downloadSelectedZip() {
       const rows = selectedCardRows();
       if (!rows.length) return setStatus("请先勾选有完整卡密的记录。", true);
+      const fileNames = window.cardDownloadNames.files(rows);
       const files = rows.map((card, index) => {
         const number = String(index + 1).padStart(3, "0");
         const tail = String(card.code).slice(-4);
-        return { name: number + "-" + tail + ".txt", text: card.code + "\\n" };
+        return { name: fileNames[index], text: card.code + "\\n" };
       });
       downloadBlob(zipFiles(files), "选中卡密-" + rows.length + "张.zip");
     }
     function downloadSelectedLinkZip() {
       const rows = selectedCardRows();
       if (!rows.length) return setStatus("请先勾选有完整卡密的记录。", true);
+      const fileNames = window.cardDownloadNames.files(rows);
       const files = rows.map((card, index) => {
         const number = String(index + 1).padStart(3, "0");
         const tail = String(card.code).slice(-4);
-        return { name: number + "-" + tail + ".txt", text: cardLink(card) + "\\n" };
+        return { name: fileNames[index], text: cardLink(card) + "\\n" };
       });
       downloadBlob(zipFiles(files), "选中链接-" + rows.length + "张.zip");
     }
@@ -1474,7 +1480,7 @@ export const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/admin/cards/payment-card-input.js") {
       serveAdminAsset(res,"payment-card-input.js","application/javascript; charset=utf-8","src"); return;
     }
-    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js","/admin/cards/payment-card-source-ui.js","/admin/cards/payment-card-formatter.js","/admin/cards/card-inventory.js"].includes(url.pathname)) {
+    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js","/admin/cards/payment-card-source-ui.js","/admin/cards/payment-card-formatter.js","/admin/cards/card-inventory.js","/admin/cards/card-download-names.js"].includes(url.pathname)) {
       serveAdminAsset(res,path.basename(url.pathname),"application/javascript; charset=utf-8"); return;
     }
 

@@ -47,7 +47,7 @@ try {
     const hasChannelCredentialInputs = page === "/admin" && html.includes('id="hifupayKey" type="password"') && html.includes('id="zzshuKey" type="password"') && html.includes('/admin/cards/workbench-settings.js');
     assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasChannelCredentialInputs), `${page} still contains legacy authentication`);
   }
-  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js","payment-card-formatter.js","payment-card-input.js","card-inventory.js"]) {
+  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js","payment-card-formatter.js","payment-card-input.js","card-inventory.js","card-download-names.js"]) {
     const response = await call("/admin/cards/" + asset, {headers:{Cookie:cookie}});
     assert.equal(response.status,200,"Workbench asset must be available behind the shared session");
     assert.match(response.headers.get("content-type") || "", /javascript/);
@@ -55,6 +55,10 @@ try {
   }
   const home = await call("/admin", {headers:{Cookie:cookie}}).then(response=>response.text());
   assert.ok(["正在使用的支付卡","客户卡密库存","最近充值订单","录入支付卡"].every(text=>home.includes(text)),"Production workbench panels missing");
+  for (const page of ['/admin','/admin/cards','/admin/cards/generate','/admin/cards/library']) {
+    const html=await call(page,{headers:{Cookie:cookie}}).then(response=>response.text());
+    assert.ok(html.includes('/admin/cards/card-download-names.js'),'Shared download naming missing on '+page);
+  }
   const snapshotResponse = await call("/api/admin/workbench", {headers:{Cookie:cookie}});
   assert.equal(snapshotResponse.status,200,"Production workbench snapshot unavailable");
   const snapshot = (await snapshotResponse.json()).data;

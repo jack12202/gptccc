@@ -199,11 +199,12 @@
     const concat=parts=>{const output=new Uint8Array(parts.reduce((n,p)=>n+p.length,0));let offset=0;for(const part of parts){output.set(part,offset);offset+=part.length;}return output;};
     const crc=bytes=>{let n=0xffffffff;for(const byte of bytes){n^=byte;for(let i=0;i<8;i++)n=(n>>>1)^(n&1?0xedb88320:0);}return(n^0xffffffff)>>>0;};
     const local=[],central=[];let offset=0;
-    rows.forEach((card,i)=>{const filename=encoder.encode(String(card.sequence||i+1).padStart(3,'0')+'-'+card.code.slice(-6)+'.txt'),data=encoder.encode((type==='codes'?card.code:cardLink(card))+'\n'),checksum=crc(data);
-      const a=concat([new Uint8Array([80,75,3,4,20,0,0,0,0,0,0,0,0,0]),u32(checksum),u32(data.length),u32(data.length),u16(filename.length),u16(0),filename,data]);
-      local.push(a);central.push(concat([new Uint8Array([80,75,1,2,20,0,20,0,0,0,0,0,0,0,0,0]),u32(checksum),u32(data.length),u32(data.length),u16(filename.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset),filename]));offset+=a.length;});
+    const fileNames=window.cardDownloadNames.files(rows);
+    rows.forEach((card,i)=>{const filename=encoder.encode(fileNames[i]),data=encoder.encode((type==='codes'?card.code:cardLink(card))+'\n'),checksum=crc(data);
+      const a=concat([new Uint8Array([80,75,3,4,20,0,0,8,0,0,0,0,0,0]),u32(checksum),u32(data.length),u32(data.length),u16(filename.length),u16(0),filename,data]);
+      local.push(a);central.push(concat([new Uint8Array([80,75,1,2,20,0,20,0,0,8,0,0,0,0,0,0]),u32(checksum),u32(data.length),u32(data.length),u16(filename.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset),filename]));offset+=a.length;});
     const directory=concat(central),end=concat([new Uint8Array([80,75,5,6,0,0,0,0]),u16(rows.length),u16(rows.length),u32(directory.length),u32(offset),u16(0)]);
-    const url=URL.createObjectURL(new Blob([concat([...local,directory,end])],{type:'application/zip'})),a=document.createElement('a');a.href=url;a.download=name+'.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('已下载 '+rows.length+' 个 TXT，每张卡一个文件。');
+    const url=URL.createObjectURL(new Blob([concat([...local,directory,end])],{type:'application/zip'})),a=document.createElement('a');a.href=url;a.download=name+'.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('已下载 '+rows.length+' 个 TXT，每张卡一个文件。文件名示例：'+fileNames[0]);
   }
   async function batchExport() {
     const batch=$('batchFilter').value;if(!batch)throw Error('请先选择要导出的生成批次。');

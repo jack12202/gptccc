@@ -94,8 +94,8 @@
         const name = encoder.encode(file.name);
         const data = encoder.encode(file.text);
         const checksum = crc32(data);
-        const local = concatBytes([new Uint8Array([80, 75, 3, 4, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data]);
-        const central = concatBytes([new Uint8Array([80, 75, 1, 2, 20, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name]);
+        const local = concatBytes([new Uint8Array([80, 75, 3, 4, 20, 0, 0, 8, 0, 0, 0, 0, 0, 0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data]);
+        const central = concatBytes([new Uint8Array([80, 75, 1, 2, 20, 0, 20, 0, 0, 8, 0, 0, 0, 0, 0, 0]), u32(checksum), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), name]);
         localParts.push(local);
         centralParts.push(central);
         offset += local.length;
@@ -106,8 +106,9 @@
     }
   function downloadRows(rows){
     if(!rows.length)throw Error('请先选择卡密。');
-    const files=rows.map((card,index)=>({name:String(index+1).padStart(3,'0')+'-'+card.code.slice(-4)+'.txt',text:cardLink(card)+'\n'}));
-    downloadBlob(zipFiles(files),'充值链接-'+rows.length+'张.zip');notice('已下载 '+rows.length+' 张链接的 TXT ZIP。');
+    const fileNames=window.cardDownloadNames.files(rows);
+    const files=rows.map((card,index)=>({name:fileNames[index],text:cardLink(card)+'\n'}));
+    downloadBlob(zipFiles(files),'充值链接-'+rows.length+'张.zip');notice('已下载 '+rows.length+' 张链接的 TXT ZIP。文件名示例：'+files[0].name);
   }
   document.addEventListener('change',event=>{
     if(event.target.dataset.select){event.target.checked?state.selected.add(event.target.dataset.select):state.selected.delete(event.target.dataset.select);drawSelection();}

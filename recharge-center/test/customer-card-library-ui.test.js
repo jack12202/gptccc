@@ -56,6 +56,7 @@ test('customer card library searches partial codes and copies the successful ord
     window:{adminApi:api,location:{origin:'https://www.gptc.cc',search:''},setTimeout(){}},
     navigator:{clipboard:{writeText:async value=>clipboard.push(value)}},
     URL:FixtureUrl, URLSearchParams, Blob, TextEncoder, Uint8Array, console, confirm:()=>true});
+  vm.runInContext(fs.readFileSync(new URL('../admin/card-download-names.js',import.meta.url),'utf8'),context);
   vm.runInContext(script,context);
   await vm.runInContext('loadLibrary()',context);
   assert.equal(calls.filter(url=>url === '/api/admin/recharge-records').length,2);
