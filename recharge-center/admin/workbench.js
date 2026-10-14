@@ -319,5 +319,5 @@
   window.addEventListener('hashchange',revealHash);revealHash();
   $('detailDialog').addEventListener('close',()=>{$('detailBody').replaceChildren();});
   refresh();
-  setInterval(()=>{if(!document.hidden&&!state.busy.size&&!$('actionDialog').open&&!$('detailDialog').open&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))refresh(true);},20000);
+  setInterval(()=>{if((!document.hidden||state.notifications)&&!state.busy.size&&!$('actionDialog').open&&!$('detailDialog').open&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))refresh(true);},20000);
 })();
