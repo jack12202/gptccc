@@ -85,7 +85,7 @@
       if(sequence!==state.sequence)return false;state.data=d;
       for(const uid of state.poolSelected)if(!d.cards.some(card=>card.uid===uid))state.poolSelected.delete(uid);
       const s=d.summary;$('homeStats').innerHTML=[['today','今日提交且成功',s.todaySuccess],['active','在用支付卡',s.activeCards],['uses','当前可轮选次数',s.selectableUses],['frozen','冻结次数',s.frozenUses],['unused','未使用库存',s.inventoryReady],['attention','待处理订单',s.attentionOrders]].map(([key,text,n])=>'<'+(key==='today'?'div':'button')+' class="stat"'+(key==='today'?'':' data-shortcut="'+key+'"')+'><strong>'+n+'</strong><small>'+text+'</small></'+(key==='today'?'div':'button')+'>').join('');
-      $('homeState').textContent='当前 Plus 通道：'+channel(d.plusProvider)+' · 更新于 '+date(d.updatedAt);renderPool();renderAttention();renderOrders();renderVouchers();
+      $('homeState').textContent='当前 Plus 通道：'+channel(d.plusProvider)+' · 更新于 '+date(d.updatedAt)+(d.historyHandling?' · 已将北京时间 10 月 14 日之前 '+d.historyHandling.count+' 笔订单标记已处理，历史记录保留。':'');renderPool();renderAttention();renderOrders();renderVouchers();
       if(state.notifications&&state.seenOrders){const fresh=d.orders.items.filter(order=>!state.seenOrders.has(order.id));if(fresh.length&&document.hidden)new Notification('GPTC 新充值订单',{body: fresh.length+' 笔新订单，请查看工作台。'});}
       state.seenOrders=new Set(d.orders.items.map(order=>order.id));return true;
     }catch(error){if(sequence===state.sequence){$('homeState').textContent='读取失败，保留上次结果。请刷新工作台。';if(!silent)notify(error.message,true);}return false;}

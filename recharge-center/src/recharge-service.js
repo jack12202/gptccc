@@ -1,3 +1,4 @@
+import {markHistoricalOrdersHandled,annotateHandledOrders} from './workbench-history.js';
 import { buildWorkbench } from './admin-workbench.js';
 import { buildCardInventory } from './customer-card-inventory.js';
 import { config } from "./config.js";
@@ -624,11 +625,14 @@ export const rechargeService = {
   getCardInventory(query = {}) {
     return buildCardInventory(store.listHCards(1,true,true,true),this.listRechargeSubmissions().data.records,query);
   },
+  markHistoricalWorkbenchOrdersHandled() {
+    return markHistoricalOrdersHandled(store,this.listRechargeSubmissions().data.records);
+  },
   getAdminWorkbench(query = {}) {
     const records = this.listRechargeSubmissions().data.records;
     return {...buildWorkbench({hifupay:store.listHifupayCards(),usageCards:zzshuService.store.listCards(),
       customerCards:store.listHCards(1,true,true,false),records,plusProvider:store.getSettings().plusProvider,
-      chargeThreshold:Math.max(0,config.hifupayEstimatedPlusChargeUsd+config.hifupaySafetyBufferUsd)},query),recoveryReasons};
+      chargeThreshold:Math.max(0,config.hifupayEstimatedPlusChargeUsd+config.hifupaySafetyBufferUsd)},query),recoveryReasons,historyHandling:(()=>{const h=store.read().workbenchHistoryHandling;return h?{cutoff:h.cutoff,handledAt:h.handledAt,count:h.orderIds.length}:null;})()};
   },
 
   getRechargeDashboard() {
@@ -818,7 +822,7 @@ export const rechargeService = {
       ok: true,
       status: 200,
       data: {
-        records,
+        records:annotateHandledOrders(records,store.read().workbenchHistoryHandling),
         totalCount: records.length,
         pendingCount: records.filter(item => ["failed", "needs_review", "manual_queued", "manual_processing", "needs_info"].includes(item.status) || item.needsAttention).length
       }

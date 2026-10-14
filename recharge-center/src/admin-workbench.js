@@ -2,8 +2,8 @@ import { paymentCardOrigin } from './payment-card-source.js';
 const shanghaiDate = date => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(date));
 const value = input => String(input || '').trim().toLowerCase();
 const matches = (parts, query) => !query || parts.some(part => value(part).includes(query));
-export const needsWorkbenchAttention = order => ['needs_review','manual_queued','manual_processing','needs_info'].includes(order.status) ||
-  Boolean(order.needsAttention) || order.status === 'failed' && (order.useResolution === 'frozen' || !order.retryAllowed && !String(order.hifupaySafetyStatus || '').startsWith('released_unpaid'));
+export const needsWorkbenchAttention = order => !order.workbenchHandledAt && (['needs_review','manual_queued','manual_processing','needs_info'].includes(order.status) ||
+  Boolean(order.needsAttention) || order.status === 'failed' && (order.useResolution === 'frozen' || !order.retryAllowed && !String(order.hifupaySafetyStatus || '').startsWith('released_unpaid')));
 
 export function workbenchPaymentCards(hifupay, usageCards, chargeThreshold = 16) {
   const shared = new Map(usageCards.filter(card => card.credentialSource === 'hifupay').map(card => [card.hifupayId,card]));
@@ -41,7 +41,8 @@ export function buildWorkbench({hifupay,usageCards,customerCards,records,plusPro
   const selectedChannel = plusProvider === 'zzshu' ? 'ZZS' : '嗨付';
   const cards = workbenchPaymentCards(hifupay,usageCards,chargeThreshold).map(card=>({...card,selectable:card.channels.includes(selectedChannel)}));
   const orderSearch = value(query.orderSearch).slice(0,200),voucherSearch = value(query.voucherSearch).slice(0,200);
-  const filteredOrders = records.filter(order =>
+  const visibleRecords = records.filter(order=>!order.workbenchHandledAt);
+  const filteredOrders = visibleRecords.filter(order =>
     (query.orderView !== 'attention' || needsWorkbenchAttention(order)) &&
     (!query.orderStatus || order.status === query.orderStatus) && (!query.orderPlan || order.plan === query.orderPlan) &&
     (!query.orderProvider || order.provider === query.orderProvider) && (!query.orderSource || order.salesChannel === query.orderSource) &&
@@ -63,7 +64,7 @@ export function buildWorkbench({hifupay,usageCards,customerCards,records,plusPro
     matches([card.id,card.code,card.cardMask,card.source,card.batchId,card.boundEmail,card.boundAccountId],voucherSearch));
   const inventoryReady = card => card.operationalStatus === 'unused' && !card.hasSubmission && !card.boundEmail && !card.boundAccountId && !card.boundAt && !card.orderId && !card.disabledAt && Boolean(card.code) && ['plus','pro_x5','pro_x20'].includes(card.plan) && (!card.expiresAt || Date.parse(card.expiresAt)>Date.now());
   const filteredVouchers = countVouchers.filter(card=>query.voucherStatus === 'stock' ? inventoryReady(card) : !query.voucherStatus || card.operationalStatus === query.voucherStatus);
-  const attention = records.filter(needsWorkbenchAttention);
+  const attention = visibleRecords.filter(needsWorkbenchAttention);
   const today = shanghaiDate(new Date());
   const batches = new Map();
   for (const card of vouchers) if (card.batchId && !batches.has(card.batchId)) batches.set(card.batchId,{id:card.batchId,source:card.source,createdAt:card.createdAt,size:card.batchSize});
@@ -72,12 +73,12 @@ export function buildWorkbench({hifupay,usageCards,customerCards,records,plusPro
       counts:{frozen:attention.filter(order=>order.useResolution==='frozen').length,
         manual:attention.filter(order=>['manual_queued','manual_processing','needs_info'].includes(order.status)).length,
         failed:attention.filter(order=>order.status==='failed').length}},
-    summary:{todaySuccess:records.filter(order=>order.status==='success' && order.createdAt && shanghaiDate(order.createdAt)===today).length,inventoryReady:vouchers.filter(inventoryReady).length,activeCards:cards.length,readyCards:cards.filter(card=>card.channels.length).length,
+    summary:{todaySuccess:visibleRecords.filter(order=>order.status==='success' && order.createdAt && shanghaiDate(order.createdAt)===today).length,inventoryReady:vouchers.filter(inventoryReady).length,activeCards:cards.length,readyCards:cards.filter(card=>card.channels.length).length,
       selectableUses:cards.filter(card=>card.selectable).reduce((n,card)=>n+card.remaining,0),
       remainingUses:cards.reduce((n,card)=>n+card.remaining,0),frozenUses:cards.reduce((n,card)=>n+card.frozen,0),
       unusedVouchers:vouchers.filter(card=>card.operationalStatus==='unused').length,
       attentionOrders:records.filter(needsWorkbenchAttention).length},
-    orders:{...pageRows(filteredOrders,query.orderPage,10),total:records.length,sources:[...new Set(records.map(x=>x.salesChannel).filter(Boolean))],providers:[...new Set(records.map(x=>x.provider).filter(Boolean))]},
+    orders:{...pageRows(filteredOrders,query.orderPage,10),total:visibleRecords.length,sources:[...new Set(records.map(x=>x.salesChannel).filter(Boolean))],providers:[...new Set(records.map(x=>x.provider).filter(Boolean))]},
     vouchers:{...pageRows(filteredVouchers,query.voucherPage,20),total:vouchers.length,
       counts:{stock:countVouchers.filter(inventoryReady).length,...Object.fromEntries(['unused','used','processing','needs_review','locked','disabled','expired'].map(status=>[status,countVouchers.filter(x=>x.operationalStatus===status).length]))},
       batches:[...batches.values()].slice(0,100),sources:[...new Set(vouchers.map(x=>x.source).filter(Boolean))]}};
