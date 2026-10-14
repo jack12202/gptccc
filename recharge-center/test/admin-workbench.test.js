@@ -94,7 +94,7 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   const headers={Cookie:cookie,Origin:'https://www.gptc.cc','X-CSRF-Token':csrf,'Content-Type':'application/json'};
   const get=suffix=>fetch(base+suffix,{headers:{Cookie:cookie}});
   const snap=async query=>(await (await get('/api/admin/workbench'+(query?'?'+query:''))).json()).data;
-  const html=await (await get('/admin')).text();assert.match(html,/正在使用的支付卡/);assert.match(html,/最近客户卡密/);assert.match(html,/最近充值订单/);assert.match(html,/录入支付卡/);
+  const html=await (await get('/admin')).text();assert.match(html,/正在使用的支付卡/);assert.match(html,/客户卡密库存/);assert.match(html,/最近充值订单/);assert.match(html,/录入支付卡/);
   assert.match(html,/id="importFormatter"/);
   for(const asset of ['workbench.js','workbench-settings.js','payment-card-source-ui.js','payment-card-formatter.js']){const response=await get('/admin/cards/'+asset);assert.equal(response.status,200);new vm.Script(await response.text());}
   const parserAsset=await get('/admin/cards/payment-card-input.js');
@@ -133,3 +133,14 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   const after=await snap();assert.equal(after.summary.remainingUses,before+1);assert.equal(after.cards.length,1);
   const visible=JSON.stringify(after);assert.equal(visible.includes('4242424242424242'),false);assert.equal(visible.includes('workbench-fixture-key'),false);assert.equal(visible.includes('payment_cipher'),false);assert.equal(visible.includes('secretJsonText'),false);
 });
+
+ test('home attention summary is independent of recent filters and stock excludes bound or submitted vouchers',()=>{
+  const records=Array.from({length:16},(_,i)=>({id:'order-'+i,status:i<10?'success':'needs_review',createdAt:new Date().toISOString(),useResolution:i===15?'frozen':'',customerCardId:i===15?'submitted':'',userEmail:'fixture@example.test'}));
+  const input={hifupay:[],usageCards:[],plusProvider:'zzshu',records,customerCards:[{id:'ready',status:'unused',code:'fixture-ready',plan:'plus'},{id:'bound',status:'unused',boundEmail:'bound@example.test'},{id:'submitted',status:'unused'},{id:'old-attempt',status:'unused',hasSubmission:true},{id:'bound-at',status:'unused',boundAt:new Date().toISOString(),code:'bound-at',plan:'plus'},{id:'expired',status:'unused',expiresAt:'2020-01-01',code:'expired',plan:'plus'}]};
+  const result=buildWorkbench(input,{orderView:'',orderSearch:'order-0',voucherStatus:'stock'});
+  assert.equal(result.orders.items.length,1);
+  assert.equal(result.attention.total,6);assert.equal(result.attention.items.length,5);assert.equal(result.attention.counts.frozen,1);
+  assert.deepEqual(result.vouchers.items.map(x=>x.id),['ready']);assert.equal(result.summary.inventoryReady,1);
+  assert.equal(result.summary.todaySuccess,10);
+  assert.equal(buildWorkbench({...input,records:records.map(x=>({...x,status:'success'}))}).attention.total,0);
+ });

@@ -61,17 +61,24 @@ export function buildWorkbench({hifupay,usageCards,customerCards,records,plusPro
     (!query.voucherSource || card.source === query.voucherSource) && (!query.batch || card.batchId === query.batch) &&
     (!query.voucherDate || card.createdAt && shanghaiDate(card.createdAt) === query.voucherDate) &&
     matches([card.id,card.code,card.cardMask,card.source,card.batchId,card.boundEmail,card.boundAccountId],voucherSearch));
-  const filteredVouchers = countVouchers.filter(card=>!query.voucherStatus || card.operationalStatus === query.voucherStatus);
+  const inventoryReady = card => card.operationalStatus === 'unused' && !card.hasSubmission && !card.boundEmail && !card.boundAccountId && !card.boundAt && !card.orderId && !card.disabledAt && Boolean(card.code) && ['plus','pro_x5','pro_x20'].includes(card.plan) && (!card.expiresAt || Date.parse(card.expiresAt)>Date.now());
+  const filteredVouchers = countVouchers.filter(card=>query.voucherStatus === 'stock' ? inventoryReady(card) : !query.voucherStatus || card.operationalStatus === query.voucherStatus);
+  const attention = records.filter(needsWorkbenchAttention);
+  const today = shanghaiDate(new Date());
   const batches = new Map();
   for (const card of vouchers) if (card.batchId && !batches.has(card.batchId)) batches.set(card.batchId,{id:card.batchId,source:card.source,createdAt:card.createdAt,size:card.batchSize});
   return {plusProvider,updatedAt:new Date().toISOString(),cards,
-    summary:{activeCards:cards.length,readyCards:cards.filter(card=>card.channels.length).length,
+    attention:{items:attention.slice(0,5),total:attention.length,
+      counts:{frozen:attention.filter(order=>order.useResolution==='frozen').length,
+        manual:attention.filter(order=>['manual_queued','manual_processing','needs_info'].includes(order.status)).length,
+        failed:attention.filter(order=>order.status==='failed').length}},
+    summary:{todaySuccess:records.filter(order=>order.status==='success' && order.createdAt && shanghaiDate(order.createdAt)===today).length,inventoryReady:vouchers.filter(inventoryReady).length,activeCards:cards.length,readyCards:cards.filter(card=>card.channels.length).length,
       selectableUses:cards.filter(card=>card.selectable).reduce((n,card)=>n+card.remaining,0),
       remainingUses:cards.reduce((n,card)=>n+card.remaining,0),frozenUses:cards.reduce((n,card)=>n+card.frozen,0),
       unusedVouchers:vouchers.filter(card=>card.operationalStatus==='unused').length,
       attentionOrders:records.filter(needsWorkbenchAttention).length},
     orders:{...pageRows(filteredOrders,query.orderPage,10),total:records.length,sources:[...new Set(records.map(x=>x.salesChannel).filter(Boolean))],providers:[...new Set(records.map(x=>x.provider).filter(Boolean))]},
     vouchers:{...pageRows(filteredVouchers,query.voucherPage,20),total:vouchers.length,
-      counts:Object.fromEntries(['unused','used','processing','needs_review','locked','disabled','expired'].map(status=>[status,countVouchers.filter(x=>x.operationalStatus===status).length])),
+      counts:{stock:countVouchers.filter(inventoryReady).length,...Object.fromEntries(['unused','used','processing','needs_review','locked','disabled','expired'].map(status=>[status,countVouchers.filter(x=>x.operationalStatus===status).length]))},
       batches:[...batches.values()].slice(0,100),sources:[...new Set(vouchers.map(x=>x.source).filter(Boolean))]}};
 }

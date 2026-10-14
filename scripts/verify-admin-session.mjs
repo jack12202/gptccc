@@ -54,12 +54,17 @@ try {
     if(asset==="workbench.js")assert.ok((await response.text()).includes("card-copy-standard"),"Home stored-card copy button missing");
   }
   const home = await call("/admin", {headers:{Cookie:cookie}}).then(response=>response.text());
-  assert.ok(["正在使用的支付卡","最近客户卡密","最近充值订单","录入支付卡"].every(text=>home.includes(text)),"Production workbench panels missing");
+  assert.ok(["正在使用的支付卡","客户卡密库存","最近充值订单","录入支付卡"].every(text=>home.includes(text)),"Production workbench panels missing");
   const snapshotResponse = await call("/api/admin/workbench", {headers:{Cookie:cookie}});
   assert.equal(snapshotResponse.status,200,"Production workbench snapshot unavailable");
   const snapshot = (await snapshotResponse.json()).data;
   assert.ok(snapshot && Array.isArray(snapshot.cards) && snapshot.cards.every(card=>card.enabled),"Workbench must show only active cards");
   assert.ok(snapshot.orders.items.length <= 10 && snapshot.vouchers.items.length <= 20,"Workbench recent windows exceed their limits");
+  assert.ok(snapshot.attention && snapshot.attention.items.length <= 5 && snapshot.attention.total === snapshot.summary.attentionOrders,"Home attention summary missing or truncated totals");
+  const stockResponse=await call("/api/admin/workbench?voucherStatus=stock",{headers:{Cookie:cookie}});
+  assert.equal(stockResponse.status,200);
+  const homeStock=(await stockResponse.json()).data;
+  assert.ok(homeStock.vouchers.items.every(card=>card.operationalStatus==='unused'&&!card.hasSubmission&&!card.boundEmail&&!card.boundAccountId),"Home unused stock includes bound/submitted cards");
   const poolPage=await call("/admin/hifupay/cards",{headers:{Cookie:cookie}}).then(response=>response.text());
   assert.ok(poolPage.includes('data-action="copy-standard"') && poolPage.includes("复制标准格式"),"Full pool stored-card copy button missing");
   const copyMissing=await call("/api/admin/payment-cards/manual/GPTC-COPY-SMOKE-NOT-A-CARD/copy-standard", {
