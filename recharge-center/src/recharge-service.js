@@ -1,5 +1,6 @@
+import {createManualPlusService} from './manual-plus.js';
 import {markHistoricalOrdersHandled,annotateHandledOrders} from './workbench-history.js';
-import { buildWorkbench } from './admin-workbench.js';
+import { buildWorkbench,workbenchPaymentCards } from './admin-workbench.js';
 import { buildCardInventory } from './customer-card-inventory.js';
 import { config } from "./config.js";
 import { getProviderAdapter, listProviders } from "./providers/index.js";
@@ -22,6 +23,7 @@ import {
 } from "./utils.js";
 
 const store = new JsonStore();
+const manualPlus = createManualPlusService({store,usage:zzshuService.store,listCards:()=>workbenchPaymentCards(store.listHifupayCards(),zzshuService.store.listCards(),0)});
 function submissionJsonRecord(orderId, reveal = false) {
   const { submittedCipher, ...metadata } = zzshuService.store.submissionRecord(orderId, reveal);
   if (!reveal) return metadata;
@@ -416,6 +418,7 @@ export const rechargeService = {
     return {
       defaultProvider: provider,
       plusProvider: settings.plusProvider === "zzshu" ? "zzshu" : "h",
+      plusFulfillmentMode:settings.plusFulfillmentMode==='manual'?'manual':'auto',
       defaultProviderLabel: adapter.label,
       defaultProviderMode: adapter.mode || "api",
       redirectUrl: adapter.mode === "redirect" ? adapter.redirectUrl : "",
@@ -447,6 +450,12 @@ export const rechargeService = {
     };
   },
 
+  updatePlusFulfillmentMode(mode) {
+    if(!['auto','manual'].includes(mode))return {ok:false,status:400,message:'请选择人工或自动充值。'};
+    store.updateSettings({plusFulfillmentMode:mode});return {ok:true,status:200,data:this.getProviderSettings()};
+  },
+  manualPlusCards(){return manualPlus.cards();},
+  manualPlusAction(id,operation,body){return manualPlus.action(id,operation,body);},
   updatePlusProvider(provider) {
     if (!["h", "zzshu"].includes(provider)) return { ok: false, status: 400, message: "Plus 通道只能选择嗨付或 ZZS。" };
     if (provider === "zzshu" && (!config.zzshuEnabled || !zzshuService.diagnostics().apiKeyReady))
@@ -632,7 +641,7 @@ export const rechargeService = {
     const records = this.listRechargeSubmissions().data.records;
     return {...buildWorkbench({hifupay:store.listHifupayCards(),usageCards:zzshuService.store.listCards(),
       customerCards:store.listHCards(1,true,true,false),records,plusProvider:store.getSettings().plusProvider,
-      chargeThreshold:Math.max(0,config.hifupayEstimatedPlusChargeUsd+config.hifupaySafetyBufferUsd)},query),recoveryReasons,historyHandling:(()=>{const h=store.read().workbenchHistoryHandling;return h?{cutoff:h.cutoff,handledAt:h.handledAt,count:h.orderIds.length}:null;})()};
+      chargeThreshold:Math.max(0,config.hifupayEstimatedPlusChargeUsd+config.hifupaySafetyBufferUsd)},query),plusFulfillmentMode:store.getSettings().plusFulfillmentMode==='manual'?'manual':'auto',recoveryReasons,historyHandling:(()=>{const h=store.read().workbenchHistoryHandling;return h?{cutoff:h.cutoff,handledAt:h.handledAt,count:h.orderIds.length}:null;})()};
   },
 
   getRechargeDashboard() {
@@ -1148,6 +1157,7 @@ export const rechargeService = {
 
     const canonicalCardInfo = canonicalLocalCardCode(cardInfo);
     const localCard = store.getHCardByCode(canonicalCardInfo);
+    if(localCard?.plan==='plus' && (store.getOrder(localCard.orderId)?.fulfillmentMode==='manual' || !localCard.hasSubmission && !localCard.routedProvider && store.getSettings().plusFulfillmentMode==='manual')){const result=store.verifyHCard(canonicalCardInfo);return {ok:result.ok,status:result.ok?200:400,data:{...result,success:result.ok,provider:'h'},message:result.message};}
     const selectedProvider = isZzshuVoucher(cardInfo) ? "zzshu" : localCard?.unified ?
       localCard.routedProvider || (store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h") : localCard ? "h" : resolveProvider(provider);
     if (selectedProvider === "zzshu") {
@@ -1230,6 +1240,9 @@ export const rechargeService = {
   async confirmRecharge(input) {
     const code = canonicalLocalCardCode(input.cardInfo);
     const card = store.getHCardByCode(code);
+    const manualOrder=card?.orderId?store.getOrder(card.orderId):null;
+    if(!input.dryRun && card?.plan==='plus' && (manualOrder?.fulfillmentMode==='manual' || !card.hasSubmission && !card.routedProvider && store.getSettings().plusFulfillmentMode==='manual'))
+      return manualPlus.submit(code,input.secretJsonText,input.siteSource);
     const route = card?.unified ? card.routedProvider || (store.getSettings().plusProvider === "zzshu" ? "zzshu" : "h") : "";
     if ((route === "zzshu" || isZzshuVoucher(code) || !card && resolveProvider(input.provider) === "zzshu") && !input.dryRun) {
       this.syncZzshuIntakes();
@@ -1510,7 +1523,9 @@ export const rechargeService = {
   },
 
   async queryTaskStatus(input, options = {}) {
-    const intake = input.orderId ? store.getOrder(input.orderId) : null;
+    const statusCard=input.cardInfo?store.getHCardByCode(canonicalLocalCardCode(input.cardInfo)):null;
+    const intake = input.orderId ? store.getOrder(input.orderId) : input.taskId ? store.getOrder(input.taskId) : statusCard?.orderId?store.getOrder(statusCard.orderId):null;
+    if(intake?.plan==='plus'&&intake.fulfillmentMode==='manual')return {ok:true,status:200,data:manualPlus.publicOrder(intake)};
     if (intake?.provider === "zzshu") {
       if (intake.upstreamTaskId) {
         try { await zzshuService.refresh(intake.upstreamTaskId); } catch { /* Preserve the original task. */ }

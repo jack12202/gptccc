@@ -29,7 +29,8 @@
   function orderActions(order,detail=false) {
     const id=order.id,isPro=['pro_x5','pro_x20'].includes(order.plan),pending=['processing','needs_review'].includes(order.status);
     let html=order.hasOriginalJson?button('order-json','复制 JSON',id):'';
-    if(order.provider==='zzshu'&&!isPro){
+    if(order.plan==='plus'&&order.fulfillmentMode==='manual'){if(detail&&['manual_queued','manual_processing','needs_info'].includes(order.status))html+=button('plus-manual-processing','人工处理中',id)+button('plus-needs-info','需补资料',id)+button('plus-mark-success','确认人工成功',id);
+    }else if(order.provider==='zzshu'&&!isPro){
       if(['failed','needs_review'].includes(order.status)&&order.useResolution==='frozen')html+=button('order-release','解锁冻结',id);
       if((pending||order.status==='failed')&&!order.retryAllowed&&order.useResolution!=='consumed')html+=button('order-unlock','解锁卡密',id);
       if(pending&&order.autoQuery&&order.hasUpstreamQueryKey)html+=button('order-check','安全补查',id);
@@ -85,7 +86,10 @@
       if(sequence!==state.sequence)return false;state.data=d;
       for(const uid of state.poolSelected)if(!d.cards.some(card=>card.uid===uid))state.poolSelected.delete(uid);
       const s=d.summary;$('homeStats').innerHTML=[['today','今日提交且成功',s.todaySuccess],['active','在用支付卡',s.activeCards],['uses','当前可轮选次数',s.selectableUses],['frozen','冻结次数',s.frozenUses],['unused','未使用库存',s.inventoryReady],['attention','待处理订单',s.attentionOrders]].map(([key,text,n])=>'<'+(key==='today'?'div':'button')+' class="stat"'+(key==='today'?'':' data-shortcut="'+key+'"')+'><strong>'+n+'</strong><small>'+text+'</small></'+(key==='today'?'div':'button')+'>').join('');
-      $('homeState').textContent='当前 Plus 通道：'+channel(d.plusProvider)+' · 更新于 '+date(d.updatedAt)+(d.historyHandling?' · 已将北京时间 10 月 14 日之前 '+d.historyHandling.count+' 笔订单标记已处理，历史记录保留。':'');renderPool();renderAttention();renderOrders();renderVouchers();
+      $('homeState').textContent='当前 Plus：'+(d.plusFulfillmentMode==='manual'?'人工充值':'自动连卡 · '+channel(d.plusProvider))+' · 更新于 '+date(d.updatedAt)+(d.historyHandling?' · 已将北京时间 10 月 14 日之前 '+d.historyHandling.count+' 笔订单标记已处理，历史记录保留。':'');renderPool();renderAttention();renderOrders();renderVouchers();
+      $('plusModeState').textContent=d.plusFulfillmentMode==='manual'?'当前：人工充值。新提交订单进入待人工列表。':'当前：自动连卡充值 · '+channel(d.plusProvider);
+      for(const mode of ['auto','manual'])document.querySelector('[data-action="plus-mode-'+mode+'"]').classList.toggle('active',(d.plusFulfillmentMode||'auto')===mode);
+      $('capacityNotice').hidden=d.plusFulfillmentMode==='manual'||$('capacityNotice').hidden;
       if(state.notifications&&state.seenOrders){const fresh=d.orders.items.filter(order=>!state.seenOrders.has(order.id));if(fresh.length&&document.hidden)new Notification('GPTC 新充值订单',{body: fresh.length+' 笔新订单，请查看工作台。'});}
       state.seenOrders=new Set(d.orders.items.map(order=>order.id));return true;
     }catch(error){if(sequence===state.sequence){$('homeState').textContent='读取失败，保留上次结果。请刷新工作台。';if(!silent)notify(error.message,true);}return false;}
@@ -142,6 +146,7 @@
   async function openOrder(id) {
     const order=await findOrder(id),isPro=['pro_x5','pro_x20'].includes(order.plan);
     let body='<p>'+esc(order.userEmail||'未知账号')+' · '+plan(order.plan)+' · '+(order.fulfillmentMode==='manual'?'人工':channel(order.provider))+' · '+badge(order.status)+'</p><div class="detail-grid"><div><p>订单编号</p><span class="mono">'+esc(id)+'</span></div><div><p>提交时间</p>'+date(order.createdAt)+'</div><div><p>账号 UUID</p><span class="mono">'+esc(order.accountId||'—')+'</span> '+(order.accountId?button('order-uuid','复制 UUID',id):'')+'</div><div><p>客户卡密</p><span class="mono">'+esc(order.customerCardCode||order.customerCardMask||'—')+'</span> '+(order.customerCardCode?button('order-code','复制卡密',id):'')+'</div></div><p>'+esc(order.processingNote||order.message||'暂无说明')+'</p><div class="actions">'+orderActions(order,true)+'</div>';
+    if(order.manualPaymentUse)body+='<p>人工用卡：'+esc(order.manualPaymentUse.cardUid?'•••• '+order.manualPaymentUse.lastFour+' · '+order.manualPaymentUse.source+' · 消耗 '+order.manualPaymentUse.uses+' 次':'未记录支付卡')+'</p>';
     if(order.hasSubmittedJson)body+='<div class="actions">'+button('order-submitted-json','复制发送 JSON',id)+'</div>';
     if(isPro){
       const detail=await api('/api/admin/pro/orders/'+encodeURIComponent(id));state.orders.set(id,{...order,processingNote:detail.processingNote||''});
@@ -231,6 +236,17 @@
   async function dispatch(action,id) {
     const card=id?paymentCard(id):null,voucher=id?state.knownVouchers.get(id):null;
     if(action==='open-import'||action==='open-generate'){const panel=$(action==='open-import'?'importPanel':'generatePanel');panel.open=true;panel.scrollIntoView({behavior:'smooth',block:'center'});return;}
+    if(action.startsWith('plus-mode-')){const mode=action.slice(10);const input=await modal('切换 Plus 充值方式','切换为'+(mode==='manual'?'人工充值':'自动连卡充值')+'，只影响后续首次提交的订单。');if(!input)return;await post('/api/admin/plus-fulfillment',{mode});await saved('Plus 充值方式已保存。');return;}
+    if(['plus-manual-processing','plus-needs-info','plus-mark-success'].includes(action)){
+      const order=await findOrder(id),operation=action.slice(5);let fields=noteField('note','处理备注',order.processingNote||'');
+      if(operation==='mark-success'){
+        const data=await api('/api/admin/plus/manual-cards');
+        fields='<label>支付卡（选填）<select name="cardUid" id="manualPaymentChoice"><option value="">不记录支付卡，不消耗次数</option>'+data.cards.map(card=>'<option value="'+esc(card.uid)+'">•••• '+esc(card.lastFour)+' · '+esc(card.source)+' · 剩余 '+card.remaining+' 次</option>').join('')+'</select></label><label id="manualUsesField" hidden>消耗次数<input name="uses" type="number" value="1" min="1" max="100" disabled></label><label class="field-check"><input type="checkbox" required>已核实外部充值成功；本操作不会再次充值</label>'+fields;
+      }
+      const input=await modal(operation==='mark-success'?'确认 Plus 人工充值成功':operation==='needs-info'?'需补资料':'人工处理中',order.userEmail||id,fields);if(!input)return;
+      await post('/api/admin/plus/orders/'+encodeURIComponent(id)+'/'+operation,input);await saved('Plus 人工订单已保存。');if($('detailDialog').open)await openOrder(id);return;
+    }
+    if(action==='open-plus-settings'){$('settingsPanel').open=true;$('protocol-settings').scrollIntoView({behavior:'smooth',block:'start'});return;}
     if(action==='open-settings'){$('settingsPanel').open=true;$('settingsPanel').scrollIntoView({behavior:'smooth',block:'start'});return;}
     if(action==='save-home-preferences'){const n=Number($('capacityThreshold').value);if(!Number.isInteger(n)||n<0||n>10000)throw Error('阈值必须是 0～10000 的整数，0 表示关闭提醒。');try{localStorage.setItem('gptc.home.capacityThreshold',String(n));}catch{throw Error('当前浏览器无法保存设置。');}renderAttention();notify('当前浏览器的容量提醒阈值已保存。');return;}
     if(action==='attention-all'){state.params.orderView='attention';state.params.orderPage=1;await refresh();$('recent-orders').scrollIntoView({behavior:'smooth'});return;}
@@ -295,7 +311,7 @@
     perform(el.dataset.action+':'+(el.dataset.id||''),()=>dispatch(el.dataset.action,el.dataset.id||''),el);
   });
   document.addEventListener('change',event=>{
-    const el=event.target;if(el.dataset.poolSelect){el.checked?state.poolSelected.add(el.dataset.poolSelect):state.poolSelected.delete(el.dataset.poolSelect);$('poolSelected').textContent='已选 '+state.poolSelected.size+' 张';return;}
+    const el=event.target;if(el.id==='manualPaymentChoice'){const chosen=Boolean(el.value);$('manualUsesField').hidden=!chosen;const input=$('manualUsesField').querySelector('input');input.disabled=!chosen;input.required=chosen;return;}if(el.dataset.poolSelect){el.checked?state.poolSelected.add(el.dataset.poolSelect):state.poolSelected.delete(el.dataset.poolSelect);$('poolSelected').textContent='已选 '+state.poolSelected.size+' 张';return;}
     if(el.dataset.voucherSelect){el.checked?state.voucherSelected.add(el.dataset.voucherSelect):state.voucherSelected.delete(el.dataset.voucherSelect);$('voucherSelected').textContent='已选 '+state.voucherSelected.size+' 张';return;}
   });
   $('poolRows').onchange=event=>{const uid=event.target.dataset.cardSource;if(!uid)return;const card=state.data.cards.find(c=>c.uid===uid);if(!card||card.kind!=='manual')return;const value=event.target.value;perform('source:'+uid,async()=>{try{if(value==='__custom__')await cardSetting(card,'card-source');else{await post('/api/admin/zzshu/cards/'+encodeURIComponent(card.usageId),{source:value});await saved('尾号 '+card.lastFour+' 的来源渠道已保存。');}}finally{renderPool();}},event.target);};

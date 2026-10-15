@@ -407,16 +407,17 @@ export class JsonStore {
   }
 
   // A synchronous transaction: one card can own only one effective order, even for concurrent HTTP requests.
-  createProOrder({ code, identity, source, ciphertext, session }) {
+  createProOrder({ code, identity, source, ciphertext, session, manualPlus = false }) {
     const state = this.read();
     const card = state.hCards.find(item => item.codeHash === cardCodeHash(String(code).toUpperCase()));
-    if (!card || !["pro_x5", "pro_x20"].includes(card.plan)) return { ok: false, status: 404, message: "未找到 Pro 套餐卡密。" };
+    if (!card || !(manualPlus ? card.plan === "plus" : ["pro_x5", "pro_x20"].includes(card.plan))) return { ok: false, status: 404, message: "未找到 Pro 套餐卡密。" };
     const existing = state.orders.find(item => item.id === card.orderId);
     if (existing) {
       if ((card.boundEmail || card.boundAccountId) && !cardIdentityMatches(card, identity)) return { ok: false, status: 409, message: "卡密已绑定其他账号。" };
       return { ok: true, existing: true, order: existing };
     }
     if (card.disabledAt || card.archivedAt || card.status !== "unused") return { ok: false, status: 409, message: "卡密当前不可使用。" };
+    if(manualPlus && card.expiresAt && (!Number.isFinite(Date.parse(card.expiresAt)) || Date.parse(card.expiresAt)<=Date.now()))return {ok:false,status:409,message:'卡密已过期或有效期异常。'};
     const settings = state.settings;
     const configuredId = card.plan === "pro_x5" ? settings.pro5xCardId || "" : "";
     const selectedId = settings.pro5xAutoEnabled ? configuredId : "";
@@ -426,12 +427,13 @@ export class JsonStore {
     const protection = selected && (selected.usageMode === "pro_reserved" || activeHifupayProReservation(state, selected.id));
     const available = selected && selected.enabled !== false && hifupayRemoteStatus(selected.status) === "active" && !protection &&
       selected.balance !== null && Number.isFinite(charge) && charge > 0 && selected.balance >= charge + buffer;
-    const auto = Boolean(session.validForAuto !== false && selectedId && available);
+    const auto = !manualPlus && Boolean(session.validForAuto !== false && selectedId && available);
     const reason = session.validForAuto === false ? "资料已提交，待人工核查账号信息。" :
       card.plan === "pro_x5" && settings.pro5xAutoEnabled && !auto ? "指定付款卡不可用或余额不足，已转人工处理。" : "已进入充值队列，请稍后，完成后可在本页查询结果。";
     const timestamp = nowIso();
     const order = {
       id: makeId("order"), provider: "h", plan: card.plan, productId: card.productId,
+      ...(manualPlus ? {submissionCodeHash:cardCodeHash(String(code).toUpperCase()),manualPlus:true} : {}),
       fulfillmentMode: auto ? "auto" : "manual", initialFulfillmentMode: auto ? "auto" : "manual",
       autoEnabledSnapshot: card.plan === "pro_x5" && settings.pro5xAutoEnabled === true,
       selectedCardSnapshotId: configuredId, status: auto ? "queued" : session.validForAuto === false ? "needs_info" : "manual_queued",
@@ -1530,6 +1532,8 @@ export class JsonStore {
           provider: order.provider,
           submissionCodeHash: order.submissionCodeHash || "",
           hCardId: customerCard?.id || order.hCardId || "",
+          manualPaymentUse:order.manualPaymentUse || null,
+          paymentCardLastFour:order.manualPaymentUse?.lastFour || "",
           cardMask: order.cardMask,
           productId: order.productId,
           plan: order.plan || "plus",

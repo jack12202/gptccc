@@ -104,7 +104,7 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
     assert.match(html, /src="\/admin\/session.js"/);
     assert.match(html, /GPTC 后台|产品与卡密|支付卡池|Pro 履约工作台/);
     if (page === "/admin") {
-      assert.match(html, /Plus 通道选择/);
+      assert.match(html, /Plus 充值方式/);
       assert.doesNotMatch(html, /统一状态|refreshDashboard/);
     }
     if (page === "/admin/provider") {
@@ -128,7 +128,7 @@ test("all admin pages and APIs require sessions; old tokens and GET switch canno
     if (page === "/admin") {
       assert.match(html, /嗨付 API/);
       assert.match(html, /ZZS API/);
-      assert.match(html, /Plus 通道选择/);
+      assert.match(html, /Plus 充值方式/);
       assert.match(html, /id="protocol-settings"/);
       assert.doesNotMatch(html, /(?:id="(?:hifupayKey|zzshuKey)"[^>]*value=|value="fixture)/);
     }

@@ -1072,6 +1072,7 @@ function serveRecoveryAdmin(res) {
         + '</div>' + (item.hasSubmittedJson ? '<button class="secondary" data-action="copy-submitted-json" data-order-id="' + escapeHtml(item.id) + '">复制发送 JSON</button><div class="muted">提交准备时间：' + escapeHtml(formatDate(item.sessionSubmissionAt)) + '；是否受理以上游订单状态为准。</div>' : '') + '</div>';
     }
     function renderRecoveryActions(item) {
+      if(item.plan==='plus' && item.fulfillmentMode==='manual')return '<a class="back-link" href="/admin#recent-orders">到工作台处理 Plus 人工订单</a>';
       const id = escapeHtml(item.id);
       const pending = ['processing','needs_review'].includes(item.status);
       return ''
@@ -1493,6 +1494,16 @@ export const server = http.createServer(async (req, res) => {
       serveAdminAsset(res, "pro-orders.html"); return;
     }
 
+    if(req.method==='POST' && url.pathname==='/api/admin/plus-fulfillment'){
+      const body=await readJsonBody(req),result=rechargeService.updatePlusFulfillmentMode(body.mode);
+      sendJson(res,result.status,result.ok?{success:true,data:result.data}:{success:false,message:result.message});return;
+    }
+    if(req.method==='GET' && url.pathname==='/api/admin/plus/manual-cards'){
+      sendJson(res,200,{success:true,data:{cards:rechargeService.manualPlusCards()}});return;
+    }
+    const manualPlusAction=url.pathname.match(/^\/api\/admin\/plus\/orders\/([^/]+)\/(manual-processing|needs-info|mark-success|note)$/);
+    if(req.method==='POST' && manualPlusAction){const body=await readJsonBody(req);const result=rechargeService.manualPlusAction(decodeURIComponent(manualPlusAction[1]),manualPlusAction[2],body);
+      sendJson(res,result.status,result.ok?{success:true,data:result.data}:{success:false,message:result.message});return;}
     if (req.method === "GET" && url.pathname === "/api/admin/pro/settings") {
       sendJson(res, 200, { success: true, data: proService.settings() }); return;
     }

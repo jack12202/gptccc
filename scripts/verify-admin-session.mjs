@@ -72,6 +72,12 @@ try {
   assert.ok(snapshot.historyHandling && snapshot.historyHandling.cutoff === '2026-10-13T16:00:00.000Z',"Owner-confirmed history handling migration missing");
   assert.ok([...snapshot.orders.items,...snapshot.attention.items].every(order=>!order.workbenchHandledAt && (!Number.isFinite(Date.parse(order.createdAt)) || Date.parse(order.createdAt)>=Date.parse(snapshot.historyHandling.cutoff))),"Handled historical order still visible on home");
   console.log('Owner-confirmed historical order handling verified:',snapshot.historyHandling.count);
+  assert.ok(['auto','manual'].includes(snapshot.plusFulfillmentMode),'Plus fulfillment mode missing');
+  assert.ok(home.includes('plus-mode-manual')&&home.includes('plus-mode-auto'),'Plus mode controls missing');
+  const manualCardsResponse=await call('/api/admin/plus/manual-cards',{headers:{Cookie:cookie}});
+  assert.equal(manualCardsResponse.status,200,'Optional manual payment cards unavailable');
+  assert.ok(Array.isArray((await manualCardsResponse.json()).data.cards),'Optional card list malformed');
+  console.log('Plus fulfillment controls and optional-card read verified without switching production mode.');
   const poolPage=await call("/admin/hifupay/cards",{headers:{Cookie:cookie}}).then(response=>response.text());
   assert.ok(poolPage.includes('data-action="copy-standard"') && poolPage.includes("复制标准格式"),"Full pool stored-card copy button missing");
   const copyMissing=await call("/api/admin/payment-cards/manual/GPTC-COPY-SMOKE-NOT-A-CARD/copy-standard", {
