@@ -33,9 +33,12 @@ export function inventoryCard(card,orders=[],now=new Date()) {
 export function buildCardInventory(cards,records,query={},now=new Date()) {
   const byCard=new Map();
   for(const order of records){if(!order.customerCardId)continue;const rows=byCard.get(order.customerCardId)||[];rows.push(order);byCard.set(order.customerCardId,rows);}
+  const batchDates=new Map();
+  for(const card of cards){const key=card.batchId||card.id;batchDates.set(key,[batchDates.get(key)||'',card.createdAt||''].sort().at(-1));}
   const all=cards.map(card=>inventoryCard(card,byCard.get(card.id)||[],now)).sort((a,b)=>
-    String(b.createdAt||"").localeCompare(String(a.createdAt||""))||
-    (a.batchId===b.batchId?(Number(a.sequence)||0)-(Number(b.sequence)||0):0));
+    String(batchDates.get(b.batchId||b.id)).localeCompare(String(batchDates.get(a.batchId||a.id)))||
+    String(a.batchId||a.id).localeCompare(String(b.batchId||b.id))||
+    (Number(a.sequence)||0)-(Number(b.sequence)||0));
   let keyword=text(query.search);
   try{const url=new URL(keyword);keyword=text(url.searchParams.get("card")||url.searchParams.get("code")||keyword);}catch{}
   const filtered=all.filter(card=>(!query.plan||card.plan===query.plan)&&(!query.source||card.source===query.source)&&

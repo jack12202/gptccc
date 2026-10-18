@@ -7,13 +7,14 @@
     const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(parsed).map(p=>[p.type,p.value]));
     return parts.year+parts.month+parts.day;
   }
+  const sequence = card => Number.isInteger(Number(card.sequence)) && Number(card.sequence)>0 ? String(card.sequence).padStart(3,'0') : '无序号';
   function files(cards) {
     const seen=new Map();
     return cards.map(card=>{
-      const base=date(card.createdAt)+'-'+safe(card.source)+'-'+safe(String(card.code || '').slice(-4));
+      const base=sequence(card)+'-'+date(card.createdAt)+'-'+safe(card.source)+'-'+safe(String(card.code || '').slice(-4));
       const count=(seen.get(base)||0)+1;seen.set(base,count);
       return base+(count>1?'-'+count:'')+'.txt';
     });
   }
-  window.cardDownloadNames={files};
+  window.cardDownloadNames={files,sequence};
 })();

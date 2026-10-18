@@ -63,6 +63,7 @@ export function buildWorkbench({hifupay,usageCards,customerCards,records,plusPro
     (!query.voucherDate || card.createdAt && shanghaiDate(card.createdAt) === query.voucherDate) &&
     matches([card.id,card.code,card.cardMask,card.source,card.batchId,card.boundEmail,card.boundAccountId],voucherSearch));
   const inventoryReady = card => card.operationalStatus === 'unused' && !card.hasSubmission && !card.boundEmail && !card.boundAccountId && !card.boundAt && !card.orderId && !card.disabledAt && Boolean(card.code) && ['plus','pro_x5','pro_x20'].includes(card.plan) && (!card.expiresAt || Date.parse(card.expiresAt)>Date.now());
+  if(query.batch) countVouchers.sort((a,b)=>(Number(a.sequence)||0)-(Number(b.sequence)||0));
   const filteredVouchers = countVouchers.filter(card=>query.voucherStatus === 'stock' ? inventoryReady(card) : !query.voucherStatus || card.operationalStatus === query.voucherStatus);
   const attention = visibleRecords.filter(needsWorkbenchAttention);
   const today = shanghaiDate(new Date());
