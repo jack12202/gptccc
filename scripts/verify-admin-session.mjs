@@ -47,7 +47,7 @@ try {
     const hasChannelCredentialInputs = page === "/admin" && html.includes('id="hifupayKey" type="password"') && html.includes('id="zzshuKey" type="password"') && html.includes('/admin/cards/workbench-settings.js');
     assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasChannelCredentialInputs), `${page} still contains legacy authentication`);
   }
-  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js","payment-card-formatter.js","payment-card-input.js","card-inventory.js","card-download-names.js"]) {
+  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js","payment-card-formatter.js","payment-card-input.js","card-inventory.js","card-download-names.js","payment-card-trace-ui.js"]) {
     const response = await call("/admin/cards/" + asset, {headers:{Cookie:cookie}});
     assert.equal(response.status,200,"Workbench asset must be available behind the shared session");
     assert.match(response.headers.get("content-type") || "", /javascript/);
@@ -78,6 +78,11 @@ try {
   assert.equal(manualCardsResponse.status,200,'Optional manual payment cards unavailable');
   assert.ok(Array.isArray((await manualCardsResponse.json()).data.cards),'Optional card list malformed');
   console.log('Plus fulfillment controls and optional-card read verified without switching production mode.');
+  assert.ok(home.includes('/admin/cards/payment-card-trace-ui.js'),'Home payment card trace UI missing');
+  assert.ok(snapshot.orders.items.every(order=>Object.hasOwn(order,'paymentCardTrace')),'Order card trace fields missing');
+  const recoveryHtml=await call('/admin/recoveries',{headers:{Cookie:cookie}}).then(response=>response.text());
+  assert.ok(recoveryHtml.includes('/admin/cards/payment-card-trace-ui.js'),'Recovery payment card trace UI missing');
+  console.log('Order payment card trace fields and both UI assets verified without order mutations.');
   const poolPage=await call("/admin/hifupay/cards",{headers:{Cookie:cookie}}).then(response=>response.text());
   assert.ok(poolPage.includes('data-action="copy-standard"') && poolPage.includes("复制标准格式"),"Full pool stored-card copy button missing");
   const copyMissing=await call("/api/admin/payment-cards/manual/GPTC-COPY-SMOKE-NOT-A-CARD/copy-standard", {

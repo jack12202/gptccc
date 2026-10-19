@@ -49,7 +49,7 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   const manual = { id: "m-1", lastFour: "2002", credentialSource: "manual", source: "团购", enabled: true,
     successCount: 1, frozenUses: 0, maxSuccess: 3, remainingUses: 2, successfulAccounts: [{ email: "m@example.test" }] };
   const calls = [], writes = [], copied = [];
-  const context = vm.createContext({ document, crypto,navigator:{clipboard:{async writeText(value){copied.push(value)}}},window: { paymentCardFormatter:{mount(){return {refresh(){}}}}, adminApi: async (url, options) => {
+  const context = vm.createContext({ document, crypto, URLSearchParams,navigator:{clipboard:{async writeText(value){copied.push(value)}}},window: { paymentCardFormatter:{mount(){return {refresh(){}}}}, adminApi: async (url, options) => {
     calls.push(url);
     if(url.endsWith('/copy-standard'))return {text:"4242424242424242----12/40----096----"};
     if (options?.method === "POST") { writes.push({ url, body: JSON.parse(options.body) }); return {}; }

@@ -1,3 +1,4 @@
+import {paymentCardTrace} from './payment-card-trace.js';
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -74,6 +75,7 @@ export class ZzshuStore {
     if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === "auto_query"))
       this.db.exec("ALTER TABLE orders ADD COLUMN auto_query INTEGER NOT NULL DEFAULT 1");
     for (const [name, definition] of Object.entries({
+      payment_card_snapshot: "TEXT",
       completed_at: "TEXT NOT NULL DEFAULT ''",
       submitted_session_cipher: "TEXT",
       session_plan_converted: "INTEGER NOT NULL DEFAULT 0",
@@ -396,8 +398,8 @@ export class ZzshuStore {
     const card = this.selectCandidate(allowedHifupayIds, allowManual);
     if (!card) return { ok: false, reason: "暂无可用支付卡，兑换卡密未消耗" };
     const id = crypto.randomUUID(), at = new Date().toISOString();
-    this.db.prepare("INSERT INTO orders(id,voucher_id,card_id,email,account_id,created_at,updated_at,session_cipher) VALUES(?,?,?,?,?,?,?,?)")
-      .run(id,voucher.id,card.id,email,accountId,at,at,sessionCipher || null);
+    this.db.prepare("INSERT INTO orders(id,voucher_id,card_id,email,account_id,created_at,updated_at,session_cipher,payment_card_snapshot) VALUES(?,?,?,?,?,?,?,?,?)")
+      .run(id,voucher.id,card.id,email,accountId,at,at,sessionCipher || null,JSON.stringify(paymentCardTrace(card,at)));
     this.db.prepare("UPDATE vouchers SET status='reserved',order_id=?,email=?,account_id=? WHERE id=?").run(id,email,accountId,voucher.id);
     return { ok: true, orderId: id, credentialRef: card.credential_ref, lastFour: card.last_four };
   }
@@ -455,7 +457,7 @@ export class ZzshuStore {
       ...(reveal ? { submittedCipher: row?.submitted_session_cipher || "" } : {}) };
   }
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
-  listOrders() { return this.db.prepare(`SELECT o.id,o.email,o.account_id AS accountId,o.status,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
+  listOrders() { return this.db.prepare(`SELECT o.id,o.card_id AS paymentCardId,o.payment_card_snapshot AS paymentCardSnapshot,c.credential_ref AS paymentCredentialRef,c.source AS paymentSource,c.note AS paymentNote,o.email,o.account_id AS accountId,o.status,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
     o.review_reason AS reviewReason,o.failure_kind AS failureKind,o.retry_allowed AS retryAllowed,o.admin_frozen AS adminFrozen,o.cancellation,o.auto_query AS autoQuery,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,
     o.last_check_at AS lastCheckAt,o.last_check_result AS lastCheckResult,
     o.last_check_http_status AS lastCheckHttpStatus,o.last_check_code AS lastCheckCode,c.last_four AS lastFour,

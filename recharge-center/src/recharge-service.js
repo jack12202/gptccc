@@ -1,3 +1,4 @@
+import {paymentCardTrace,readPaymentCardTrace} from './payment-card-trace.js';
 import {createManualPlusService} from './manual-plus.js';
 import {markHistoricalOrdersHandled,annotateHandledOrders} from './workbench-history.js';
 import { buildWorkbench,workbenchPaymentCards } from './admin-workbench.js';
@@ -786,6 +787,10 @@ export const rechargeService = {
       customerCardMask: card?.cardMask || "",
       salesChannel: card?.source || ""
     });
+    const nativeRows=zzshuService.store.listOrders();
+    const nativeById=new Map(nativeRows.map(row=>[row.id,row]));
+    const traceNative=row=>row?(readPaymentCardTrace(row.paymentCardSnapshot)||paymentCardTrace({id:row.paymentCardId,credential_ref:row.paymentCredentialRef,lastFour:row.lastFour,source:row.paymentSource,note:row.paymentNote},row.createdAt,true)):null;
+    const traces=row=>nativeRows.filter(item=>item.voucherHash===row.voucherHash).reverse().map(item=>({trace:traceNative(item),orderId:item.id,status:item.status,at:item.createdAt}));
     const primaryRecords = store.listRechargeOrders().map(item => ({
       ...item,
       ...(item.provider === "zzshu" ? { ...submissionJsonRecord(item.upstreamTaskId || ""),
@@ -825,7 +830,16 @@ export const rechargeService = {
         hasSecret: Boolean(zzshuService.store.sessionCipher(item.id)), hasOriginalJson: Boolean(zzshuService.store.sessionCipher(item.id)), hCardCodeAvailable: false
       };
     });
-    const records = [...primaryRecords, ...zzshuRecords]
+    const hCards=new Map(store.read().hifupayCards.map(card=>[card.id,card]));
+    const enrich=order=>{
+      const native=order.provider==='zzshu'?nativeById.get(order.id)||nativeById.get(order.upstreamTaskId):null;
+      const trace=order.provider==='zzshu'?traceNative(native):readPaymentCardTrace(order.paymentCardSnapshot)||
+        (order.manualPaymentUse?.cardUid?paymentCardTrace({id:order.manualPaymentUse.cardUid.slice(order.manualPaymentUse.cardUid.indexOf(':')+1),kind:order.manualPaymentUse.cardUid.startsWith('h:')?'h':'manual',lastFour:order.manualPaymentUse.lastFour,source:order.manualPaymentUse.source},order.completedAt):null)||
+        (order.hifupayCardId?paymentCardTrace({...hCards.get(order.hifupayCardId),id:order.hifupayCardId,kind:'h',lastFour:order.hifupayCardLastFour||hCards.get(order.hifupayCardId)?.lastFour},order.createdAt,true):null);
+      return {...order,paymentCardTrace:trace,paymentCardLastFour:trace?.lastFour||order.paymentCardLastFour||'',
+        paymentCardAttempts:native?traces(native):(order.paymentCardAttempts||[]).map(t=>({trace:readPaymentCardTrace(t),at:t.at,orderId:order.id,status:t.status||(t.cardId===trace?.cardId?order.status:'结果未留存')}))};
+    };
+    const records = [...primaryRecords, ...zzshuRecords].map(enrich)
       .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")) || String(right.id).localeCompare(String(left.id)));
     return {
       ok: true,

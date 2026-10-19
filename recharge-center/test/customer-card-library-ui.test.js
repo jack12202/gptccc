@@ -95,14 +95,15 @@ test('customer card library searches partial codes and copies the successful ord
     window:{location:{search:'?cardId=card-a'},history:{replaceState(){}},setInterval(){},adminApi:async url=>url==='/api/admin/h-cards/query'
       ? {results:[{status:'unused',statusLabel:'未使用',boundAccount:'alice@example.test / account-1',hasOrder:false,submittedAt:'2026-09-24T12:00:00Z'}]}
       : {records}}});
+  vm.runInContext(fs.readFileSync(new URL('../admin/payment-card-trace-ui.js',import.meta.url),'utf8'),orderContext);
   vm.runInContext(orderScript,orderContext);
   await vm.runInContext('loadRecoveries()',orderContext);
   assert.equal(orderElement('recoveryCount').textContent,'2 / 3 条');
   assert.doesNotMatch(orderElement('recoveries').innerHTML,new RegExp(first));
   assert.match(orderElement('recoveries').innerHTML,/UUID：2628a750…9ab4f80/);
-  assert.match(orderElement('recoveries').innerHTML,/\*\*\*\*9911/);
+  assert.match(orderElement('recoveries').innerHTML,/•••• 9911/);
   assert.match(orderElement('recoveries').innerHTML,/销售渠道：微信/);
-  assert.doesNotMatch(orderElement('recoveries').innerHTML,/bob@example.test|\*\*\*\*5664/);
+  assert.doesNotMatch(orderElement('recoveries').innerHTML,/bob@example.test|•••• 5664/);
   const clickOrder = action => orderElement('recoveries').click({target:{closest:()=>({dataset:{action,orderId:'newer-failed'}})}});
   await clickOrder('copy-uuid');
   assert.equal(clipboard.at(-1),records[0].accountId);

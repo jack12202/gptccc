@@ -1,3 +1,4 @@
+import {paymentCardTrace} from './payment-card-trace.js';
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -472,6 +473,7 @@ export class JsonStore {
     card.inFlightOrders ||= [];
     card.inFlightOrders.push({ orderId: order.id, plan: "pro_x5", email: state.rechargeSessions.find(item => item.orderId === order.id)?.userEmail || "",
       estimatedChargeUsd: order.estimatedChargeUsd, balanceBefore: card.balance, state: "submitting", reservedAt: nowIso() });
+    order.paymentCardSnapshot=paymentCardTrace({...card,kind:'h'},nowIso());
     order.status = "submitting"; order.message = "充值任务正在提交，请勿重复操作。"; order.updatedAt = nowIso();
     try { this.write(state); } catch (error) { this.usageStore.releaseH(card.id,order.id); throw error; }
     return order;
@@ -953,6 +955,8 @@ export class JsonStore {
       state: "processing",
       reservedAt: nowIso()
     });
+    const linkedOrder=state.orders.find(item=>item.id===normalizedOrderId);
+    if(linkedOrder){linkedOrder.paymentCardSnapshot=paymentCardTrace({...selected,kind:'h'},nowIso());linkedOrder.paymentCardAttempts ||= [];if(!linkedOrder.paymentCardAttempts.some(t=>t.cardId===selected.id))linkedOrder.paymentCardAttempts.push(linkedOrder.paymentCardSnapshot);}
     selected.updatedAt = nowIso();
     try { this.write(state); } catch (error) { this.usageStore.releaseH(selected.id, normalizedOrderId); throw error; }
     return { ok: true, cardId: selected.id, hifupayCardId: selected.id, lastFour: selected.lastFour || "", reused: false };
@@ -1149,6 +1153,8 @@ export class JsonStore {
     const state = this.read();
     const card = state.hifupayCards.find(item => item.id === hifupayCardId(cardId));
     if (!card) return { ok: false, status: "not_found", message: "嗨付卡片不在本地卡池中。" };
+    const traceOrder=state.orders.find(item=>item.id===orderId);
+    for(const attempt of traceOrder?.paymentCardAttempts||[])if(attempt.cardId===card.id){attempt.status=paymentConfirmed?'success':status||'待核查';attempt.resultAt=nowIso();}
     if (!Array.isArray(card.inFlightOrders)) card.inFlightOrders = [];
     if (!Array.isArray(card.plusUsers)) card.plusUsers = [];
     const inFlightIndex = card.inFlightOrders.findIndex(item => item.orderId === String(orderId || ""));
@@ -1532,6 +1538,8 @@ export class JsonStore {
           provider: order.provider,
           submissionCodeHash: order.submissionCodeHash || "",
           hCardId: customerCard?.id || order.hCardId || "",
+          paymentCardSnapshot:order.paymentCardSnapshot || null,
+          paymentCardAttempts:order.paymentCardAttempts || [],
           manualPaymentUse:order.manualPaymentUse || null,
           paymentCardLastFour:order.manualPaymentUse?.lastFour || "",
           cardMask: order.cardMask,

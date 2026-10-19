@@ -93,6 +93,7 @@ test('authenticated controls restore failed and reviewed uses exactly once while
   const script=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].at(-1)[1];
   const context=vm.createContext({URLSearchParams,document:{getElementById:()=>({addEventListener(){}})},window:{location:{search:''},setInterval(){},adminApi:async()=>({records:[]})},setTimeout(){}});
   // Extract the renderer without starting the page's refresh loop.
+  vm.runInContext(fs.readFileSync(new URL('../admin/payment-card-trace-ui.js',import.meta.url),'utf8'),context);
   vm.runInContext(script.slice(0,script.indexOf('    async function lookupCardBinding()')),context);
   const row=vm.runInContext("renderRows([{id:'review',provider:'zzshu',status:'needs_review',useResolution:'frozen'}])",context);
   assert.match(row,/data-action="release-zzshu-use"/);
