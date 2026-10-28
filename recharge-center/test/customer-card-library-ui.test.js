@@ -83,7 +83,9 @@ test('customer card library searches partial codes and copies the successful ord
 
   const orderResponse = await fetch(base + '/admin/recoveries', {headers:{Cookie:cookie}});
   assert.equal(orderResponse.status,200);
-  const orderScript = (await orderResponse.text()).match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  const orderHtml = await orderResponse.text();
+  for(const marker of ['orderDrawer','manualOrderDialog','nextPendingOrder','chooseManualOrder','/api/admin/plus/orders/'])assert.ok(orderHtml.includes(marker),marker);
+  const orderScript = orderHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(orderScript);
   const orderNodes = new Map();
   const orderElement = id => {

@@ -58,7 +58,7 @@ try {
   assert.equal((home.match(/class="panel (?:settings )?work-area"/g)||[]).length,5,"Five expandable workbench panels missing");
   assert.ok(home.includes('id="attention-center" open'),"Pending panel must be expanded initially");
   const recoveryPage=await call('/admin/recoveries',{headers:{Cookie:cookie}}).then(response=>response.text());
-  assert.ok(['orderDrawer','manualOrderDialog','nextPendingOrder','plus-mark-success'].every(text=>recoveryPage.includes(text)),"Inline manual-order drawer missing");
+  assert.ok(['orderDrawer','manualOrderDialog','nextPendingOrder','chooseManualOrder','/api/admin/plus/orders/'].every(text=>recoveryPage.includes(text)),"Inline manual-order drawer missing");
   for (const page of ['/admin','/admin/cards','/admin/cards/generate','/admin/cards/library']) {
     const html=await call(page,{headers:{Cookie:cookie}}).then(response=>response.text());
     assert.ok(html.includes('/admin/cards/card-download-names.js'),'Shared download naming missing on '+page);
