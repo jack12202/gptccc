@@ -52,7 +52,7 @@
   function pager(id,page,section) { $(id).innerHTML=button(section+'-prev','上一页','','',page.page<=1?'disabled':'')+'<span>'+page.matched+' / '+page.total+' 条 · 第 '+page.page+' / '+page.pages+' 页</span>'+button(section+'-next','下一页','','',page.page>=page.pages?'disabled':''); }
   function renderOrders() {
     const d=state.data;for(const order of d.orders.items)state.orders.set(order.id,order);
-    $('orderTabs').innerHTML=tab('order-filter','','最近订单',state.params.orderView||'')+tab('order-filter','attention','待处理 '+d.summary.attentionOrders,state.params.orderView||'');
+    $('orderTabs').innerHTML=tab('order-filter','','最近订单',state.params.orderView||'')+tab('order-filter','attention','待处理 '+d.summary.attentionOrders,state.params.orderView||'')+tab('order-filter','today-success','今日成功 '+d.summary.todaySuccess,state.params.orderView||'');
     $('orderRows').innerHTML=d.orders.items.map(order=>'<tr><td><strong>'+esc(order.userEmail||'未知账号')+'</strong><div class="small">'+date(order.createdAt)+'</div></td><td><span class="mono">'+esc(order.customerCardCode?order.customerCardCode.slice(0,9)+'…'+order.customerCardCode.slice(-6):order.customerCardMask||'—')+'</span><div class="small">'+plan(order.plan)+' · '+(order.fulfillmentMode==='manual'?'人工':channel(order.provider))+' · '+esc(order.salesChannel||'未分类')+'</div></td><td>'+window.paymentCardTraceUI.summary(order)+'</td><td>'+badge(order.status)+'<div class="small">'+esc(order.useResolution==='frozen'?'本次支付次数已冻结':order.retryAllowed?'原卡密可重新提交':order.processingNote||order.message||'')+'</div></td><td><div class="row-actions">'+orderActions(order)+'</div></td></tr>').join('')||'<tr><td colspan="5" class="empty">暂无匹配订单。</td></tr>';
     options('orderProvider',d.orders.providers.map(p=>({value:p,label:channel(p)})),'全部协议');options('orderSource',d.orders.sources,'全部渠道');pager('orderPager',d.orders,'order');
   }
@@ -85,8 +85,8 @@
     try{const params=new URLSearchParams(Object.entries(state.params).filter(([,v])=>v!==''&&v!=null));const d=await api('/api/admin/workbench?'+params);
       if(sequence!==state.sequence)return false;state.data=d;
       for(const uid of state.poolSelected)if(!d.cards.some(card=>card.uid===uid))state.poolSelected.delete(uid);
-      const s=d.summary;$('homeStats').innerHTML=[['today','今日提交且成功',s.todaySuccess],['active','在用支付卡',s.activeCards],['uses','当前可轮选次数',s.selectableUses],['frozen','冻结次数',s.frozenUses],['unused','未使用库存',s.inventoryReady],['attention','待处理订单',s.attentionOrders]].map(([key,text,n])=>'<'+(key==='today'?'div':'button')+' class="stat"'+(key==='today'?'':' data-shortcut="'+key+'"')+'><strong>'+n+'</strong><small>'+text+'</small></'+(key==='today'?'div':'button')+'>').join('');
-      $('homeState').textContent='当前 Plus：'+(d.plusFulfillmentMode==='manual'?'人工充值':'自动连卡 · '+channel(d.plusProvider))+' · 更新于 '+date(d.updatedAt)+(d.historyHandling?' · 已将北京时间 10 月 14 日之前 '+d.historyHandling.count+' 笔订单标记已处理，历史记录保留。':'');renderPool();renderAttention();renderOrders();renderVouchers();
+      const s=d.summary;$('homeStats').innerHTML=[['today','今日提交且成功',s.todaySuccess],['active','在用支付卡',s.activeCards],['uses','当前可轮选次数',s.selectableUses],['frozen','冻结次数',s.frozenUses],['unused','未使用库存',s.inventoryReady],['attention','待处理订单',s.attentionOrders]].map(([key,text,n])=>'<button type="button" class="stat" data-shortcut="'+key+'"><strong>'+n+'</strong><small>'+text+'</small></button>').join('');
+      $('homeState').textContent='当前 Plus：'+(d.plusFulfillmentMode==='manual'?'人工充值':'自动连卡 · '+channel(d.plusProvider))+' · 更新于 '+date(d.updatedAt)+(d.historyHandling?' · 已将北京时间 10 月 14 日之前 '+d.historyHandling.count+' 笔订单标记已处理，历史记录保留。':'');renderPool();renderAttention();renderOrders();renderVouchers();updateAreaSummaries();
       $('plusModeState').textContent=d.plusFulfillmentMode==='manual'?'当前：人工充值。新提交订单进入待人工列表。':'当前：自动连卡充值 · '+channel(d.plusProvider);
       for(const mode of ['auto','manual'])document.querySelector('[data-action="plus-mode-'+mode+'"]').classList.toggle('active',(d.plusFulfillmentMode||'auto')===mode);
       $('capacityNotice').hidden=d.plusFulfillmentMode==='manual'||$('capacityNotice').hidden;
@@ -234,9 +234,27 @@
     const rows=data.results||data.cards||[];state.queryRows=rows;
     openDetail('批量查询结果','<div class="actions">'+button('query-copy','复制查询结果')+'</div>'+rows.map(row=>'<div class="history-item"><span class="mono">'+esc(row.code||'无效输入')+'</span> '+badge(row.status,row.statusLabel)+'<p>'+esc(row.boundAccount||'未绑定')+' · '+esc(row.source||'')+' · '+esc(row.failureReason||'')+'</p></div>').join(''));
   }
+  const areas=['attention-center','payment-pool','recent-vouchers','recent-orders','settingsPanel'];
+  function showArea(target='overview',scroll=true) {
+    const settings=['protocol-settings','zzshu-query','settingsPanel'].includes(target);
+    const area=settings?'settingsPanel':target==='overview'?'attention-center':target;
+    for(const id of areas)$(id).open=id===area;
+    if(scroll)$(area).scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  for(const id of areas)$(id).addEventListener('toggle',()=>{
+    if($(id).open)for(const other of areas)if(other!==id)$(other).open=false;
+  });
+  function updateAreaSummaries() {
+    const d=state.data,s=d.summary;
+    $('attentionMeta').textContent=s.attentionOrders+' 笔待处理 · 待人工 / 补资料 '+d.attention.counts.manual+' 笔';
+    $('paymentMeta').textContent='在用 '+s.activeCards+' 张 · 可轮选 '+s.selectableUses+' 次 · 冻结 '+s.frozenUses+' 次';
+    $('voucherMeta').textContent='未使用库存 '+s.inventoryReady+' 张';
+    $('orderMeta').textContent='今日成功 '+s.todaySuccess+' 笔 · 待处理 '+s.attentionOrders+' 笔';
+    $('settingsMeta').textContent='Plus：'+(d.plusFulfillmentMode==='manual'?'人工充值':'自动连卡 · '+channel(d.plusProvider));
+  }
   async function dispatch(action,id) {
     const card=id?paymentCard(id):null,voucher=id?state.knownVouchers.get(id):null;
-    if(action==='open-import'||action==='open-generate'){const panel=$(action==='open-import'?'importPanel':'generatePanel');panel.open=true;panel.scrollIntoView({behavior:'smooth',block:'center'});return;}
+    if(action==='open-import'||action==='open-generate'){showArea(action==='open-import'?'payment-pool':'recent-vouchers');const panel=$(action==='open-import'?'importPanel':'generatePanel');panel.open=true;panel.scrollIntoView({behavior:'smooth',block:'center'});return;}
     if(action.startsWith('plus-mode-')){const mode=action.slice(10);const input=await modal('切换 Plus 充值方式','切换为'+(mode==='manual'?'人工充值':'自动连卡充值')+'，只影响后续首次提交的订单。');if(!input)return;await post('/api/admin/plus-fulfillment',{mode});await saved('Plus 充值方式已保存。');return;}
     if(['plus-manual-processing','plus-needs-info','plus-mark-success'].includes(action)){
       const order=await findOrder(id),operation=action.slice(5);let fields=noteField('note','处理备注',order.processingNote||'');
@@ -247,10 +265,10 @@
       const input=await modal(operation==='mark-success'?'确认 Plus 人工充值成功':operation==='needs-info'?'需补资料':'人工处理中',order.userEmail||id,fields);if(!input)return;
       await post('/api/admin/plus/orders/'+encodeURIComponent(id)+'/'+operation,input);await saved('Plus 人工订单已保存。');if($('detailDialog').open)await openOrder(id);return;
     }
-    if(action==='open-plus-settings'){$('settingsPanel').open=true;$('protocol-settings').scrollIntoView({behavior:'smooth',block:'start'});return;}
-    if(action==='open-settings'){$('settingsPanel').open=true;$('settingsPanel').scrollIntoView({behavior:'smooth',block:'start'});return;}
+    if(action==='open-plus-settings'){showArea('protocol-settings');$('protocol-settings').scrollIntoView({behavior:'smooth',block:'start'});return;}
+    if(action==='open-settings'){showArea('settingsPanel');$('settingsPanel').scrollIntoView({behavior:'smooth',block:'start'});return;}
     if(action==='save-home-preferences'){const n=Number($('capacityThreshold').value);if(!Number.isInteger(n)||n<0||n>10000)throw Error('阈值必须是 0～10000 的整数，0 表示关闭提醒。');try{localStorage.setItem('gptc.home.capacityThreshold',String(n));}catch{throw Error('当前浏览器无法保存设置。');}renderAttention();notify('当前浏览器的容量提醒阈值已保存。');return;}
-    if(action==='attention-all'){state.params.orderView='attention';state.params.orderPage=1;await refresh();$('recent-orders').scrollIntoView({behavior:'smooth'});return;}
+    if(action==='attention-all'){showArea('recent-orders');state.params.orderView='attention';state.params.orderPage=1;await refresh();$('recent-orders').scrollIntoView({behavior:'smooth'});return;}
     if(action==='refresh'){await refresh();return;}
     if(action==='close-detail'){$('detailDialog').close();return;}
     if(action==='cancel-modal')return;
@@ -274,7 +292,7 @@
     if(action==='order-detail'){await openOrder(id);return;}
     if(['order-json','order-submitted-json'].includes(action)){const detail=await api('/api/admin/recoveries/'+encodeURIComponent(id)+'?reveal=1');await copy(action==='order-json'?detail.secretJsonText:detail.submittedJsonText);return;}
     if(['order-code','order-uuid'].includes(action)){const order=await findOrder(id);await copy(action==='order-code'?order.customerCardCode:order.accountId);return;}
-    if(action==='order-upstream-usage'){$('detailDialog').close();$('settingsPanel').open=true;$('zzshu-query').scrollIntoView({behavior:'smooth'});await window.loadZzshuUsage(1);return;}
+    if(action==='order-upstream-usage'){$('detailDialog').close();showArea('zzshu-query');$('zzshu-query').scrollIntoView({behavior:'smooth'});await window.loadZzshuUsage(1);return;}
     if(action.startsWith('order-')&&['release','unlock','freeze','success','consume','cancellation','check'].includes(action.slice(6))){await orderAction(id,action);return;}
     if(action==='responses-refresh'||action==='responses-older'){await loadResponses(id,action.endsWith('older'));return;}
     if(action.startsWith('pro-')){await proAction(id,action);return;}
@@ -307,7 +325,17 @@
     try{await fn();}catch(error){notify(error.message||'操作未完成，请刷新核查。',true);}finally{state.busy.delete(key);if(buttonEl&&buttonEl.isConnected)buttonEl.disabled=buttonEl.id==='confirmImport'?!state.importPreview:false;}
   }
   document.addEventListener('click',event=>{
-    const shortcut=event.target.closest('[data-shortcut]');if(shortcut){const type=shortcut.dataset.shortcut;if(['active','ready','uses','frozen'].includes(type)){state.poolView=type==='active'?'all':type==='frozen'?'frozen':type==='uses'?'current':'ready';$('poolSearch').value='';renderPool();$('payment-pool').scrollIntoView({behavior:'smooth'});}else{const vouchers=type==='unused';state.params[vouchers?'voucherStatus':'orderView']=vouchers?'stock':'attention';state.params[vouchers?'voucherPage':'orderPage']=1;refresh().then(() => $(vouchers?'recent-vouchers':'recent-orders').scrollIntoView({behavior:'smooth'}));}return;}
+    const shortcut=event.target.closest('[data-shortcut]');if(shortcut){
+      const type=shortcut.dataset.shortcut;
+      if(['active','uses','frozen'].includes(type)){showArea('payment-pool');state.poolView=type==='active'?'all':type==='frozen'?'frozen':'current';$('poolSearch').value='';renderPool();}
+      else if(type==='unused'){showArea('recent-vouchers');for(const key of ['voucherSearch','voucherPlan','voucherSource','voucherDate','batch']){state.params[key]='';$(key==='batch'?'batchFilter':key).value='';}state.params.voucherStatus='stock';state.params.voucherPage=1;refresh();}
+      else if(type==='attention'){showArea('attention-center');}
+      else if(type==='today'){
+        showArea('recent-orders');for(const key of ['orderSearch','orderStatus','orderPlan','orderProvider','orderSource']){state.params[key]='';$(key).value='';}
+        state.params.orderView='today-success';state.params.orderPage=1;refresh();
+      }
+      return;
+    }
     const el=event.target.closest('[data-action]');if(!el||el.disabled||el.dataset.action==='cancel-modal')return;
     perform(el.dataset.action+':'+(el.dataset.id||''),()=>dispatch(el.dataset.action,el.dataset.id||''),el);
   });
@@ -333,7 +361,7 @@
   },$('generateForm').querySelector('[type=submit]'));};
   $('proSettingsForm').onsubmit=event=>{event.preventDefault();perform('pro-settings',async()=>{if(!state.proLoaded)throw Error('请先读取当前 Pro 设置。');await post('/api/admin/pro/settings',{enabled:$('proEnabled').value==='true',cardId:$('proCardId').value,region:$('proRegion').value,estimatedChargeUsd:Number($('proCharge').value),safetyBufferUsd:Number($('proBuffer').value)});await loadProSettings();await saved('Pro 设置已保存。');},$('proSettingsForm').querySelector('[type=submit]'));};
   $('settingsPanel').addEventListener('toggle',()=>{if($('settingsPanel').open&&!state.proLoaded)loadProSettings().catch(error=>notify(error.message,true));});
-  function revealHash() { if(['#protocol-settings','#zzshu-query'].includes(location.hash)){$('settingsPanel').open=true;$(location.hash.slice(1)).scrollIntoView({behavior:'smooth'});} }
+  function revealHash() { const target=location.hash.slice(1);showArea([...areas,'protocol-settings','zzshu-query'].includes(target)?target:'overview',Boolean(target)); }
   window.addEventListener('hashchange',revealHash);revealHash();
   $('detailDialog').addEventListener('close',()=>{$('detailBody').replaceChildren();});
   refresh();

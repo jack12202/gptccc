@@ -54,7 +54,11 @@ try {
     if(asset==="workbench.js")assert.ok((await response.text()).includes("card-copy-standard"),"Home stored-card copy button missing");
   }
   const home = await call("/admin", {headers:{Cookie:cookie}}).then(response=>response.text());
-  assert.ok(["正在使用的支付卡","客户卡密库存","最近充值订单","录入支付卡"].every(text=>home.includes(text)),"Production workbench panels missing");
+  assert.ok(["需要处理","支付卡","卡密库存","充值订单","通道与设置","录入支付卡"].every(text=>home.includes(text)),"Production workbench panels missing");
+  assert.equal((home.match(/class="panel (?:settings )?work-area"/g)||[]).length,5,"Five expandable workbench panels missing");
+  assert.ok(home.includes('id="attention-center" open'),"Pending panel must be expanded initially");
+  const recoveryPage=await call('/admin/recoveries',{headers:{Cookie:cookie}}).then(response=>response.text());
+  assert.ok(['orderDrawer','manualOrderDialog','nextPendingOrder','plus-mark-success'].every(text=>recoveryPage.includes(text)),"Inline manual-order drawer missing");
   for (const page of ['/admin','/admin/cards','/admin/cards/generate','/admin/cards/library']) {
     const html=await call(page,{headers:{Cookie:cookie}}).then(response=>response.text());
     assert.ok(html.includes('/admin/cards/card-download-names.js'),'Shared download naming missing on '+page);

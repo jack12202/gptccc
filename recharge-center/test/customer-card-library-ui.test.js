@@ -88,10 +88,10 @@ test('customer card library searches partial codes and copies the successful ord
   const orderNodes = new Map();
   const orderElement = id => {
     if (!orderNodes.has(id)) orderNodes.set(id,{value:'',checked:false,textContent:'',innerHTML:'',style:{},disabled:false,
-      classList:{toggle(){}},addEventListener(name,handler){this[name]=handler}});
+      classList:{toggle(){}},showModal(){this.open=true},close(){this.open=false;this.closeHandler?.()},replaceChildren(){this.innerHTML=''},addEventListener(name,handler){if(name==='close')this.closeHandler=handler;else this[name]=handler}});
     return orderNodes.get(id);
   };
-  const orderContext = vm.createContext({document:{getElementById:orderElement},URLSearchParams,console,navigator:{clipboard:{writeText:async value=>clipboard.push(value)}},
+  const orderContext = vm.createContext({document:{getElementById:orderElement,createElement:()=>({innerHTML:'',querySelector(){return {innerHTML:this.innerHTML.match(/<tr class="detail-row"><td colspan="6">([\s\S]*)<\/td><\/tr>$/)?.[1]||''}}})},URLSearchParams,console,navigator:{clipboard:{writeText:async value=>clipboard.push(value)}},
     window:{location:{search:'?cardId=card-a'},history:{replaceState(){}},setInterval(){},adminApi:async url=>url==='/api/admin/h-cards/query'
       ? {results:[{status:'unused',statusLabel:'未使用',boundAccount:'alice@example.test / account-1',hasOrder:false,submittedAt:'2026-09-24T12:00:00Z'}]}
       : {records}}});
@@ -110,9 +110,11 @@ test('customer card library searches partial codes and copies the successful ord
   await clickOrder('copy-card');
   assert.equal(clipboard.at(-1),first);
   await clickOrder('toggle-details');
-  assert.match(orderElement('recoveries').innerHTML,new RegExp(first));
-  assert.match(orderElement('recoveries').innerHTML,/完整账号 UUID/);
-  await clickOrder('toggle-details');
+  assert.match(orderElement('orderDrawerBody').innerHTML,new RegExp(first));
+  assert.match(orderElement('orderDrawerBody').innerHTML,/完整账号 UUID/);
+  assert.equal(orderElement('orderDrawer').open,true);
+  orderElement('closeOrderDrawer').onclick();
+  assert.equal(orderElement('orderDrawer').open,false);
   assert.doesNotMatch(orderElement('recoveries').innerHTML,/完整账号 UUID<\/span>/);
   orderElement('clearCardOrderFilter').click();
   assert.equal(orderElement('recoveryCount').textContent,'3 / 3 条');
@@ -139,17 +141,26 @@ test('customer card library searches partial codes and copies the successful ord
   assert.equal(orderElement('recoveryCount').textContent,'2 / 3 条');
   vm.runInContext('allRecords.push({id:"processing-zzshu",provider:"zzshu",status:"processing",hasUpstreamQueryKey:true})',orderContext);
   vm.runInContext('expandedRecoveryIds.add("processing-zzshu")',orderContext);
-  assert.match(vm.runInContext('renderRows([allRecords.at(-1)])',orderContext),/data-action="disposition-success"/);
+  assert.match(vm.runInContext('renderRows([allRecords.at(-1)],true)',orderContext),/data-action="disposition-success"/);
   vm.runInContext('allRecords.push({id:"frozen-zzshu",provider:"zzshu",status:"needs_review",useResolution:"frozen",hasOriginalJson:true,hasUpstreamQueryKey:true,autoQuery:true})',orderContext);
   const frozenRow = vm.runInContext('renderRows([allRecords.at(-1)])',orderContext);
   assert.match(frozenRow,/详情 \/ 处理/);
   assert.ok(frozenRow.indexOf('data-action="toggle-details"') < frozenRow.indexOf('data-action="release-zzshu-use"'));
   assert.match(frozenRow,/data-action="copy-json"/);
   vm.runInContext('expandedRecoveryIds.add("frozen-zzshu")',orderContext);
-  const frozenDetails = vm.runInContext('renderRows([allRecords.at(-1)])',orderContext);
+  const frozenDetails = vm.runInContext('renderRows([allRecords.at(-1)],true)',orderContext);
   for (const action of ['refresh-zzshu','disposition-unlock','disposition-freeze','disposition-success','release-zzshu-use']) {
     assert.ok(frozenDetails.includes('data-action="'+action+'"'),action);
   }
+  const manualActions=vm.runInContext("renderRecoveryActions({id:'manual-plus',plan:'plus',fulfillmentMode:'manual',status:'manual_queued'})",orderContext);
+  for(const action of ['plus-manual-processing','plus-needs-info','plus-mark-success'])assert.match(manualActions,new RegExp('data-action="'+action+'"'));
+  assert.doesNotMatch(manualActions,/href=/);
+  assert.equal(vm.runInContext("renderRecoveryActions({id:'done',plan:'plus',fulfillmentMode:'manual',status:'success'})",orderContext),'');
+  vm.runInContext("allRecords.push({id:'today-success',status:'success',createdAt:new Date().toISOString()});todaySuccessOnly=true;document.getElementById('recordSearch').value='';applyRecordFilters()",orderContext);
+  assert.equal(orderElement('recoveryCount').textContent,'1 / 6 条');
+  assert.match(orderElement('recoveries').innerHTML,/today-success/);
+  orderElement('recordQuickFilters').click({target:{closest:()=>({dataset:{filter:''}})}});
+  assert.equal(orderElement('recoveryCount').textContent,'6 / 6 条');
   cards[0].batchId='batch-one'; cards[0].sequence=1; cards[0].batchSize=3; cards[0].source='微信';
   cards[1].batchId='batch-one'; cards[1].sequence=2; cards[1].batchSize=3; cards[1].source='微信';
   const archived = 'HPLUS' + 'D'.repeat(28) + '5678';

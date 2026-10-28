@@ -94,7 +94,7 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   const headers={Cookie:cookie,Origin:'https://www.gptc.cc','X-CSRF-Token':csrf,'Content-Type':'application/json'};
   const get=suffix=>fetch(base+suffix,{headers:{Cookie:cookie}});
   const snap=async query=>(await (await get('/api/admin/workbench'+(query?'?'+query:''))).json()).data;
-  const html=await (await get('/admin')).text();assert.match(html,/正在使用的支付卡/);assert.match(html,/客户卡密库存/);assert.match(html,/最近充值订单/);assert.match(html,/录入支付卡/);
+  const html=await (await get('/admin')).text();assert.match(html,/class="area-title">支付卡/);assert.match(html,/class="area-title">卡密库存/);assert.match(html,/class="area-title">充值订单/);assert.equal((html.match(/class="panel (?:settings )?work-area"/g)||[]).length,5);assert.match(html,/录入支付卡/);
   assert.match(html,/id="importFormatter"/);
   for(const asset of ['workbench.js','workbench-settings.js','payment-card-source-ui.js','payment-card-formatter.js']){const response=await get('/admin/cards/'+asset);assert.equal(response.status,200);new vm.Script(await response.text());}
   const parserAsset=await get('/admin/cards/payment-card-input.js');
@@ -143,4 +143,17 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   assert.deepEqual(result.vouchers.items.map(x=>x.id),['ready']);assert.equal(result.summary.inventoryReady,1);
   assert.equal(result.summary.todaySuccess,10);
   assert.equal(buildWorkbench({...input,records:records.map(x=>({...x,status:'success'}))}).attention.total,0);
+ });
+
+ test('today-success workbench view matches the counter and excludes other days and pending orders',()=>{
+  const now=new Date().toISOString();
+  const result=buildWorkbench({hifupay:[],usageCards:[],customerCards:[],plusProvider:'zzshu',records:[
+    {id:'today-success',status:'success',createdAt:now},
+    {id:'today-pending',status:'needs_review',createdAt:now},
+    {id:'old-success',status:'success',createdAt:'2020-01-01T00:00:00Z'},
+    {id:'handled',status:'success',createdAt:now,workbenchHandledAt:now}
+  ]},{orderView:'today-success'});
+  assert.equal(result.summary.todaySuccess,1);
+  assert.equal(result.orders.matched,result.summary.todaySuccess);
+  assert.deepEqual(result.orders.items.map(order=>order.id),['today-success']);
  });

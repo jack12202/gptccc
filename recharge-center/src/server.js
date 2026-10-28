@@ -962,6 +962,8 @@ function serveRecoveryAdmin(res) {
     .action-cell button { padding: 0 7px; font-size: 12px; white-space: nowrap; }
     .detail-toggle { color: #475569; background: #f1f5f9; }
     .detail-row td { background: #f8fafc; padding: 20px; }
+    body:has(dialog[open]) { overflow: hidden; }
+    #orderDrawer::backdrop, #manualOrderDialog::backdrop { background: #172f2755; }
     .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px; overflow-wrap: anywhere; }
     .detail-label { display: block; color: #64748b; font-size: 12px; margin-bottom: 5px; }
     .detail-actions:not(:empty) { padding-top: 16px; margin-top: 16px; border-top: 1px solid #e2e8f0; }
@@ -982,7 +984,7 @@ function serveRecoveryAdmin(res) {
     </section>
     <section>
       <div id="cardOrderFilter" class="hint" style="display:none;margin-top:14px">正在查看指定客户卡密的全部订单 <button class="secondary" id="clearCardOrderFilter" type="button">查看全部订单</button></div>
-      <div class="quick-filters" id="recordQuickFilters"><button class="secondary" id="filterAll" data-filter="">全部订单</button><button class="secondary" id="filterAttention" data-filter="attention">需要处理</button><button class="secondary" id="filterSuccess" data-filter="success">充值成功</button></div>
+      <div class="quick-filters" id="recordQuickFilters"><button class="secondary" id="filterAll" data-filter="">全部订单</button><button class="secondary" id="filterAttention" data-filter="attention">需要处理</button><button class="secondary" id="filterSuccess" data-filter="success">充值成功</button><button class="secondary" id="filterToday" data-filter="today-success">今日提交且成功</button></div>
       <div class="toolbar"><label>搜索记录<input id="recordSearch" type="search" placeholder="邮箱、UUID、卡密、销售渠道或支付卡尾号"></label><label>状态<select id="statusFilter"><option value="">全部状态</option><option value="attention">需要跟进</option><option value="manual_queued">待人工</option><option value="manual_processing">人工处理中</option><option value="needs_info">需补资料</option><option value="processing">处理中</option><option value="success">成功</option><option value="failed">失败</option><option value="needs_review">待确认</option></select></label><label>充值协议<select id="providerFilter"><option value="">全部协议</option></select></label><label>销售渠道<select id="salesChannelFilter"><option value="">全部渠道</option></select></label><span class="count" id="recoveryCount">0 条</span></div>
       <div class="status" id="cardLookup" style="display:none"></div>
       <p class="hint">人工充值完成后再点击“确认充值成功”；该按钮只更新本站订单和卡密状态，不会再次调用充值通道。自动任务“待确认”时请先核实原任务，不要直接补充充值。</p>
@@ -1000,6 +1002,12 @@ function serveRecoveryAdmin(res) {
     <label>核查依据<select id="recoveryReason" required style="width:100%;margin:8px 0 16px"></select></label>
     <label>补充备注（选填）<textarea id="recoveryNote" maxlength="500" rows="3" style="width:100%"></textarea></label>
     <div class="actions"><button type="submit">确认操作</button><button class="secondary" id="recoveryCancel" type="button">取消</button></div></form>
+  </dialog>
+  <dialog id="orderDrawer" style="position:fixed;inset:0 0 0 auto;margin:0;width:min(860px,96vw);height:100dvh;max-height:100dvh;overflow:auto;border:1px solid #dbe4ee;border-radius:16px 0 0 16px;padding:24px">
+    <div class="topbar"><h2>订单详情 / 处理</h2><div class="actions"><button type="button" id="nextPendingOrder">下一笔待处理</button><button type="button" id="closeOrderDrawer">关闭</button></div></div><div id="orderDrawerBody"></div><p id="orderDrawerMessage" role="status"></p>
+  </dialog>
+  <dialog id="manualOrderDialog" style="width:min(560px,94vw);max-height:90vh;overflow:auto;border:1px solid #dbe4ee;border-radius:16px;padding:24px">
+    <form id="manualOrderForm"><h2 id="manualOrderTitle"></h2><p id="manualOrderAccount"></p><div id="manualOrderFields"></div><label>处理备注<textarea name="note" id="manualOrderNote" maxlength="1000" rows="3" style="width:100%"></textarea></label><div class="actions"><button type="submit">确认保存</button><button type="button" id="cancelManualOrder">取消</button></div></form>
   </dialog>
   <script src="/admin/cards/payment-card-trace-ui.js"></script>
   <script>
@@ -1034,6 +1042,7 @@ function serveRecoveryAdmin(res) {
     const recordsPerPage = 50;
 
     function setStatus(message, error = false) {
+      document.getElementById('orderDrawerMessage').textContent = message;
       statusBox.textContent = message;
       statusBox.classList.toggle("error", error);
     }
@@ -1059,6 +1068,50 @@ function serveRecoveryAdmin(res) {
       return ["failed", "needs_review", "manual_queued", "manual_processing", "needs_info"].includes(item.status) || item.needsAttention;
     }
     const expandedRecoveryIds = new Set();
+    let drawerOrderId = '';
+    let filteredRecoveryIds = [];
+    document.getElementById('nextPendingOrder').onclick = async () => {
+      const pending=filteredRecoveryIds.map(id=>allRecords.find(item=>item.id===id)).filter(item=>item && needsFollowup(item));
+      const index=pending.findIndex(item=>item.id===drawerOrderId);
+      const next=pending[index+1] || pending.find(item=>item.id!==drawerOrderId);if(!next)return;
+      drawerOrderId=next.id;expandedRecoveryIds.clear();expandedRecoveryIds.add(next.id);renderOrderDrawer();
+      if(next.provider==='zzshu')try{await loadResponseHistory(next.id);}catch(error){setStatus(error.message,true);}
+    };
+    const queryFilters = new URLSearchParams(window.location.search);
+    document.getElementById('statusFilter').value = queryFilters.get('status') || '';
+    let todaySuccessOnly = queryFilters.get('view') === 'today-success';
+    const beijingDay = value => new Date(value).toLocaleDateString('en-CA',{timeZone:'Asia/Shanghai'});
+    document.getElementById('closeOrderDrawer').onclick = () => document.getElementById('orderDrawer').close();
+    document.getElementById('orderDrawer').addEventListener('close',()=>{drawerOrderId='';expandedRecoveryIds.clear();document.getElementById('orderDrawerBody').replaceChildren();});
+    async function chooseManualOrder(record,operation) {
+      const dialog=document.getElementById('manualOrderDialog'),form=document.getElementById('manualOrderForm');
+      document.getElementById('manualOrderTitle').textContent=({'manual-processing':'人工处理中','needs-info':'需补资料','mark-success':'确认人工充值成功'})[operation];
+      document.getElementById('manualOrderAccount').textContent=record.userEmail || record.id;
+      document.getElementById('manualOrderNote').value=record.processingNote || '';
+      let fields='';
+      if(operation==='mark-success'){
+        const data=await api('/api/admin/plus/manual-cards');
+        fields='<label>支付卡（选填）<select name="cardUid" id="manualCardChoice" style="width:100%"><option value="">不记录支付卡，不消耗次数</option>'+data.cards.map(card=>'<option value="'+escapeHtml(card.uid)+'">•••• '+escapeHtml(card.lastFour)+' · '+escapeHtml(card.source)+' · 剩余 '+card.remaining+' 次</option>').join('')+'</select></label><label id="manualUseField" hidden>消耗次数<input name="uses" type="number" value="1" min="1" max="100" disabled></label><p><label><input type="checkbox" required> 已核实外部充值成功，本操作不会再次充值</label></p>';
+      }
+      document.getElementById('manualOrderFields').innerHTML=fields;
+      const choice=document.getElementById('manualCardChoice');
+      if(choice)choice.onchange=()=>{const field=document.getElementById('manualUseField'),input=field.querySelector('input');field.hidden=!choice.value;input.disabled=!choice.value;input.required=Boolean(choice.value);};
+      dialog.showModal();
+      return new Promise(resolve=>{
+        const finish=value=>{dialog.close();form.onsubmit=null;dialog.removeEventListener('cancel',cancel);document.getElementById('manualOrderFields').replaceChildren();resolve(value);};
+        const cancel=event=>{event.preventDefault();finish(null);};
+        form.onsubmit=event=>{event.preventDefault();if(form.reportValidity())finish(Object.fromEntries(new FormData(form)));};
+        document.getElementById('cancelManualOrder').onclick=cancel;dialog.addEventListener('cancel',cancel);
+      });
+    }
+    function renderOrderDrawer() {
+      document.getElementById('nextPendingOrder').disabled=!filteredRecoveryIds.some(id=>id!==drawerOrderId && allRecords.some(item=>item.id===id && needsFollowup(item)));
+      if(!drawerOrderId)return;
+      const record=allRecords.find(item=>item.id===drawerOrderId);if(!record)return;
+      const table=document.createElement('tbody');table.innerHTML=renderRows([record],true);
+      document.getElementById('orderDrawerBody').innerHTML='<p>'+escapeHtml(record.userEmail||'未知账号')+' · '+escapeHtml(statusLabel(record.status))+'</p>'+(table.querySelector('.detail-row td')?.innerHTML||'');
+      if(!document.getElementById('orderDrawer').open)document.getElementById('orderDrawer').showModal();
+    }
     function shortValue(value) {
       const text = String(value || "");
       return text.length > 20 ? text.slice(0, 8) + "…" + text.slice(-7) : text;
@@ -1073,7 +1126,8 @@ function serveRecoveryAdmin(res) {
         + '</div>' + (item.hasSubmittedJson ? '<button class="secondary" data-action="copy-submitted-json" data-order-id="' + escapeHtml(item.id) + '">复制发送 JSON</button><div class="muted">提交准备时间：' + escapeHtml(formatDate(item.sessionSubmissionAt)) + '；是否受理以上游订单状态为准。</div>' : '') + '</div>';
     }
     function renderRecoveryActions(item) {
-      if(item.plan==='plus' && item.fulfillmentMode==='manual')return '<a class="back-link" href="/admin#recent-orders">到工作台处理 Plus 人工订单</a>';
+      if(item.plan==='plus' && item.fulfillmentMode==='manual')return ['manual_queued','manual_processing','needs_info'].includes(item.status)
+        ? ['manual-processing','needs-info','mark-success'].map((action,index)=>'<button data-action="plus-'+action+'" data-order-id="'+escapeHtml(item.id)+'">'+['人工处理中','需补资料','确认充值成功'][index]+'</button>').join('') : '';
       const id = escapeHtml(item.id);
       const pending = ['processing','needs_review'].includes(item.status);
       return ''
@@ -1114,11 +1168,11 @@ function serveRecoveryAdmin(res) {
       responseHistories.set(orderId, history);
       applyRecordFilters();
     }
-    function renderRows(items) {
+    function renderRows(items, details = false) {
       if (!items.length) return '<tr><td class="empty" colspan="6">暂无匹配记录</td></tr>';
       return items.map(item => {
         const id = escapeHtml(item.id);
-        const expanded = expandedRecoveryIds.has(item.id);
+        const expanded = details && expandedRecoveryIds.has(item.id);
         const badge = item.status === "success" ? "success" : needsFollowup(item) ? "warning" : "progress";
         const note = item.adminFrozen ? "已冻结待查" : item.retryAllowed ? "原卡密可重新提交" : item.useResolution === "frozen" ? "本次支付次数已冻结" : item.hifupaySafetyStatus === "confirming_unpaid" ? "安全复核中" : item.subscriptionCancellationStatus === "cancelled" ? "续费已关闭" : item.provider === "zzshu" && item.status === "success" ? "续费状态待同步" : item.provider === "zzshu" && item.status === "needs_review" ? "支付结果待核查" : item.needsAttention ? "需取消续费" : "";
         const message = item.provider === "zzshu" && item.status === "needs_review" ? item.processingNote || item.message : item.needsAttention ? item.subscriptionActionMessage || item.message : item.message;
@@ -1158,18 +1212,23 @@ function serveRecoveryAdmin(res) {
       const provider = document.getElementById("providerFilter").value;
       const salesChannel = document.getElementById("salesChannelFilter").value;
       const records = allRecords.filter(item => {
+        const matchesToday = !todaySuccessOnly || item.status === 'success' && beijingDay(item.createdAt) === beijingDay(Date.now());
         const matchesStatus = !status || (status === "attention" ? needsFollowup(item) : item.status === status);
         return (!selectedCardId || item.customerCardId === selectedCardId)
           && (!keyword || [item.userEmail, item.accountId, item.customerCardCode, item.customerCardMask, item.cardMask, item.paymentCardLastFour, item.hifupayCardLastFour, item.salesChannel, item.id]
             .some(value => String(value || "").toLowerCase().includes(keyword)))
-          && matchesStatus && (!provider || item.provider === provider) && (!salesChannel || item.salesChannel === salesChannel);
+          && matchesToday && matchesStatus && (!provider || item.provider === provider) && (!salesChannel || item.salesChannel === salesChannel);
       });
+      filteredRecoveryIds=records.map(item=>item.id);
       for (const [id, value] of [["filterAll", ""], ["filterAttention", "attention"], ["filterSuccess", "success"]]) {
         document.getElementById(id).classList.toggle("active", status === value);
       }
+      document.getElementById('filterToday').classList.toggle('active',todaySuccessOnly);
+      if(todaySuccessOnly)document.getElementById('filterSuccess').classList.toggle('active',false);
       const pageCount = Math.max(1, Math.ceil(records.length / recordsPerPage));
       currentPage = Math.min(currentPage, pageCount);
       document.getElementById("recoveries").innerHTML = renderRows(records.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage));
+      renderOrderDrawer();
       document.getElementById("recoveryCount").textContent = records.length + " / " + allRecords.length + " 条";
       document.getElementById("recordPage").textContent = "第 " + currentPage + " / " + pageCount + " 页";
       document.getElementById("previousRecords").disabled = currentPage <= 1;
@@ -1259,12 +1318,13 @@ function serveRecoveryAdmin(res) {
     document.getElementById("recordQuickFilters").addEventListener("click", event => {
       const button = event.target.closest("[data-filter]");
       if (!button) return;
-      document.getElementById("statusFilter").value = button.dataset.filter;
+      todaySuccessOnly = button.dataset.filter === 'today-success';
+      document.getElementById("statusFilter").value = todaySuccessOnly ? 'success' : button.dataset.filter;
       currentPage = 1; applyRecordFilters();
     });
     document.getElementById("previousRecords").addEventListener("click", () => { currentPage -= 1; applyRecordFilters(); });
     document.getElementById("nextRecords").addEventListener("click", () => { currentPage += 1; applyRecordFilters(); });
-    document.getElementById("recoveries").addEventListener("click", async event => {
+    async function handleRecoveryClick(event) {
       const button = event.target.closest("[data-action]");
       if (!button) return;
       const action = button.dataset.action;
@@ -1272,16 +1332,18 @@ function serveRecoveryAdmin(res) {
       const record = allRecords.find(item => item.id === orderId);
       if (!record) { setStatus("订单记录已更新，请刷新后重试。", true); return; }
       if (action === "toggle-details") {
-        if (expandedRecoveryIds.has(orderId)) expandedRecoveryIds.delete(orderId);
-        else {
-          expandedRecoveryIds.add(orderId);
-          applyRecordFilters();
-          if (record.provider === 'zzshu') {
-            try { await loadResponseHistory(orderId); }
-            catch (error) { setStatus("返回历史读取失败：" + error.message, true); }
-          }
-        }
-        applyRecordFilters(); return;
+        expandedRecoveryIds.clear();expandedRecoveryIds.add(orderId);drawerOrderId=orderId;
+        renderOrderDrawer();
+        if(record.provider==='zzshu')try{await loadResponseHistory(orderId);}catch(error){setStatus('返回历史读取失败：'+error.message,true);}
+        return;
+      }
+      if(action.startsWith('plus-')){
+        button.disabled=true;
+        try{const operation=action.slice(5),input=await chooseManualOrder(record,operation);if(!input)return;
+          await api('/api/admin/plus/orders/'+encodeURIComponent(orderId)+'/'+operation,{method:'POST',body:JSON.stringify(input)});
+          await loadRecoveries();setStatus('Plus 人工订单已保存。');
+        }catch(error){setStatus(error.message,true);}finally{button.disabled=false;}
+        return;
       }
       if (["response-history-refresh", "response-history-older"].includes(action)) {
         button.disabled = true;
@@ -1332,9 +1394,11 @@ function serveRecoveryAdmin(res) {
         }
       } catch (error) { setStatus(error.message, true); }
       finally { button.disabled = false; }
-    });
+    }
+    document.getElementById('recoveries').addEventListener('click',handleRecoveryClick);
+    document.getElementById('orderDrawerBody').addEventListener('click',handleRecoveryClick);
     loadRecoveries();
-    window.setInterval(() => { loadRecoveries(); }, 10000);
+    window.setInterval(() => { if(!document.getElementById('manualOrderDialog').open && !document.getElementById('recoveryDialog').open && !drawerOrderId)loadRecoveries(); }, 10000);
   </script>
 </body>
 </html>`;

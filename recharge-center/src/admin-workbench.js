@@ -41,9 +41,11 @@ export function buildWorkbench({hifupay,usageCards,customerCards,records,plusPro
   const selectedChannel = plusProvider === 'zzshu' ? 'ZZS' : '嗨付';
   const cards = workbenchPaymentCards(hifupay,usageCards,chargeThreshold).map(card=>({...card,selectable:card.channels.includes(selectedChannel)}));
   const orderSearch = value(query.orderSearch).slice(0,200),voucherSearch = value(query.voucherSearch).slice(0,200);
+  const today = shanghaiDate(new Date());
   const visibleRecords = records.filter(order=>!order.workbenchHandledAt);
   const filteredOrders = visibleRecords.filter(order =>
     (query.orderView !== 'attention' || needsWorkbenchAttention(order)) &&
+    (query.orderView !== 'today-success' || order.status === 'success' && order.createdAt && shanghaiDate(order.createdAt) === today) &&
     (!query.orderStatus || order.status === query.orderStatus) && (!query.orderPlan || order.plan === query.orderPlan) &&
     (!query.orderProvider || order.provider === query.orderProvider) && (!query.orderSource || order.salesChannel === query.orderSource) &&
     matches([order.id,order.userEmail,order.accountId,order.customerCardCode,order.customerCardMask,order.salesChannel,order.paymentCardLastFour,order.hifupayCardLastFour],orderSearch));
@@ -66,7 +68,6 @@ export function buildWorkbench({hifupay,usageCards,customerCards,records,plusPro
   if(query.batch) countVouchers.sort((a,b)=>(Number(a.sequence)||0)-(Number(b.sequence)||0));
   const filteredVouchers = countVouchers.filter(card=>query.voucherStatus === 'stock' ? inventoryReady(card) : !query.voucherStatus || card.operationalStatus === query.voucherStatus);
   const attention = visibleRecords.filter(needsWorkbenchAttention);
-  const today = shanghaiDate(new Date());
   const batches = new Map();
   for (const card of vouchers) if (card.batchId && !batches.has(card.batchId)) batches.set(card.batchId,{id:card.batchId,source:card.source,createdAt:card.createdAt,size:card.batchSize});
   return {plusProvider,updatedAt:new Date().toISOString(),cards,
