@@ -964,6 +964,12 @@ function serveRecoveryAdmin(res) {
     .detail-row td { background: #f8fafc; padding: 20px; }
     body:has(dialog[open]) { overflow: hidden; }
     #orderDrawer::backdrop, #manualOrderDialog::backdrop { background: #172f2755; }
+    #orderDrawer>.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    #orderDrawer>.topbar h2{font-size:20px;margin:0}
+    #orderDrawer>.topbar .actions{margin:0;display:flex;gap:6px}
+    #orderDrawer>.topbar button{padding:7px 10px;min-height:34px;font-size:13px}
+    #orderDrawerMessage:empty{display:none}
+    @media(max-width:640px){#orderDrawer{padding:16px!important;max-height:calc(100dvh - 32px)!important}}
     .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px; overflow-wrap: anywhere; }
     .detail-label { display: block; color: #64748b; font-size: 12px; margin-bottom: 5px; }
     .detail-actions:not(:empty) { padding-top: 16px; margin-top: 16px; border-top: 1px solid #e2e8f0; }
@@ -1003,13 +1009,13 @@ function serveRecoveryAdmin(res) {
     <label>补充备注（选填）<textarea id="recoveryNote" maxlength="500" rows="3" style="width:100%"></textarea></label>
     <div class="actions"><button type="submit">确认操作</button><button class="secondary" id="recoveryCancel" type="button">取消</button></div></form>
   </dialog>
-  <dialog id="orderDrawer" style="position:fixed;inset:0 0 0 auto;margin:0;width:min(860px,96vw);height:100dvh;max-height:100dvh;overflow:auto;border:1px solid #dbe4ee;border-radius:16px 0 0 16px;padding:24px">
-    <div class="topbar"><h2>订单详情 / 处理</h2><div class="actions"><button type="button" id="nextPendingOrder">下一笔待处理</button><button type="button" id="closeOrderDrawer">关闭</button></div></div><div id="orderDrawerBody"></div><p id="orderDrawerMessage" role="status"></p>
+  <dialog id="orderDrawer" aria-label="处理订单" style="position:fixed;inset:0;margin:auto;width:min(560px,calc(100vw - 32px));height:fit-content;max-height:calc(100dvh - 48px);overflow:auto;border:1px solid #dbe4ee;border-radius:14px;padding:20px">
+    <div class="topbar"><h2>处理订单</h2><div class="actions"><button type="button" id="nextPendingOrder">下一笔待处理</button><button type="button" id="closeOrderDrawer">关闭</button></div></div><div id="orderDrawerBody"></div><p id="orderDrawerMessage" role="status"></p>
   </dialog>
   <dialog id="manualOrderDialog" style="width:min(560px,94vw);max-height:90vh;overflow:auto;border:1px solid #dbe4ee;border-radius:16px;padding:24px">
     <form id="manualOrderForm"><h2 id="manualOrderTitle"></h2><p id="manualOrderAccount"></p><div id="manualOrderFields"></div><label>处理备注<textarea name="note" id="manualOrderNote" maxlength="1000" rows="3" style="width:100%"></textarea></label><div class="actions"><button type="submit">确认保存</button><button type="button" id="cancelManualOrder">取消</button></div></form>
   </dialog>
-  <script src="/admin/cards/payment-card-trace-ui.js"></script>
+  <script src="/admin/cards/payment-card-trace-ui.js"></script><script src="/admin/cards/recovery-confirmation-ui.js"></script>
   <script>
     const statusBox = document.getElementById("statusBox");
 
@@ -1041,8 +1047,8 @@ function serveRecoveryAdmin(res) {
     let currentPage = 1;
     const recordsPerPage = 50;
 
-    function setStatus(message, error = false) {
-      document.getElementById('orderDrawerMessage').textContent = message;
+    function setStatus(message, error = false, showInDialog = true) {
+      if(showInDialog)document.getElementById('orderDrawerMessage').textContent = message;
       statusBox.textContent = message;
       statusBox.classList.toggle("error", error);
     }
@@ -1075,7 +1081,6 @@ function serveRecoveryAdmin(res) {
       const index=pending.findIndex(item=>item.id===drawerOrderId);
       const next=pending[index+1] || pending.find(item=>item.id!==drawerOrderId);if(!next)return;
       drawerOrderId=next.id;expandedRecoveryIds.clear();expandedRecoveryIds.add(next.id);renderOrderDrawer();
-      if(next.provider==='zzshu')try{await loadResponseHistory(next.id);}catch(error){setStatus(error.message,true);}
     };
     const queryFilters = new URLSearchParams(window.location.search);
     document.getElementById('statusFilter').value = queryFilters.get('status') || '';
@@ -1109,7 +1114,13 @@ function serveRecoveryAdmin(res) {
       if(!drawerOrderId)return;
       const record=allRecords.find(item=>item.id===drawerOrderId);if(!record)return;
       const table=document.createElement('tbody');table.innerHTML=renderRows([record],true);
-      document.getElementById('orderDrawerBody').innerHTML='<p>'+escapeHtml(record.userEmail||'未知账号')+' · '+escapeHtml(statusLabel(record.status))+'</p>'+(table.querySelector('.detail-row td')?.innerHTML||'');
+      const advancedOpen=Boolean(document.getElementById('recoveryAdvanced')?.open);
+      const advanced=table.querySelector('.detail-row td')?.innerHTML||'';
+      const simple=!isPro(record);
+      document.getElementById('orderDrawerBody').innerHTML=simple?'<div id="quickRecovery"></div><details class="recovery-advanced" id="recoveryAdvanced" '+(advancedOpen?'open':'')+'><summary>高级详情与排查</summary>'+advanced+'</details>':'<p>'+escapeHtml(record.userEmail||'未知账号')+'</p>'+advanced;
+      if(simple&&window.recoveryConfirmationUI)window.recoveryConfirmationUI.mount(document.getElementById('quickRecovery'),record,{onSaved:async()=>{await loadRecoveries();setStatus('已确认充值成功。');}});
+      const details=document.getElementById('recoveryAdvanced');
+      if(details)details.ontoggle=()=>{if(details.open&&record.provider==='zzshu'&&!responseHistories.has(record.id))loadResponseHistory(record.id).catch(error=>setStatus(error.message,true));};
       if(!document.getElementById('orderDrawer').open)document.getElementById('orderDrawer').showModal();
     }
     function shortValue(value) {
@@ -1155,7 +1166,7 @@ function serveRecoveryAdmin(res) {
       const history = responseHistories.get(item.id);
       const entries = history?.entries || [];
       return '<div class="panel"><strong>ZZS 返回历史</strong><p class="hint">保存每次创建和查单的返回原因；敏感资料已过滤。历史保存启用前的原始返回无法补回。</p>'
-        + (!history ? '<p>正在读取返回历史…</p>' : !entries.length ? '<p>暂无已保存的返回记录。</p>' :
+        + (!history ? '<p>展开高级详情后按需读取返回历史。</p>' : !entries.length ? '<p>暂无已保存的返回记录。</p>' :
           '<p>已显示 ' + entries.length + ' / ' + history.total + ' 条</p>' + entries.map(entry =>
             '<details><summary>' + escapeHtml(formatDate(entry.at)) + ' · ' + (entry.stage === 'create' ? '创建订单' : '查询订单')
             + ' · ' + escapeHtml(({accepted:'接口已接受',rejected:'接口拒绝',network_error:'连接失败或超时',invalid_response:'响应格式异常'})[entry.result] || entry.result)
@@ -1188,7 +1199,7 @@ function serveRecoveryAdmin(res) {
           + '<td class="mono">' + window.paymentCardTraceUI.summary(item) + '</td>'
           + '<td><span class="state-badge ' + badge + '">' + escapeHtml(item.workbenchHandledAt?'已结案':statusLabel(item.status)) + '</span><div class="muted status-note">' + escapeHtml(note) + '</div>' + (item.workbenchHandledAt ? '<div class="muted">已结案 · 历史记录保留</div>' : '') + '</td>'
           + '<td><time>' + escapeHtml(date).split(' ').map((part, index) => index ? '<span class="muted">' + part + '</span>' : part).join('<br>') + '</time></td>'
-          + '<td class="action-cell"><div class="row-actions">' + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情 / 处理') + '</button>' + renderFrozenUseAction(item) + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制原始 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '</div></td></tr>'
+          + '<td class="action-cell"><div class="row-actions">' + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '处理') + '</button>' + renderFrozenUseAction(item) + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制原始 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '</div></td></tr>'
           + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div>' + renderSessionSubmission(item) + (item.provider === 'zzshu' ? '<div><span class="detail-label">ZZS 上游订单号</span><div class="mono">' + escapeHtml(item.upstreamTaskId || "尚未取得") + '</div></div><div><span class="detail-label">最近查单</span><div>' + escapeHtml(item.lastCheckAt ? formatDate(item.lastCheckAt) + ' · ' + ({paid:'已确认付款',unpaid:'明确未付',processing:'处理中',needs_review:'结果待核查',verification_required:'需要持卡人验证',unknown:'未知结果',api_rejected:'API 凭据被拒绝',upstream_error:'上游接口错误',invalid_response:'响应格式异常',order_mismatch:'订单信息不匹配',network_error:'连接失败或超时'})[item.lastCheckResult] + (item.lastCheckHttpStatus ? ' · HTTP ' + item.lastCheckHttpStatus : '') + (item.lastCheckCode !== null && item.lastCheckCode !== undefined ? ' · code ' + item.lastCheckCode : '') : '尚无查单记录') + '</div></div>' : '') + '</div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再选择核查依据确认成功。</p>' : '') + window.paymentCardTraceUI.detail(item) + renderSubmissionAttempts(item) + renderResponseHistory(item) + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
       }).join("");
     }
@@ -1217,7 +1228,7 @@ function serveRecoveryAdmin(res) {
       const provider = document.getElementById("providerFilter").value;
       const salesChannel = document.getElementById("salesChannelFilter").value;
       const records = allRecords.filter(item => {
-        const matchesToday = !todaySuccessOnly || item.status === 'success' && beijingDay(item.createdAt) === beijingDay(Date.now());
+        const matchesToday = !todaySuccessOnly || item.status === 'success' && beijingDay(item.completedAt) === beijingDay(Date.now());
         const matchesStatus = !status || (status === "attention" ? needsFollowup(item) : item.status === status);
         return !item.supersededBy && (!selectedCardId || item.customerCardId === selectedCardId)
           && (!keyword || [item.userEmail, item.accountId, item.customerCardCode, item.customerCardMask, item.cardMask, item.paymentCardLastFour, item.hifupayCardLastFour, item.salesChannel, item.id]
@@ -1282,7 +1293,7 @@ function serveRecoveryAdmin(res) {
         applyRecordFilters();
         const pending = allRecords.filter(needsFollowup);
         notifyNew(pending);
-        setStatus(data.pendingCount ? "共 " + allRecords.length + " 条记录，其中 " + data.pendingCount + " 条需要处理。" : "共 " + allRecords.length + " 条记录，当前没有待处理订单。");
+        setStatus(data.pendingCount ? "共 " + allRecords.length + " 条记录，其中 " + data.pendingCount + " 条需要处理。" : "共 " + allRecords.length + " 条记录，当前没有待处理订单。", false, false);
       } catch (error) { setStatus(error.message, true); }
     }
     document.getElementById("enableAlerts").addEventListener("click", async () => {
@@ -1339,7 +1350,6 @@ function serveRecoveryAdmin(res) {
       if (action === "toggle-details") {
         expandedRecoveryIds.clear();expandedRecoveryIds.add(orderId);drawerOrderId=orderId;
         renderOrderDrawer();
-        if(record.provider==='zzshu')try{await loadResponseHistory(orderId);}catch(error){setStatus('返回历史读取失败：'+error.message,true);}
         return;
       }
       if(action.startsWith('plus-')){
@@ -1551,7 +1561,7 @@ export const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/admin/cards/payment-card-input.js") {
       serveAdminAsset(res,"payment-card-input.js","application/javascript; charset=utf-8","src"); return;
     }
-    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js","/admin/cards/payment-card-source-ui.js","/admin/cards/payment-card-formatter.js","/admin/cards/card-inventory.js","/admin/cards/card-download-names.js","/admin/cards/payment-card-trace-ui.js"].includes(url.pathname)) {
+    if (req.method === "GET" && ["/admin/cards/workbench.js","/admin/cards/workbench-settings.js","/admin/cards/recovery-confirmation-ui.js","/admin/cards/payment-card-source-ui.js","/admin/cards/payment-card-formatter.js","/admin/cards/card-inventory.js","/admin/cards/card-download-names.js","/admin/cards/payment-card-trace-ui.js"].includes(url.pathname)) {
       serveAdminAsset(res,path.basename(url.pathname),"application/javascript; charset=utf-8"); return;
     }
 
@@ -1905,9 +1915,10 @@ export const server = http.createServer(async (req, res) => {
         else if (req.method === "POST" && endpoint === "preview") data = zzshuService.preview(body.text);
         else if (req.method === "POST" && endpoint === "import") { const result=await zzshuService.importCards(body); if(!result.ok){sendJson(res,400,{success:false,message:result.message});return;} data=result.rows; }
         else if (req.method === "POST" && endpoint === "vouchers") data = zzshuService.createVouchers(body);
-        else if (req.method === "POST" && /^cards\/[^/]+\/add-uses$/.test(endpoint)) {
+        else if (req.method === "POST" && /^cards\/[^/]+\/(add-uses|adjust-uses)$/.test(endpoint)) {
           const id=decodeURIComponent(endpoint.split("/")[1]);
-          const result=zzshuService.store.addCardUses(id,body.amount,body.requestId,'admin:'+auth.session.id.slice(0,12));
+          const adjust=endpoint.endsWith('/adjust-uses')?zzshuService.store.adjustCardUses.bind(zzshuService.store):zzshuService.store.addCardUses.bind(zzshuService.store);
+          const result=adjust(id,body.amount,body.requestId,'admin:'+auth.session.id.slice(0,12));
           if (!result.ok) {sendJson(res,result.status,{success:false,message:result.message});return;} data=result.data;
         }
         else if (req.method === "POST" && /^cards\/[^/]+$/.test(endpoint)) { const id=decodeURIComponent(endpoint.split("/")[1]); if(!zzshuService.store.updateCard(id,body)){sendJson(res,400,{success:false,message:"卡片不存在、次数上限无效或来源渠道无效"});return;} data={ok:true}; }
@@ -1990,6 +2001,12 @@ export const server = http.createServer(async (req, res) => {
       const result = rechargeService.getRecoveryResponseHistory(decodeURIComponent(responseHistoryPath[1]), before);
       sendJson(res, result.status, result.ok ? { success: true, data: result.data } : { success: false, message: result.message });
       return;
+    }
+
+    const confirmationPath=url.pathname.match(/^\/api\/admin\/recoveries\/([^/]+)\/(confirmation|confirm-success)$/);
+    if(confirmationPath&&((req.method==='GET'&&confirmationPath[2]==='confirmation')||(req.method==='POST'&&confirmationPath[2]==='confirm-success'))){
+      const id=decodeURIComponent(confirmationPath[1]);const result=req.method==='GET'?rechargeService.getRecoveryConfirmation(id):rechargeService.confirmRecoverySuccess(id,await readJsonBody(req));
+      sendJson(res,result.status,result.ok?{success:true,data:result.data}:{success:false,message:result.message});return;
     }
 
     const recoveryDetail = url.pathname.match(/^\/api\/admin\/recoveries\/([^/]+)$/);

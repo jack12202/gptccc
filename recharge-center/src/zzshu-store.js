@@ -79,6 +79,7 @@ export class ZzshuStore {
       workbench_original_status: "TEXT NOT NULL DEFAULT ''",
       workbench_handled_at: "TEXT NOT NULL DEFAULT ''",
       workbench_handled_reason: "TEXT NOT NULL DEFAULT ''",
+      manual_payment_use: "TEXT",
       payment_card_snapshot: "TEXT",
       completed_at: "TEXT NOT NULL DEFAULT ''",
       submitted_session_cipher: "TEXT",
@@ -223,6 +224,8 @@ export class ZzshuStore {
       const reason='重新导入设置当前可用次数，旧任务本地结案；历史记录和 JSON 保留';
       const orders=this.db.prepare("SELECT id FROM orders WHERE card_id=? AND status!='success' AND (workbench_handled_at='' OR use_resolution='frozen' OR status IN ('reserved','submitting','processing','needs_review')) ").all(card.id);
       const closedOrderIds=orders.filter(order=>this.closeOrderUncommitted(order.id,reason)).map(order=>order.id);
+      // Re-import also supersedes retained freezes from a recovery completed on another card.
+      this.db.prepare("UPDATE orders SET use_resolution='released' WHERE card_id=? AND status='success' AND use_resolution='frozen' AND manual_payment_use IS NOT NULL").run(card.id);
       this.db.prepare(`UPDATE payment_cards SET last_four=?,credential_ref=?,payment_cipher=?,source=?,note=?,enabled=?,paused=0,failures=0,last_failure='',retired_at=NULL,frozen_count=0,
         max_success=success_count+h_success_count+? WHERE id=?`).run(row.masked.slice(-4),options.credentialRef,options.paymentCipher,options.source,options.note,options.enabled?1:0,options.maxSuccess,card.id);
       this.audit('card:'+card.id,'manual_card_reset',JSON.stringify({remainingUses:options.maxSuccess,closedOrderIds}));
@@ -261,7 +264,7 @@ export class ZzshuStore {
     const pendingByCard = new Map(pending.map(item => [item.cardId, { orderId: item.orderId,
       email: item.email, accountId: item.accountId, status: item.status, submittedAt: item.submittedAt }]));
     const frozen = this.db.prepare(`SELECT card_id AS cardId,id AS orderId,email,status,'zzshu' AS provider
-      FROM orders WHERE use_resolution='frozen' AND status IN ('failed','needs_review') ORDER BY created_at,id`).all();
+      FROM orders WHERE use_resolution='frozen' AND status IN ('failed','needs_review','success') ORDER BY created_at,id`).all();
     const frozenH = this.db.prepare(`SELECT c.id AS cardId,f.order_id AS orderId,'needs_review' AS status,'h' AS provider
       FROM h_frozen_claims f JOIN payment_cards c ON c.credential_ref='hifupay:'||f.hifupay_id`).all();
     const frozenByCard = new Map();
@@ -276,6 +279,11 @@ export class ZzshuStore {
     if (!Number.isInteger(amount) || amount < 1 || amount > 100 ||
         typeof requestId !== 'string' || !/^[a-zA-Z0-9-]{16,80}$/.test(requestId))
       return { ok:false, status:400, message:'增加次数需为 1–100 的整数，并提供有效请求标识。' };
+    return this.adjustCardUses(id,amount,requestId,operator);
+  }
+  adjustCardUses(id, amount, requestId, operator = 'admin') {
+    if(!Number.isInteger(amount)||amount===0||Math.abs(amount)>100||typeof requestId!=='string'||!/^[a-zA-Z0-9-]{16,80}$/.test(requestId))
+      return {ok:false,status:400,message:'调整次数应为非零整数，并提供有效请求标识。'};
     return this.transaction(() => {
       const previous = this.db.prepare('SELECT card_id,amount FROM card_usage_adjustments WHERE request_id=?').get(requestId);
       if (previous && (previous.card_id !== id || previous.amount !== amount))
@@ -283,11 +291,17 @@ export class ZzshuStore {
       const card = this.db.prepare('SELECT * FROM payment_cards WHERE id=? AND retired_at IS NULL').get(id);
       if (!card) return { ok:false, status:404, message:'支付卡不存在或已移出卡池。' };
       if (!previous) {
-        if (card.max_success + amount > 100) return { ok:false, status:400, message:'增加后总次数不能超过 100。' };
+        if (amount>0 && card.max_success + amount > 100) return { ok:false, status:400, message:'增加后总次数不能超过 100。' };
+        if(amount<0){
+          const activeZ=this.db.prepare("SELECT COUNT(*) AS n FROM orders WHERE card_id=? AND status IN ('reserved','submitting','processing')").get(id).n;
+          const activeH=card.credential_ref.startsWith('hifupay:')?this.db.prepare('SELECT COUNT(*) AS n FROM h_card_claims WHERE hifupay_id=?').get(card.credential_ref.slice(8)).n:0;
+          if(card.max_success+amount<card.success_count+card.h_success_count+card.frozen_count+activeZ+activeH)
+            return {ok:false,status:409,message:'可减少次数不足；已用、冻结和正在处理的预留次数保持不变。'};
+        }
         this.db.prepare('UPDATE payment_cards SET max_success=max_success+? WHERE id=?').run(amount,id);
         this.db.prepare('INSERT INTO card_usage_adjustments(request_id,card_id,amount,operator,created_at) VALUES(?,?,?,?,?)')
           .run(requestId,id,amount,String(operator),new Date().toISOString());
-        this.audit('card:'+id,'add_remaining_uses',JSON.stringify({amount,requestId,operator}));
+        this.audit('card:'+id,amount>0?'add_remaining_uses':'subtract_remaining_uses',JSON.stringify({amount,requestId,operator}));
       }
       const maxSuccess = card.max_success + (previous ? 0 : amount);
       return { ok:true, status:200, data:{cardId:id,amount,maxSuccess,
@@ -486,7 +500,7 @@ export class ZzshuStore {
       ...(reveal ? { submittedCipher: row?.submitted_session_cipher || "" } : {}) };
   }
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
-  listOrders() { return this.db.prepare(`SELECT o.id,o.card_id AS paymentCardId,o.payment_card_snapshot AS paymentCardSnapshot,c.credential_ref AS paymentCredentialRef,c.source AS paymentSource,c.note AS paymentNote,o.email,o.account_id AS accountId,o.status,o.completed_at AS completedAt,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
+  listOrders() { return this.db.prepare(`SELECT o.id,o.manual_payment_use AS manualPaymentUse,o.card_id AS paymentCardId,o.payment_card_snapshot AS paymentCardSnapshot,c.credential_ref AS paymentCredentialRef,c.source AS paymentSource,c.note AS paymentNote,o.email,o.account_id AS accountId,o.status,o.completed_at AS completedAt,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
     o.workbench_original_status AS workbenchOriginalStatus,o.workbench_handled_at AS workbenchHandledAt,o.workbench_handled_reason AS workbenchHandledReason,o.review_reason AS reviewReason,o.failure_kind AS failureKind,o.retry_allowed AS retryAllowed,o.admin_frozen AS adminFrozen,o.cancellation,o.auto_query AS autoQuery,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,
     o.last_check_at AS lastCheckAt,o.last_check_result AS lastCheckResult,
     o.last_check_http_status AS lastCheckHttpStatus,o.last_check_code AS lastCheckCode,c.last_four AS lastFour,
@@ -641,7 +655,8 @@ export class ZzshuStore {
     if (!['release','consume'].includes(outcome) || String(reason || '').trim().length < 8) return false;
     return this.transaction(() => {
       const order = this.order(id);
-      if (!order || order.status !== 'failed' || order.use_resolution !== 'frozen') return false;
+      const completedElsewhere=order?.status==='success'&&Boolean(order.manual_payment_use)&&JSON.parse(order.manual_payment_use).choice!=='original';
+      if (!order || (order.status !== 'failed' && !(completedElsewhere&&outcome==='release')) || order.use_resolution !== 'frozen') return false;
       this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
       if (outcome === 'consume') this.db.prepare("UPDATE payment_cards SET success_count=success_count+1 WHERE id=?").run(order.card_id);
       this.db.prepare("UPDATE orders SET use_resolution=?,updated_at=? WHERE id=?").run(outcome === 'consume' ? 'consumed' : 'released',new Date().toISOString(),id);

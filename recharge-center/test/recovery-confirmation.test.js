@@ -1,0 +1,47 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+
+test('simple recovery confirmation books the actual card once, preserves old freezes on replacement, and is authenticated without recharging',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gptc-confirm-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ process.env.DATA_FILE=path.join(dir,'orders.json');process.env.ZZSHU_DB_FILE=path.join(dir,'usage.sqlite');process.env.ADMIN_TOKEN='confirm-fixture';process.env.RECOVERY_ENCRYPTION_KEY='confirm-key';process.env.PUBLIC_BASE_URL='http://localhost';
+ const {rechargeService:r}=await import('../src/recharge-service.js'),{zzshuService:z}=await import('../src/zzshu-service.js'),{JsonStore}=await import('../src/store.js'),{server}=await import('../src/server.js');
+ const store=new JsonStore();await z.importCards({text:'4242424242424242,12/40,123',source:'天空',maxSuccess:4});
+ const [a]=z.store.listCards(),uid='manual:'+a.id;
+ const cards=r.createHCards({count:7,source:'微信'}).data.cards;
+ const make=(index)=>{const native=z.store.reserve(cards[index].code,'person'+index+'@example.test','account'+index,null,true,'keep-session-'+index);assert.equal(native.ok,true);z.store.review(native.orderId,'unknown payment');const primary=store.createOrder({provider:'zzshu',status:'needs_review',upstreamTaskId:native.orderId,hCardId:cards[index].id},{userEmail:'person'+index+'@example.test',accountId:'account'+index});return {id:primary.id,nativeId:native.orderId};};
+ const first=make(0),usage=()=>z.store.listCards().find(card=>card.id===a.id);
+ assert.equal(usage().frozenUses,1);assert.equal(usage().remainingUses,3);
+ const options=r.getRecoveryConfirmation(first.id);assert.equal(options.ok,true);assert.equal(options.data.original.uid,uid);
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>{server.close();server.closeAllConnections();});const base='http://127.0.0.1:'+server.address().port;
+ const endpoint='/api/admin/recoveries/'+first.id+'/confirm-success';
+ assert.equal((await fetch(base+endpoint,{method:'POST',body:'{}'})).status,401);
+ const login=await fetch(base+'/api/admin/login',{method:'POST',headers:{Origin:'http://localhost','Content-Type':'application/json','X-Admin-Request':'1'},body:JSON.stringify({password:'confirm-fixture'})});const cookie=login.headers.get('set-cookie').split(';')[0],csrf=(await login.json()).data.csrf;
+ const headers={Cookie:cookie,Origin:'http://localhost','Content-Type':'application/json','X-CSRF-Token':csrf};
+ assert.equal((await fetch(base+endpoint,{method:'POST',headers:{...headers,'X-CSRF-Token':''},body:JSON.stringify({choice:'original'})})).status,403);
+ const confirmed=await fetch(base+endpoint,{method:'POST',headers,body:JSON.stringify({choice:'original'})});assert.equal(confirmed.status,200);
+ assert.equal(usage().remainingUses,3);assert.equal(usage().frozenUses,0);assert.equal(usage().successCount,1);assert.equal(z.store.voucher(cards[0].code).status,'used');assert.equal(store.getHCardByCode(cards[0].code).status,'used');assert.equal(z.store.order(first.nativeId).auto_query,0);
+ assert.equal(r.confirmRecoverySuccess(first.id,{choice:'original'}).ok,true);assert.equal(usage().successCount,1);assert.equal(r.confirmRecoverySuccess(first.id,{choice:'external'}).status,409);
+ assert.equal(z.store.sessionCipher(first.nativeId),'keep-session-0');assert.equal(r.getAdminWorkbench().attention.total,0);assert.equal(r.getAdminWorkbench().summary.todaySuccess,1);assert.equal(r.getAdminWorkbench().summary.todayRedeemed,1);
+ await z.importCards({text:'5555555555554444,12/40,456',source:'ZZS',maxSuccess:4});const b=z.store.listCards().find(card=>card.lastFour==='4444'),bUid='manual:'+b.id;
+ const second=make(1);assert.equal(z.store.order(second.nativeId).card_id,a.id);const originalSnapshot=z.store.order(second.nativeId).payment_card_snapshot;
+ assert.equal(r.confirmRecoverySuccess(second.id,{choice:'other',cardUid:uid}).status,400);
+ assert.equal(r.confirmRecoverySuccess(second.id,{choice:'other',cardUid:bUid}).ok,true);
+ assert.equal(usage().frozenUses,1);assert.equal(usage().remainingUses,2);assert.equal(z.store.listCards().find(card=>card.id===b.id).remainingUses,3);
+ const recorded=r.listRechargeSubmissions().data.records.find(order=>order.id===second.id);assert.equal(recorded.paymentCardTrace.cardId,b.id);assert.equal(recorded.manualPaymentUse.cardUid,bUid);assert.equal(z.store.order(second.nativeId).payment_card_snapshot,originalSnapshot);assert.equal(r.getAdminWorkbench().attention.total,0);
+ assert.equal(r.confirmRecoverySuccess(second.id,{choice:'other',cardUid:bUid}).ok,true);assert.equal(z.store.listCards().find(card=>card.id===b.id).remainingUses,3);
+ assert.equal(r.applyZzshuDisposition(second.id,'release',{reason:'explicit administrator adjustment',operator:'test'}).ok,true);assert.equal(usage().frozenUses,0);
+ const third=make(2);assert.equal(r.confirmRecoverySuccess(third.id,{choice:'external'}).ok,true);assert.equal(usage().frozenUses,1);assert.equal(usage().successCount,1);
+ const external=r.listRechargeSubmissions().data.records.find(order=>order.id===third.id);assert.equal(external.manualPaymentUse.cardUid,'');assert.equal(external.paymentCardTrace,null);
+ await z.importCards({text:'4242424242424242,12/40,123',source:'天空',maxSuccess:4});assert.equal(usage().remainingUses,4);assert.equal(usage().frozenUses,0);assert.equal(z.store.order(third.nativeId).use_resolution,'released');
+ assert.equal(z.store.resolveFrozenUse(third.nativeId,'release','must not release a new freeze'),false);
+ const fourth=make(3);z.store.updateCard(b.id,{enabled:false});const before=usage().frozenUses;assert.equal(r.confirmRecoverySuccess(fourth.id,{choice:'other',cardUid:bUid}).status,409);assert.equal(usage().frozenUses,before);assert.equal(z.store.order(fourth.nativeId).status,'needs_review');
+ // A JSON mirror failure must not debit the selected card again on retry.
+ const originalWrite=JsonStore.prototype.write;let fail=true;JsonStore.prototype.write=function(state){if(fail&&state.orders.some(order=>order.id===fourth.id&&order.status==='success')){fail=false;throw Error('fixture write failure');}return originalWrite.call(this,state);};
+ assert.throws(()=>r.confirmRecoverySuccess(fourth.id,{choice:'original'}),/fixture write failure/);JsonStore.prototype.write=originalWrite;
+ const charged=usage().successCount;assert.equal(r.confirmRecoverySuccess(fourth.id,{choice:'original'}).ok,true);assert.equal(usage().successCount,charged);assert.equal(store.getHCardByCode(cards[3].code).status,'used');
+ r.updatePlusFulfillmentMode('manual');const manual=await r.confirmRecharge({cardInfo:cards[4].code,provider:'h',secretJsonText:JSON.stringify({user:{email:'manual@example.test'},account:{id:'manual'}})});
+ assert.equal(r.confirmRecoverySuccess(manual.data.orderId,{choice:'external'}).ok,true);assert.equal(store.getOrder(manual.data.orderId).status,'success');assert.equal(store.getHCardByCode(cards[4].code).status,'used');
+ const pending=make(5);const old=new Date(Date.now()-25*60*60*1000).toISOString();z.store.db.prepare('UPDATE orders SET created_at=? WHERE id=?').run(old,pending.nativeId);
+ r.runOrderHousekeeping();assert.equal(r.getRecoveryConfirmation(pending.id).data.canConfirm,false);assert.equal(r.confirmRecoverySuccess(pending.id,{choice:'original'}).status,409);
+ const response=await fetch(base+'/admin/cards/recovery-confirmation-ui.js',{headers:{Cookie:cookie}});assert.equal(response.status,200);
+ const serialized=JSON.stringify(r.getRecoveryConfirmation(first.id).data);assert.equal(serialized.includes('4242424242424242'),false);assert.equal(serialized.includes('keep-session'),false);
+});

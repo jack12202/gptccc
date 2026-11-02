@@ -146,7 +146,7 @@ test('customer card library searches partial codes and copies the successful ord
   assert.match(vm.runInContext('renderRows([allRecords.at(-1)],true)',orderContext),/data-action="disposition-success"/);
   vm.runInContext('allRecords.push({id:"frozen-zzshu",provider:"zzshu",status:"needs_review",useResolution:"frozen",hasOriginalJson:true,hasUpstreamQueryKey:true,autoQuery:true})',orderContext);
   const frozenRow = vm.runInContext('renderRows([allRecords.at(-1)])',orderContext);
-  assert.match(frozenRow,/详情 \/ 处理/);
+  assert.match(frozenRow,/>处理<\/button>/);
   assert.ok(frozenRow.indexOf('data-action="toggle-details"') < frozenRow.indexOf('data-action="release-zzshu-use"'));
   assert.match(frozenRow,/data-action="copy-json"/);
   vm.runInContext('expandedRecoveryIds.add("frozen-zzshu")',orderContext);
@@ -158,7 +158,7 @@ test('customer card library searches partial codes and copies the successful ord
   for(const action of ['plus-manual-processing','plus-needs-info','plus-mark-success'])assert.match(manualActions,new RegExp('data-action="'+action+'"'));
   assert.doesNotMatch(manualActions,/href=/);
   assert.equal(vm.runInContext("renderRecoveryActions({id:'done',plan:'plus',fulfillmentMode:'manual',status:'success'})",orderContext),'');
-  vm.runInContext("allRecords.push({id:'today-success',status:'success',createdAt:new Date().toISOString()});todaySuccessOnly=true;document.getElementById('recordSearch').value='';applyRecordFilters()",orderContext);
+  vm.runInContext("allRecords.push({id:'today-success',status:'success',createdAt:new Date().toISOString(),completedAt:new Date().toISOString()});todaySuccessOnly=true;document.getElementById('recordSearch').value='';applyRecordFilters()",orderContext);
   assert.equal(orderElement('recoveryCount').textContent,'1 / 6 条');
   assert.match(orderElement('recoveries').innerHTML,/today-success/);
   orderElement('recordQuickFilters').click({target:{closest:()=>({dataset:{filter:''}})}});

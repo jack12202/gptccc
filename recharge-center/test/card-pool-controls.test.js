@@ -99,4 +99,26 @@ test('authenticated controls restore failed and reviewed uses exactly once while
   assert.match(row,/data-action="release-zzshu-use"/);
   assert.doesNotMatch(row,/class="detail-row"/);
   assert.doesNotMatch(vm.runInContext("renderRows([{id:'done',provider:'zzshu',status:'failed',useResolution:'released'}])",context),/release-zzshu-use/);
+  const beforeSubtract=s.listCards()[0].remainingUses,subtractBody={amount:-1,requestId:crypto.randomUUID()},subtractUrl='/api/admin/zzshu/cards/'+cardId+'/adjust-uses';
+  assert.equal((await fetch(base+subtractUrl,{method:'POST',body:'{}'})).status,401);
+  assert.equal((await post(subtractUrl,subtractBody)).status,200);
+  assert.equal((await (await post(subtractUrl,subtractBody)).json()).data.duplicate,true);
+  assert.equal(s.listCards()[0].remainingUses,beforeSubtract-1);
+
+});
+
+test('quick subtraction changes only free remaining capacity and is idempotent across retries and restart',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'gptc-subtract-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const {ZzshuStore}=await import('../src/zzshu-store.js'),{parsePaymentCards}=await import('../src/zzshu-cards.js');const file=path.join(dir,'cards.sqlite'),usage=new ZzshuStore(file);t.after(()=>usage.db.close());
+ usage.addPaymentCard(parsePaymentCards('4242424242424242,12/40,123')[0],{credentialRef:'local:test',source:'fixture',note:'preserve',enabled:true,maxSuccess:5});const id=usage.listCards()[0].id;
+ usage.db.prepare('UPDATE payment_cards SET success_count=2,frozen_count=1,paused=1 WHERE id=?').run(id);
+ const request=crypto.randomUUID();assert.equal(usage.adjustCardUses(id,-1,request).data.remainingUses,1);assert.equal(usage.adjustCardUses(id,-1,request).data.duplicate,true);
+ assert.equal(usage.adjustCardUses(id,1,request).status,409);assert.equal(usage.adjustCardUses(id,-2,crypto.randomUUID()).status,409);
+ assert.equal(usage.adjustCardUses(id,-1,crypto.randomUUID()).data.remainingUses,0);assert.equal(usage.adjustCardUses(id,-1,crypto.randomUUID()).status,409);
+ const reopened=new ZzshuStore(file);assert.equal(reopened.adjustCardUses(id,-1,request).data.remainingUses,0);reopened.db.close();
+ const card=usage.listCards()[0];assert.equal(card.successCount,2);assert.equal(card.frozenUses,1);assert.equal(card.paused,1);assert.equal(card.note,'preserve');
+ assert.equal(usage.db.prepare("SELECT COUNT(*) AS n FROM audit WHERE action='subtract_remaining_uses'").get().n,2);
+ for(const amount of [0,-101,-1.5,'-1'])assert.equal(usage.adjustCardUses(id,amount,crypto.randomUUID()).status,400);
+ const h=usage.ensureHifupayCard({id:'subtract-h',lastFour:'1001'},2,1);assert.equal(usage.claimH('subtract-h','pending'),true);
+ assert.equal(usage.adjustCardUses(h,-1,crypto.randomUUID()).status,409);usage.releaseH('subtract-h','pending');assert.equal(usage.adjustCardUses(h,-1,crypto.randomUUID()).data.remainingUses,0);assert.equal(usage.hifupayUsage('subtract-h').hSuccessCount,1);
 });

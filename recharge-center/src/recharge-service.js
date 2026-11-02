@@ -1,3 +1,4 @@
+import {createRecoveryConfirmation} from './recovery-confirmation.js';
 import {isExpiredOrder,housekeepingReason,annotateRepeatedOrders} from './order-housekeeping.js';
 import {paymentCardTrace,readPaymentCardTrace} from './payment-card-trace.js';
 import {createManualPlusService} from './manual-plus.js';
@@ -25,6 +26,7 @@ import {
 } from "./utils.js";
 
 const store = new JsonStore();
+const recoveryConfirmation=createRecoveryConfirmation({store,usage:zzshuService.store,listRecords:()=>rechargeService.listRechargeSubmissions().data.records,listCards:()=>workbenchPaymentCards(store.listHifupayCards(),zzshuService.store.listCards(),0)});
 const manualPlus = createManualPlusService({store,usage:zzshuService.store,listCards:()=>workbenchPaymentCards(store.listHifupayCards(),zzshuService.store.listCards(),0)});
 function submissionJsonRecord(orderId, reveal = false) {
   const { submittedCipher, ...metadata } = zzshuService.store.submissionRecord(orderId, reveal);
@@ -808,8 +810,11 @@ export const rechargeService = {
     });
     const nativeRows=zzshuService.store.listOrders();
     const nativeById=new Map(nativeRows.map(row=>[row.id,row]));
-    const traceNative=row=>row?(readPaymentCardTrace(row.paymentCardSnapshot)||paymentCardTrace({id:row.paymentCardId,credential_ref:row.paymentCredentialRef,lastFour:row.lastFour,source:row.paymentSource,note:row.paymentNote},row.createdAt,true)):null;
-    const traces=row=>nativeRows.filter(item=>item.voucherHash===row.voucherHash).reverse().map(item=>({trace:traceNative(item),orderId:item.id,status:item.status,at:item.createdAt}));
+    const manualUse=row=>{try{return row?.manualPaymentUse?JSON.parse(row.manualPaymentUse):null;}catch{return null;}};
+    const originalTrace=row=>row?(readPaymentCardTrace(row.paymentCardSnapshot)||paymentCardTrace({id:row.paymentCardId,credential_ref:row.paymentCredentialRef,lastFour:row.lastFour,source:row.paymentSource,note:row.paymentNote},row.createdAt,true)):null;
+    const confirmedTrace=use=>use?.cardUid?paymentCardTrace({id:use.cardUid.split(':').slice(1).join(':'),kind:use.cardUid.startsWith('h:')?'h':'manual',lastFour:use.lastFour,source:use.source},use.confirmedAt):null;
+    const traceNative=row=>manualUse(row)?confirmedTrace(manualUse(row)):originalTrace(row);
+    const traces=row=>nativeRows.filter(item=>item.voucherHash===row.voucherHash).reverse().map(item=>({trace:originalTrace(item),orderId:item.id,status:item.status,at:item.createdAt}));
     const primaryRecords = store.listRechargeOrders().map(item => ({
       ...item,
       ...(item.provider === "zzshu" ? { ...submissionJsonRecord(item.upstreamTaskId || ""),
@@ -854,10 +859,9 @@ export const rechargeService = {
     const hCards=new Map(store.read().hifupayCards.map(card=>[card.id,card]));
     const enrich=order=>{
       const native=order.provider==='zzshu'?nativeById.get(order.id)||nativeById.get(order.upstreamTaskId):null;
-      const trace=order.provider==='zzshu'?traceNative(native):readPaymentCardTrace(order.paymentCardSnapshot)||
-        (order.manualPaymentUse?.cardUid?paymentCardTrace({id:order.manualPaymentUse.cardUid.slice(order.manualPaymentUse.cardUid.indexOf(':')+1),kind:order.manualPaymentUse.cardUid.startsWith('h:')?'h':'manual',lastFour:order.manualPaymentUse.lastFour,source:order.manualPaymentUse.source},order.completedAt):null)||
+      const trace=order.provider==='zzshu'?traceNative(native):order.manualPaymentUse?confirmedTrace(order.manualPaymentUse):readPaymentCardTrace(order.paymentCardSnapshot)||
         (order.hifupayCardId?paymentCardTrace({...hCards.get(order.hifupayCardId),id:order.hifupayCardId,kind:'h',lastFour:order.hifupayCardLastFour||hCards.get(order.hifupayCardId)?.lastFour},order.createdAt,true):null);
-      return {...order,paymentCardTrace:trace,paymentCardLastFour:trace?.lastFour||order.paymentCardLastFour||'',
+      return {...order,originalPaymentCardTrace:native?originalTrace(native):readPaymentCardTrace(order.paymentCardSnapshot),...(native&&manualUse(native)?{manualPaymentUse:manualUse(native),needsAttention:false}:{}),paymentCardTrace:trace,paymentCardLastFour:trace?.lastFour||order.paymentCardLastFour||'',
         paymentCardAttempts:native?traces(native):(order.paymentCardAttempts||[]).map(t=>({trace:readPaymentCardTrace(t),at:t.at,orderId:order.id,status:t.status||(t.cardId===trace?.cardId?order.status:'结果未留存')}))};
     };
     const records = annotateRepeatedOrders([...primaryRecords, ...zzshuRecords].map(enrich)
@@ -1091,6 +1095,9 @@ export const rechargeService = {
       }
     };
   },
+
+  getRecoveryConfirmation(orderId){return recoveryConfirmation.options(orderId);},
+  confirmRecoverySuccess(orderId,body){return recoveryConfirmation.confirm(orderId,body);},
 
   markRecoverySuccess(orderId, operator = "admin", message = "人工充值成功，系统已同步完成。") {
     const record = store.getRecoveryOrder(orderId);

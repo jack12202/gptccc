@@ -23,7 +23,7 @@
   function renderPool() {
     if(!state.data)return;const cards=state.data.cards;
     $('poolTabs').innerHTML=tab('pool-filter','all','全部 '+cards.length,state.poolView)+tab('pool-filter','ready','可用 '+cards.filter(c=>c.channels.length).length,state.poolView)+tab('pool-filter','attention','需处理 '+cards.filter(c=>!c.channels.length).length,state.poolView)+tab('pool-filter','frozen','有冻结 '+cards.filter(c=>c.frozen>0).length,state.poolView)+(state.poolView==='current'?tab('pool-filter','current','当前通道',state.poolView):'');
-    $('poolRows').innerHTML=poolRows().map(card=>'<tr><td><input type="checkbox" data-pool-select="'+esc(card.uid)+'" aria-label="选择支付卡 '+esc(card.lastFour)+'" '+(state.poolSelected.has(card.uid)?'checked':'')+'> <strong>•••• '+esc(card.lastFour)+'</strong><div class="small">'+(card.kind==='h'?'嗨付同步':'手动导入')+(card.note?' · '+esc(card.note):'')+'</div></td><td>'+window.paymentCardSourceUI.row(card)+'</td><td>'+card.channels.map(c=>badge('ready',c)).join(' ')+' '+(!card.channels.length?'<span class="small">当前不可轮选</span>':'')+'</td><td class="count"><strong>'+card.remaining+'</strong> / 总 '+card.max+'<div class="small">已用 '+card.used+(card.frozen?' · <span class="frozen">冻结 '+card.frozen+'</span>':'')+'</div></td><td>'+(card.balance==null?'—':'$'+Number(card.balance).toFixed(2))+'</td><td>'+badge(card.state)+(card.paused?'<div class="small">'+esc(card.lastFailure||'请核查后恢复')+'</div>':'')+'</td><td><div class="row-actions">'+button('card-add-one','＋1 次',card.uid,'',!card.usageId||card.max>=100?'disabled':'')+button('card-add','增加…',card.uid,'',!card.usageId||card.max>=100?'disabled':'')+(card.frozen?button('card-release','解锁冻结',card.uid):'')+(card.paused?button('card-resume','恢复暂停',card.uid):'')+button('card-copy-standard','复制标准格式',card.uid)+button('card-detail','管理',card.uid)+'</div></td></tr>').join('')||'<tr><td colspan="7" class="empty">暂无匹配的未停用支付卡，可直接录入新卡。</td></tr>';
+    $('poolRows').innerHTML=poolRows().map(card=>'<tr><td><input type="checkbox" data-pool-select="'+esc(card.uid)+'" aria-label="选择支付卡 '+esc(card.lastFour)+'" '+(state.poolSelected.has(card.uid)?'checked':'')+'> <strong>•••• '+esc(card.lastFour)+'</strong><div class="small">'+(card.kind==='h'?'嗨付同步':'手动导入')+(card.note?' · '+esc(card.note):'')+'</div></td><td>'+window.paymentCardSourceUI.row(card)+'</td><td>'+card.channels.map(c=>badge('ready',c)).join(' ')+' '+(!card.channels.length?'<span class="small">当前不可轮选</span>':'')+'</td><td class="count"><strong>'+card.remaining+'</strong> / 总 '+card.max+'<div class="small">已用 '+card.used+(card.frozen?' · <span class="frozen">冻结 '+card.frozen+'</span>':'')+'</div></td><td>'+(card.balance==null?'—':'$'+Number(card.balance).toFixed(2))+'</td><td>'+badge(card.state)+(card.paused?'<div class="small">'+esc(card.lastFailure||'请核查后恢复')+'</div>':'')+'</td><td><div class="row-actions">'+button('card-subtract-one','−1 次',card.uid,'',!card.usageId||card.remaining<=0||state.busy.has('uses:'+card.uid)?'disabled':'')+button('card-add-one','＋1 次',card.uid,'',!card.usageId||card.max>=100||state.busy.has('uses:'+card.uid)?'disabled':'')+button('card-add','增加…',card.uid,'',!card.usageId||card.max>=100||state.busy.has('uses:'+card.uid)?'disabled':'')+(card.frozen?button('card-release','解锁冻结',card.uid):'')+(card.paused?button('card-resume','恢复暂停',card.uid):'')+button('card-copy-standard','复制标准格式',card.uid)+button('card-detail','管理',card.uid)+'</div></td></tr>').join('')||'<tr><td colspan="7" class="empty">暂无匹配的未停用支付卡，可直接录入新卡。</td></tr>';
     $('poolSelected').textContent='已选 '+state.poolSelected.size+' 张';
   }
   function orderActions(order,detail=false) {
@@ -48,7 +48,7 @@
       if(['failed','needs_review'].includes(order.status))html+=button('legacy-success','确认充值成功',id);
       if(order.needsAttention)html+=button('legacy-subscription','标记续费已处理',id);
     }
-    return (detail?'':button('order-detail','详情 / 处理',id))+html;
+    return (detail?'':button('order-detail','处理',id))+html;
   }
   function pager(id,page,section) { $(id).innerHTML=button(section+'-prev','上一页','','',page.page<=1?'disabled':'')+'<span>'+page.matched+' / '+page.total+' 条 · 第 '+page.page+' / '+page.pages+' 页</span>'+button(section+'-next','下一页','','',page.page>=page.pages?'disabled':''); }
   function renderOrders() {
@@ -119,13 +119,16 @@
   }
   const field = (label,name,value='',type='text',attrs='') => '<label>'+label+'<input name="'+name+'" type="'+type+'" value="'+esc(value)+'" '+attrs+'></label>';
   const noteField = (name='note',text='补充备注（选填）',initial='') => '<label>'+text+'<textarea name="'+name+'" maxlength="1000">'+esc(initial)+'</textarea></label>';
-  function openDetail(title,body) { $('detailMessage').textContent='';$('detailTitle').textContent=title;$('detailBody').innerHTML=body;if(!$('detailDialog').open)$('detailDialog').showModal(); }
+  function openDetail(title,body) { $('detailDialog').classList.toggle('compact-order',title==='订单处理');$('detailMessage').textContent='';$('detailTitle').textContent=title;$('detailBody').innerHTML=body;if(!$('detailDialog').open)$('detailDialog').showModal(); }
   async function addUses(card,amount) {
-    if(!Number.isInteger(amount)||amount<1)throw Error('请输入要增加的整数次数。');
-    let request=state.requests.get(card.uid);if(!request||request.amount!==amount){request={amount,requestId:crypto.randomUUID()};state.requests.set(card.uid,request);}
-    const result=await post('/api/admin/zzshu/cards/'+encodeURIComponent(card.usageId)+'/add-uses',request);state.requests.delete(card.uid);return result;
+    if(!Number.isInteger(amount)||amount===0)throw Error('请输入非零整数次数。');
+    const key='uses:'+card.uid;if(state.busy.has(key))return null;state.busy.add(key);renderPool();
+    try{
+      let request=state.requests.get(card.uid);if(!request||request.amount!==amount){request={amount,requestId:crypto.randomUUID()};state.requests.set(card.uid,request);}
+      const result=await post('/api/admin/zzshu/cards/'+encodeURIComponent(card.usageId)+(amount<0?'/adjust-uses':'/add-uses'),request);state.requests.delete(card.uid);return result;
+    }finally{state.busy.delete(key);renderPool();}
   }
-  async function cardAdd(card,one=false) { const input=one?{amount:1}:await modal('增加剩余次数','尾号 '+card.lastFour+'：剩余 '+card.remaining+' 次，填写额外增加的次数。',field('增加次数','amount',1,'number','min="1" max="'+Math.max(1,100-card.max)+'" required'));if(!input)return;await addUses(card,Number(input.amount));await saved('尾号 '+card.lastFour+'：剩余次数已增加 '+input.amount+' 次。'); }
+  async function cardAdd(card,one=false) { const input=one?{amount:1}:await modal('增加剩余次数','尾号 '+card.lastFour+'：剩余 '+card.remaining+' 次，填写额外增加的次数。',field('增加次数','amount',1,'number','min="1" max="'+Math.max(1,100-card.max)+'" required'));if(!input)return;const result=await addUses(card,Number(input.amount));if(result)await saved('尾号 '+card.lastFour+'：剩余次数已增加 '+input.amount+' 次。'); }
   async function releaseCard(card) {
     if(!card.frozenOrders?.length)throw Error('未找到关联冻结订单，请刷新后到充值订单核查。');
     const input=await modal('解锁冻结','选择已核实未扣款的订单，本次恢复 1 次。总次数保持不变。',
@@ -171,7 +174,10 @@
       const card=state.data.cards.find(c=>c.kind==='h'&&c.id===order.hifupayCardId);
       if(card?.frozenOrders?.some(o=>o.orderId===id))body+='<div class="actions">'+button('card-release','解锁支付卡冻结',card.uid)+'</div>';
     }
-    openDetail('订单详情',body);const details=$('responseDetails');if(details)details.ontoggle=()=>{if(details.open&&!details.dataset.loaded)loadResponses(id).catch(error=>notify(error.message,true));};
+    if(!isPro)body='<div id="quickRecoveryHome"></div><details class="recovery-advanced"><summary>高级详情与排查</summary>'+body+'</details>';
+    openDetail('订单处理',body);
+    if(!isPro)window.recoveryConfirmationUI.mount($('quickRecoveryHome'),order,{onSaved:async()=>{await saved('已确认充值成功。');await openOrder(id);}});
+    const details=$('responseDetails');if(details)details.ontoggle=()=>{if(details.open&&!details.dataset.loaded)loadResponses(id).catch(error=>notify(error.message,true));};
   }
   const histories=new Map();
   async function loadResponses(id,older=false) {
@@ -303,6 +309,7 @@
     if(action==='pool-clear'){state.poolSelected.clear();renderPool();return;}
     if(action.startsWith('pool-bulk-')){await bulkPool(action);return;}
     if(action==='sync-h'){await api('/api/admin/hifupay/cards?refresh=1');await saved('嗨付卡片已同步。');return;}
+    if(action==='card-subtract-one'){if(!card)throw Error('支付卡状态已变化，请刷新。');const result=await addUses(card,-1);if(result)await saved('尾号 '+card.lastFour+'：当前可用次数已减少 1 次。');return;}
     if(action==='card-add-one'||action==='card-add'){if(!card)throw Error('支付卡状态已变化，请刷新。');await cardAdd(card,action==='card-add-one');return;}
     if(action==='card-release'){if(!card)throw Error('支付卡状态已变化，请刷新。');await releaseCard(card);return;}
     if(action==='card-copy-standard'){if(!card)throw Error('支付卡状态已变化，请刷新。');const result=await post('/api/admin/payment-cards/'+card.kind+'/'+encodeURIComponent(card.id)+'/copy-standard');await copy(result.text);return;}

@@ -47,7 +47,7 @@ try {
     const hasChannelCredentialInputs = page === "/admin" && html.includes('id="hifupayKey" type="password"') && html.includes('id="zzshuKey" type="password"') && html.includes('/admin/cards/workbench-settings.js');
     assert.ok(html.includes('/admin/session.js') && (!html.includes('type="password"') || hasChannelCredentialInputs), `${page} still contains legacy authentication`);
   }
-  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js","payment-card-formatter.js","payment-card-input.js","card-inventory.js","card-download-names.js","payment-card-trace-ui.js"]) {
+  for (const asset of ["workbench.js","workbench-settings.js","payment-card-source-ui.js","payment-card-formatter.js","payment-card-input.js","card-inventory.js","card-download-names.js","payment-card-trace-ui.js","recovery-confirmation-ui.js"]) {
     const response = await call("/admin/cards/" + asset, {headers:{Cookie:cookie}});
     assert.equal(response.status,200,"Workbench asset must be available behind the shared session");
     assert.match(response.headers.get("content-type") || "", /javascript/);
@@ -58,7 +58,7 @@ try {
   assert.equal((home.match(/class="workspace-tile"/g)||[]).length,4,"Four workspace quadrant tiles missing");
   assert.ok(home.includes('id="workspaceDetails" hidden'),"Workspace detail must initially be collapsed");
   const recoveryPage=await call('/admin/recoveries',{headers:{Cookie:cookie}}).then(response=>response.text());
-  assert.ok(['orderDrawer','manualOrderDialog','nextPendingOrder','chooseManualOrder','/api/admin/plus/orders/'].every(text=>recoveryPage.includes(text)),"Inline manual-order drawer missing");
+  assert.ok(['orderDrawer','manualOrderDialog','nextPendingOrder','quickRecovery','高级详情与排查','/admin/cards/recovery-confirmation-ui.js'].every(text=>recoveryPage.includes(text)),"Inline manual-order drawer missing");
   for (const page of ['/admin','/admin/cards','/admin/cards/generate','/admin/cards/library']) {
     const html=await call(page,{headers:{Cookie:cookie}}).then(response=>response.text());
     assert.ok(html.includes('/admin/cards/card-download-names.js'),'Shared download naming missing on '+page);
