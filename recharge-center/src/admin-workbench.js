@@ -1,9 +1,10 @@
+import {annotateRepeatedOrders} from './order-housekeeping.js';
 import { paymentCardOrigin } from './payment-card-source.js';
 const shanghaiDate = date => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(date));
 const value = input => String(input || '').trim().toLowerCase();
 const matches = (parts, query) => !query || parts.some(part => value(part).includes(query));
-export const needsWorkbenchAttention = order => !order.workbenchHandledAt && (['needs_review','manual_queued','manual_processing','needs_info'].includes(order.status) ||
-  Boolean(order.needsAttention) || order.status === 'failed' && (order.useResolution === 'frozen' || !order.retryAllowed && !String(order.hifupaySafetyStatus || '').startsWith('released_unpaid')));
+export const needsWorkbenchAttention = order => !order.workbenchHandledAt && !order.supersededBy && (['needs_review','manual_queued','manual_processing','needs_info'].includes(order.status) ||
+  Boolean(order.needsAttention) || order.status === 'failed' && !['released','consumed'].includes(order.useResolution) && (order.useResolution === 'frozen' || !order.retryAllowed && !String(order.hifupaySafetyStatus || '').startsWith('released_unpaid')));
 
 export function workbenchPaymentCards(hifupay, usageCards, chargeThreshold = 16) {
   const shared = new Map(usageCards.filter(card => card.credentialSource === 'hifupay').map(card => [card.hifupayId,card]));
@@ -38,11 +39,12 @@ function pageRows(rows, input, size) {
   return {items:rows.slice((page-1)*size,page*size),matched:rows.length,page,pages,pageSize:size};
 }
 export function buildWorkbench({hifupay,usageCards,customerCards,records,plusProvider,chargeThreshold}, query = {}) {
+  records=annotateRepeatedOrders(records);
   const selectedChannel = plusProvider === 'zzshu' ? 'ZZS' : '嗨付';
   const cards = workbenchPaymentCards(hifupay,usageCards,chargeThreshold).map(card=>({...card,selectable:card.channels.includes(selectedChannel)}));
   const orderSearch = value(query.orderSearch).slice(0,200),voucherSearch = value(query.voucherSearch).slice(0,200);
   const today = shanghaiDate(new Date());
-  const visibleRecords = records.filter(order=>!order.workbenchHandledAt);
+  const visibleRecords = records.filter(order=>!order.workbenchHandledAt&&!order.supersededBy);
   const filteredOrders = visibleRecords.filter(order =>
     (query.orderView !== 'attention' || needsWorkbenchAttention(order)) &&
     (query.orderView !== 'today-success' || order.status === 'success' && order.createdAt && shanghaiDate(order.createdAt) === today) &&

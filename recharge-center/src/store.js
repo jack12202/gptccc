@@ -286,10 +286,22 @@ export class JsonStore {
     return this.read().orders.find(order => order.submissionCodeHash === hash && !["failed", "cancelled"].includes(order.status)) || null;
   }
 
+  archiveWorkbenchOrders(ids,reason,at=new Date().toISOString()) {
+    const state=this.read(),archived=[];
+    for(const order of state.orders){
+      if(!ids.includes(order.id)||order.workbenchHandledAt||order.status==='success')continue;
+      const archiveReason=typeof reason==='object'?reason[order.id]:reason;
+      Object.assign(order,{workbenchOriginalStatus:order.status,workbenchHandledAt:at,workbenchHandledReason:archiveReason});
+      archived.push(order.id);
+    }
+    if(archived.length)this.write(state);
+    return archived;
+  }
   updateOrder(orderId, patch) {
     const state = this.read();
     const order = state.orders.find((item) => item.id === orderId);
     if (!order) return null;
+    if (order.workbenchHandledAt) return order;
     if (patch.status === "success" && order.status !== "success") patch = { ...patch, completedAt: order.completedAt || (Object.hasOwn(patch, "completedAt") ? patch.completedAt : patch.manualCompletedAt || nowIso()) };
     Object.assign(order, patch, { updatedAt: nowIso() });
     this.write(state);
@@ -665,7 +677,7 @@ export class JsonStore {
     const state = this.read();
     const card = state.hCards.find(item => item.codeHash === cardCodeHash(String(code).trim().toUpperCase()));
     if (!card?.unified || card.routedProvider !== "zzshu" || !voucher) return false;
-    const next = voucher.status === "used" ? "used" : ["reserved", "frozen"].includes(voucher.status) ? "locked" : "unused";
+    const next = voucher.status === "used" ? "used" : ["reserved", "frozen", "closed"].includes(voucher.status) ? "locked" : "unused";
     if (card.status === next && card.orderId === (voucher.orderId || "")) return true;
     card.status = next;
     card.orderId = voucher.orderId || "";
@@ -1154,6 +1166,7 @@ export class JsonStore {
     const card = state.hifupayCards.find(item => item.id === hifupayCardId(cardId));
     if (!card) return { ok: false, status: "not_found", message: "嗨付卡片不在本地卡池中。" };
     const traceOrder=state.orders.find(item=>item.id===orderId);
+    if(traceOrder?.workbenchHandledAt)return {ok:false,status:'closed',message:'订单已结案'};
     for(const attempt of traceOrder?.paymentCardAttempts||[])if(attempt.cardId===card.id){attempt.status=paymentConfirmed?'success':status||'待核查';attempt.resultAt=nowIso();}
     if (!Array.isArray(card.inFlightOrders)) card.inFlightOrders = [];
     if (!Array.isArray(card.plusUsers)) card.plusUsers = [];
@@ -1391,6 +1404,7 @@ export class JsonStore {
   }
 
   completeHCard(cardId, orderId) {
+    if(this.getOrder(orderId)?.workbenchHandledAt)return {ok:false,status:'closed'};
     return this.transitionHCard(cardId, orderId, "used", { usedAt: nowIso() });
   }
 
@@ -1535,6 +1549,7 @@ export class JsonStore {
           || (storedCode ? cardsByHash.get(cardCodeHash(storedCode.trim().toUpperCase())) : null);
         return {
           id: order.id,
+          workbenchOriginalStatus:order.workbenchOriginalStatus||'',workbenchHandledAt:order.workbenchHandledAt||'',workbenchHandledReason:order.workbenchHandledReason||'',
           provider: order.provider,
           submissionCodeHash: order.submissionCodeHash || "",
           hCardId: customerCard?.id || order.hCardId || "",

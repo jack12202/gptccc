@@ -27,15 +27,15 @@ export function createProService({ store = new JsonStore(), adapter = hifupayAda
     subscriptionCancellationStatus: order.subscriptionCancellationStatus || "not_started",
     subscriptionActionRequired: order.subscriptionCancellationStatus === "failed",
     subscriptionActionMessage: order.subscriptionCancellationStatus === "failed" ? "充值成功，但自动续费未关闭，请手动关闭。" : "",
-    message: publicMessage[order.status] || publicMessage.needs_review });
+    message: order.workbenchHandledAt?'该订单已结案，如需帮助请联系客服。':publicMessage[order.status] || publicMessage.needs_review });
 
   async function refresh(orderId) {
     const order = readOrder(orderId);
-    if (!isPro(order) || !order.upstreamTaskId || (order.status === "success" && order.subscriptionCancellationStatus !== "pending")) return order;
+    if (!isPro(order) || order.workbenchHandledAt || !order.upstreamTaskId || (order.status === "success" && order.subscriptionCancellationStatus !== "pending")) return order;
     let result;
     try { result = await adapter.queryTaskStatus({ taskId: order.upstreamTaskId }); }
     catch { return order; }
-    if (!result.ok) return order;
+    if (!result.ok || readOrder(orderId)?.workbenchHandledAt) return readOrder(orderId);
     const data = result.data || {};
     const payment = data.raw?.paymentConfirmed === true;
     const nextStatus = payment || order.paymentConfirmed === true ? "success" :
@@ -203,7 +203,7 @@ export function createProService({ store = new JsonStore(), adapter = hifupayAda
         store.addLog({ orderId: order.id, step: "pro.restart.ambiguous", requestSummary: "", responseSummary: "reservation_retained" });
       }
     },
-    async reconcile() { for (const order of store.listProOrders()) if (order.upstreamTaskId && (order.status !== "success" || order.subscriptionCancellationStatus === "pending")) await refresh(order.id); await drain(); }
+    async reconcile() { for (const order of store.listProOrders()) if (!order.workbenchHandledAt && order.upstreamTaskId && (order.status !== "success" || order.subscriptionCancellationStatus === "pending")) await refresh(order.id); await drain(); }
   };
 }
 

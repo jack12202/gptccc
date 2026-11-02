@@ -118,7 +118,7 @@ try {
   });
   assert.equal(previewResponse.status,200,"Sky preview endpoint unavailable");
   const preview=(await previewResponse.json()).data;
-  assert.ok(preview?.length===1 && ["ready","duplicate","restore","pending"].includes(preview[0].status),"Sky format preview failed");
+  assert.ok(preview?.length===1 && ["ready","update","duplicate"].includes(preview[0].status),"Sky format preview failed");
   assert.ok(!JSON.stringify(preview).includes("4242424242424242") && !JSON.stringify(preview).includes("321"),"Payment preview leaked credentials");
   const dashResponse=await call("/api/admin/zzshu/preview", {
     method:"POST",headers:{"Content-Type":"application/json",Cookie:cookie,Origin:base,"X-CSRF-Token":csrf},
@@ -126,7 +126,7 @@ try {
   });
   assert.equal(dashResponse.status,200,"ZZS four-hyphen preview unavailable");
   const dashPreview=(await dashResponse.json()).data;
-  assert.ok(dashPreview?.length===1 && ["ready","duplicate","restore","pending"].includes(dashPreview[0].status),"ZZS four-hyphen format rejected");
+  assert.ok(dashPreview?.length===1 && ["ready","update","duplicate"].includes(dashPreview[0].status),"ZZS four-hyphen format rejected");
   assert.ok(!JSON.stringify(dashPreview).includes("4242424242424242") && !JSON.stringify(dashPreview).includes("096"),"Four-hyphen preview leaked credentials");
   console.log("Payment format output panels, shared parser and four-hyphen masked preview verified.");
   console.log("Payment card origin columns and Sky format masked preview verified without importing cards.");

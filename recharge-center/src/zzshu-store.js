@@ -10,6 +10,7 @@ export class ZzshuStore {
   constructor(file = config.zzshuDbFile) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     this.db = new DatabaseSync(file);
+    this.resettingCards=new Map();
     this.db.exec("PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON");
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS payment_cards (id TEXT PRIMARY KEY, fingerprint TEXT UNIQUE NOT NULL, last_four TEXT NOT NULL,
@@ -75,6 +76,9 @@ export class ZzshuStore {
     if (!this.db.prepare("PRAGMA table_info(orders)").all().some(column => column.name === "auto_query"))
       this.db.exec("ALTER TABLE orders ADD COLUMN auto_query INTEGER NOT NULL DEFAULT 1");
     for (const [name, definition] of Object.entries({
+      workbench_original_status: "TEXT NOT NULL DEFAULT ''",
+      workbench_handled_at: "TEXT NOT NULL DEFAULT ''",
+      workbench_handled_reason: "TEXT NOT NULL DEFAULT ''",
       payment_card_snapshot: "TEXT",
       completed_at: "TEXT NOT NULL DEFAULT ''",
       submitted_session_cipher: "TEXT",
@@ -189,18 +193,43 @@ export class ZzshuStore {
       (SELECT COUNT(*) FROM orders WHERE card_id=payment_cards.id AND status IN ('reserved','submitting','processing','needs_review')) AS pending
       FROM payment_cards WHERE fingerprint=? AND credential_ref NOT LIKE 'hifupay:%'`).get(fingerprint) || null;
   }
-  restorePaymentCard(row, options) {
-    return this.transaction(() => {
-      const card = this.paymentCardByFingerprint(row.fingerprint);
-      if (!card || card.enabled && !card.retiredAt) return { ok: false, reason: "duplicate" };
-      if (card.pending) return { ok: false, reason: "pending" };
-      this.db.prepare(`UPDATE payment_cards SET last_four=?,credential_ref=?,payment_cipher=?,source=?,note=?,enabled=?,paused=0,failures=0,retired_at=NULL
-        WHERE id=?`).run(row.masked.slice(-4),options.credentialRef,options.paymentCipher,
-        options.source,options.note,options.enabled ? 1 : 0,card.id);
-      this.audit("card:"+card.id,"manual_card_restored","管理员通过重新导入恢复卡片；历史使用次数和订单记录保留");
-      return { ok: true };
+  closeOrderUncommitted(id, reason, at = new Date().toISOString()) {
+    const order=this.order(id);
+    if(!order || order.status==='success')return false;
+    if(order.use_resolution==='frozen')this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
+    this.db.prepare("UPDATE orders SET workbench_original_status=status,status='failed',use_resolution='released',auto_query=0,admin_frozen=0,retry_allowed=0,workbench_handled_at=?,workbench_handled_reason=?,updated_at=? WHERE id=?").run(at,reason,at,id);
+    // A closed attempt must never unlock a voucher that already belongs to a later attempt.
+    this.db.prepare("UPDATE vouchers SET status='closed' WHERE id=? AND order_id=? AND status!='used'").run(order.voucher_id,id);
+    this.audit(id,'local_order_closed',reason);
+    return true;
+  }
+  archiveOrders(ids,reason,at=new Date().toISOString()) {
+    return this.transaction(()=>{
+      const archived=[];
+      for(const id of ids){
+        const changed=this.db.prepare("UPDATE orders SET workbench_original_status=status,workbench_handled_at=?,workbench_handled_reason=?,auto_query=0 WHERE id=? AND workbench_handled_at=''").run(at,reason,id).changes;
+        if(changed){this.audit(id,'workbench_order_archived',reason);archived.push(id);}
+      }
+      return archived;
     });
   }
+  closeOrders(ids, reason, at = new Date().toISOString()) {
+    return this.transaction(()=>ids.filter(id=>this.closeOrderUncommitted(id,reason,at)));
+  }
+  resetPaymentCard(row, options) {
+    return this.transaction(() => {
+      const card=this.paymentCardByFingerprint(row.fingerprint);
+      if(!card){this.addPaymentCard(row,options);return {ok:true,created:true,remainingUses:options.maxSuccess};}
+      const reason='重新导入设置当前可用次数，旧任务本地结案；历史记录和 JSON 保留';
+      const orders=this.db.prepare("SELECT id FROM orders WHERE card_id=? AND status!='success' AND (workbench_handled_at='' OR use_resolution='frozen' OR status IN ('reserved','submitting','processing','needs_review')) ").all(card.id);
+      const closedOrderIds=orders.filter(order=>this.closeOrderUncommitted(order.id,reason)).map(order=>order.id);
+      this.db.prepare(`UPDATE payment_cards SET last_four=?,credential_ref=?,payment_cipher=?,source=?,note=?,enabled=?,paused=0,failures=0,last_failure='',retired_at=NULL,frozen_count=0,
+        max_success=success_count+h_success_count+? WHERE id=?`).run(row.masked.slice(-4),options.credentialRef,options.paymentCipher,options.source,options.note,options.enabled?1:0,options.maxSuccess,card.id);
+      this.audit('card:'+card.id,'manual_card_reset',JSON.stringify({remainingUses:options.maxSuccess,closedOrderIds}));
+      return {ok:true,created:false,remainingUses:options.maxSuccess,closedOrderIds};
+    });
+  }
+  restorePaymentCard(row, options) { return this.resetPaymentCard(row,options); }
   paymentCipher(ref) {
     return this.db.prepare("SELECT payment_cipher AS cipher FROM payment_cards WHERE credential_ref=? AND retired_at IS NULL").get(ref)?.cipher || "";
   }
@@ -372,8 +401,8 @@ export class ZzshuStore {
         (SELECT 1 FROM h_card_claims WHERE hifupay_id=substr(payment_cards.credential_ref,9)))
       AND NOT EXISTS (SELECT 1 FROM orders WHERE card_id=payment_cards.id AND (status IN ('reserved','submitting','processing') OR (admin_frozen=1 AND status='needs_review')))
       ORDER BY CASE WHEN success_count+h_success_count>0 THEN 0 ELSE 1 END,success_count+h_success_count DESC,created_at,id`).all();
-    return candidates.find(item => item.credential_ref.startsWith("hifupay:")
-      ? allowedHifupayIds?.has(item.credential_ref.slice(8)) : allowManual);
+    return candidates.find(item => !this.resettingCards.has(item.id) && (item.credential_ref.startsWith("hifupay:")
+      ? allowedHifupayIds?.has(item.credential_ref.slice(8)) : allowManual));
   }
   manualCandidate() { return this.selectCandidate(null, true); }
   boundIdentity(code) {
@@ -458,7 +487,7 @@ export class ZzshuStore {
   }
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
   listOrders() { return this.db.prepare(`SELECT o.id,o.card_id AS paymentCardId,o.payment_card_snapshot AS paymentCardSnapshot,c.credential_ref AS paymentCredentialRef,c.source AS paymentSource,c.note AS paymentNote,o.email,o.account_id AS accountId,o.status,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
-    o.review_reason AS reviewReason,o.failure_kind AS failureKind,o.retry_allowed AS retryAllowed,o.admin_frozen AS adminFrozen,o.cancellation,o.auto_query AS autoQuery,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,
+    o.workbench_original_status AS workbenchOriginalStatus,o.workbench_handled_at AS workbenchHandledAt,o.workbench_handled_reason AS workbenchHandledReason,o.review_reason AS reviewReason,o.failure_kind AS failureKind,o.retry_allowed AS retryAllowed,o.admin_frozen AS adminFrozen,o.cancellation,o.auto_query AS autoQuery,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,
     o.last_check_at AS lastCheckAt,o.last_check_result AS lastCheckResult,
     o.last_check_http_status AS lastCheckHttpStatus,o.last_check_code AS lastCheckCode,c.last_four AS lastFour,
     v.code_hash AS voucherHash,v.code_cipher AS voucherCipher,v.source AS voucherSource,o.created_at AS createdAt,o.updated_at AS updatedAt
@@ -550,7 +579,7 @@ export class ZzshuStore {
   }
   review(id, reason) { return this.transaction(() => {
     const order = this.order(id);
-    if (!order || ['success','failed'].includes(order.status)) return false;
+    if (!order || order.workbench_handled_at || ['success','failed'].includes(order.status)) return false;
     if (order.status !== 'needs_review') {
       this.db.prepare("UPDATE payment_cards SET frozen_count=frozen_count+1 WHERE id=?").run(order.card_id);
       this.db.prepare("UPDATE orders SET use_resolution='frozen' WHERE id=?").run(id);
@@ -588,6 +617,7 @@ export class ZzshuStore {
   }
   settleUncommitted(id, state, cancellation = "unconfirmed") {
       const order = this.order(id);
+      if(order?.workbench_handled_at)return false;
       if (!order || order.status === "success" || order.status === "failed") {
         if (order?.status === "success" && cancellation === "cancelled") this.db.prepare("UPDATE orders SET cancellation='cancelled',updated_at=? WHERE id=?").run(new Date().toISOString(),id);
         return false;
@@ -624,7 +654,7 @@ export class ZzshuStore {
     if (!['success','unlock','freeze'].includes(outcome) || !evidence?.reason) return false;
     return this.transaction(() => {
       const order = this.order(id);
-      if (!order || !['processing','needs_review','failed'].includes(order.status)) return false;
+      if (!order || (order.workbench_handled_at && outcome!=='unlock') || !['processing','needs_review','failed'].includes(order.status)) return false;
       if (order.status === 'processing' && !order.upstream_card_key || outcome === 'unlock' && order.use_resolution === 'consumed') return false;
       const voucher = this.voucherForOrder(id);
       if (!voucher || voucher.status === 'used' || voucher.order_id && voucher.order_id !== id) return false;
@@ -645,7 +675,7 @@ export class ZzshuStore {
         } else this.settleUncommitted(id,outcome === 'success' ? 'success' : 'failed');
         if (outcome === 'unlock') {
           // settle() freezes the uncertain payment use; explicit unpaid evidence releases it atomically.
-          if (order.status !== 'failed') this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
+          if (order.status !== 'failed' && (!order.workbench_handled_at || order.use_resolution==='frozen')) this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
           this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL WHERE id=?").run(order.voucher_id);
         }
         this.db.prepare("UPDATE orders SET status=?,use_resolution=?,admin_frozen=0,retry_allowed=?,failure_kind=?,review_reason=?,updated_at=? WHERE id=?")

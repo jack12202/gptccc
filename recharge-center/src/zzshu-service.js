@@ -13,6 +13,11 @@ import { classifyCreation, issueMessage } from "./zzshu-recovery.js";
 const store = sharedZzshuStore;
 const hifupayStore = new JsonStore();
 let unifiedRecovered = false;
+// Keep local re-import/housekeeping out of active network requests. Late responses are also guarded by terminal order state.
+const activeRequests=new Map();
+function beginRequest(id){let finish;const done=new Promise(resolve=>{finish=resolve;});const requests=activeRequests.get(id)||new Set();requests.add(done);activeRequests.set(id,requests);return ()=>{requests.delete(done);if(!requests.size)activeRequests.delete(id);finish();};}
+async function waitForCardRequests(cardId){for(;;){const pending=[...activeRequests].filter(([id])=>store.order(id)?.card_id===cardId).flatMap(([,requests])=>[...requests]);if(!pending.length)return;await Promise.all(pending);}}
+
 const codePattern = /^(?:ZZPLUS|HPLUS)[0-9A-F]{32}$/;
 const cleanCode = value => {
   const raw = String(value || "").trim();
@@ -44,7 +49,7 @@ function safeOrder(order) {
     boundAccount: order.email ? `${order.email.slice(0,1)}***@${order.email.split('@')[1]}` : '',
     plan: 'plus', completedAt: order.status === 'success' ? order.completed_at || '' : '',
     canRetry, actionRequired: canRetry && ['token_expired','session_invalid'].includes(order.failure_kind) ? 'update_session' : canRetry ? 'retry' : 'wait',
-    message: queued ? '已提交，排队处理中，请勿重复提交' : order.status === 'success' ? '充值成功。' : canRetry ? issueMessage(order.failure_kind) :
+    message: order.workbench_handled_at ? '该订单已结案，如需帮助请联系客服。' : queued ? '已提交，排队处理中，请勿重复提交' : order.status === 'success' ? '充值成功。' : canRetry ? issueMessage(order.failure_kind) :
       order.status === 'needs_review' || order.status === 'failed' ? '充值结果正在核查，请暂时不要重复提交。' : '正在处理，请稍后查看结果，暂时不要重复提交。',
     subscriptionCancellationStatus: order.cancellation };
 }
@@ -135,18 +140,10 @@ export const zzshuService = {
       return {ok:false,status:503,message:"完整支付卡资料暂时无法读取，或资料已过期。请核查卡片资料后重试。"};
     }
   },
+  activeOrderIds() {return new Set(activeRequests.keys());},
   preview(text) {
-    const parsedRows = parsePaymentCards(text);
-    return publicPreview(parsePaymentCards(text, store.hashes())).map(row => {
-      if (row.status !== "duplicate") return row;
-      const parsed = parsedRows.find(item => item.line === row.line);
-      const existing = parsed?.fingerprint ? store.paymentCardByFingerprint(parsed.fingerprint) : null;
-      if (existing && (!existing.enabled || existing.paused || existing.retiredAt)) return {
-        ...row, status: existing.pending ? "pending" : "restore",
-        error: existing.pending ? "该卡仍有关联的未完成订单，需先核查订单" : "已存在的停用卡，导入时将恢复并保留历史次数"
-      };
-      return row;
-    });
+    return publicPreview(parsePaymentCards(text).map(row=>row.status==='ready' && store.paymentCardByFingerprint(row.fingerprint)
+      ? {...row,status:'update',error:'已存在，导入后按本次次数设置，旧冻结和待办自动结案'}:row));
   },
   importStatus() {
     return config.recoveryEncryptionKey
@@ -189,28 +186,22 @@ export const zzshuService = {
     if (!config.recoveryEncryptionKey) return { ok: false, message: "运行时加密密钥未配置" };
     if (!String(source || "").trim()) return { ok: false, message: "请填写支付卡来源" };
     const limit = Number(maxSuccess);
-    if (!Number.isInteger(limit) || limit < 1 || limit > 100) return { ok: false, message: "总可用次数应为 1–100" };
-    const rows = parsePaymentCards(text, store.hashes());
-    const parsedRows = parsePaymentCards(text);
-    for (const row of rows.filter(item => item.status === "duplicate")) {
-      const parsed = parsedRows.find(item => item.line === row.line);
-      const existing = parsed?.fingerprint ? store.paymentCardByFingerprint(parsed.fingerprint) : null;
-      if (parsed?.status === "ready" && existing && (!existing.enabled || existing.paused || existing.retiredAt)) {
-        Object.assign(row, parsed, { status: existing.pending ? "pending" : "restore" });
-      }
-    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) return { ok: false, message: "本次设置可用次数应为 1–100" };
+    const rows = parsePaymentCards(text);
     if (rows.length > 100 || !rows.length) return { ok: false, message: "每批 1–100 行" };
     const result = publicPreview(rows);
-    for (const row of rows.filter(item => ["ready", "restore"].includes(item.status))) {
-      try {
-        const paymentCipher = encryptSecretText(JSON.stringify(row.payment), config.recoveryEncryptionKey, "zzshu-payment-card");
-        const cardOptions = { credentialRef: `local:${row.fingerprint}`, paymentCipher, source: paymentCardSource(source),
-          note: String(note).slice(0, 200), enabled, maxSuccess: limit };
-        const restored = row.status === "restore" ? store.restorePaymentCard(row, cardOptions) : null;
-        const added = row.status === "ready" ? store.addPaymentCard(row, cardOptions) : false;
-        result[row.line - 1] = { line: row.line, masked: row.masked,
-          status: restored?.ok ? "restored" : restored?.reason === "pending" ? "pending" : added ? "imported" : "duplicate" };
-      } catch { result[row.line - 1] = { line: row.line, status: "error", masked: row.masked, error: "此行保存失败，未导入" }; }
+    for(const row of rows.filter(item=>item.status==='ready')){
+      const existing=store.paymentCardByFingerprint(row.fingerprint);
+      if(existing)store.resettingCards.set(existing.id,(store.resettingCards.get(existing.id)||0)+1);
+      try{
+        if(existing)await waitForCardRequests(existing.id);
+        const saved=store.resetPaymentCard(row,{credentialRef:`local:${row.fingerprint}`,
+          paymentCipher:encryptSecretText(JSON.stringify(row.payment),config.recoveryEncryptionKey,'zzshu-payment-card'),
+          source:paymentCardSource(source),note:String(note).slice(0,200),enabled,maxSuccess:limit});
+        for(const id of saved.closedOrderIds||[])this.syncUnifiedOrder(id);
+        result[row.line-1]={line:row.line,masked:row.masked,status:saved.created?'imported':'updated',remainingUses:limit};
+      }catch{result[row.line-1]={line:row.line,masked:row.masked,status:'error',error:'此行保存失败，未修改次数'};}
+      finally{if(existing){const count=store.resettingCards.get(existing.id)-1;if(count)store.resettingCards.set(existing.id,count);else store.resettingCards.delete(existing.id);}}
     }
     return { ok: true, rows: result };
   },
@@ -351,6 +342,8 @@ export const zzshuService = {
     if (!reservation.ok) return reservation.orderId ? { ok: true, status: 200, data: safeOrder(store.order(reservation.orderId)) } :
       (/暂无可用支付卡|通道处理量已满/.test(reservation.reason) ? queue(reservation.reason) : reject(409, reservation.reason, `订单预留拒绝：${reservation.reason}`));
     const id = reservation.orderId;
+    const finishRequest=beginRequest(id);
+    try {
     let payment;
     try {
       payment = reservation.credentialRef.startsWith("hifupay:")
@@ -388,6 +381,7 @@ export const zzshuService = {
       store.review(id,`创建响应未能确认订单（HTTP ${created.status}, code ${created.code ?? "?"}）；不得自动重试`);
     }
     return { ok: true, status: 200, data: safeOrder(store.order(id)) };
+    } finally { finishRequest(); }
     } finally {
       if (/^HPLUS[0-9A-F]{32}$/.test(code)) {
         const voucher = store.voucher(code);
@@ -401,8 +395,9 @@ export const zzshuService = {
     const order = store.order(id);
     if (!order) return { ok: false, status: 404, message: "订单不存在" };
     this.syncUnifiedOrder(id);
-    if (!order.auto_query || !order.upstream_card_key || order.status === "failed" || order.status === "success" && order.cancellation === "cancelled")
+    if (order.workbench_handled_at || !order.auto_query || !order.upstream_card_key || order.status === "failed" || order.status === "success" && order.cancellation === "cancelled")
       return { ok: true, status: 200, data: safeOrder(order) };
+    const finishRequest=beginRequest(id);
     try {
       const result = await zzshuAdapter.status(order.upstream_card_key, response => store.recordResponse(id, "status", response));
       if (!result.ok || !result.data) {
@@ -422,7 +417,7 @@ export const zzshuService = {
       if (!order.admin_frozen && data.status === "verification_required") store.review(id,"支付需要银行卡持有人验证");
       else if (!order.admin_frozen && ["needs_review","unknown"].includes(data.status)) store.review(id,`上游状态需核查：${data.upstreamStatus || "unknown"}`);
       store.markChecked(id, true, { result: data.paid ? "paid" : data.unpaid ? "unpaid" : data.status, httpStatus: result.status });
-    } catch { store.markChecked(id, false, { result: "network_error" }); }
+    } catch { store.markChecked(id, false, { result: "network_error" }); } finally {finishRequest();}
     this.syncUnifiedOrder(id);
     return { ok: true, status: 200, data: safeOrder(store.order(id)) };
   },

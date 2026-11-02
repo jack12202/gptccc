@@ -1065,7 +1065,7 @@ function serveRecoveryAdmin(res) {
       return isPro(item) && item.fulfillmentMode === "manual" && ["manual_queued", "manual_processing", "needs_info"].includes(item.status);
     }
     function needsFollowup(item) {
-      return ["failed", "needs_review", "manual_queued", "manual_processing", "needs_info"].includes(item.status) || item.needsAttention;
+      return !item.workbenchHandledAt && !item.supersededBy && (["needs_review", "manual_queued", "manual_processing", "needs_info"].includes(item.status) || item.needsAttention || item.status==='failed' && !['released','consumed'].includes(item.useResolution) && !item.retryAllowed);
     }
     const expandedRecoveryIds = new Set();
     let drawerOrderId = '';
@@ -1126,6 +1126,7 @@ function serveRecoveryAdmin(res) {
         + '</div>' + (item.hasSubmittedJson ? '<button class="secondary" data-action="copy-submitted-json" data-order-id="' + escapeHtml(item.id) + '">复制发送 JSON</button><div class="muted">提交准备时间：' + escapeHtml(formatDate(item.sessionSubmissionAt)) + '；是否受理以上游订单状态为准。</div>' : '') + '</div>';
     }
     function renderRecoveryActions(item) {
+      if(item.workbenchHandledAt)return '<span class="hint">'+escapeHtml(item.workbenchHandledReason||'已结案，原始资料与历史记录保留')+'</span>';
       if(item.plan==='plus' && item.fulfillmentMode==='manual')return ['manual_queued','manual_processing','needs_info'].includes(item.status)
         ? ['manual-processing','needs-info','mark-success'].map((action,index)=>'<button data-action="plus-'+action+'" data-order-id="'+escapeHtml(item.id)+'">'+['人工处理中','需补资料','确认充值成功'][index]+'</button>').join('') : '';
       const id = escapeHtml(item.id);
@@ -1141,8 +1142,12 @@ function serveRecoveryAdmin(res) {
         + (canConfirmProManual(item) ? '<button data-action="mark-pro-success" data-order-id="' + id + '">确认充值成功</button>' : !isPro(item) && item.provider !== 'zzshu' && ['failed','needs_review'].includes(item.status) ? '<button data-action="mark-success" data-order-id="' + id + '">同步成功</button>' : '')
         + (item.needsAttention && item.provider !== 'zzshu' ? '<button data-action="mark-subscription-handled" data-order-id="' + id + '">标记已处理</button>' : '');
     }
+    function renderSubmissionAttempts(item){
+      const rows=item.submissionAttempts||[];if(rows.length<2)return '';
+      return '<details><summary>提交记录（'+rows.length+' 次，同一卡密合并显示）</summary>'+rows.map(row=>'<p>'+escapeHtml(formatDate(row.createdAt))+' · '+escapeHtml(statusLabel(row.status))+' · '+escapeHtml(row.id)+(row.hasOriginalJson?' <button data-action="copy-json" data-order-id="'+escapeHtml(row.id)+'">复制本次 JSON</button>':'')+'</p>').join('')+'</details>';
+    }
     function renderFrozenUseAction(item) {
-      return item.provider === 'zzshu' && ['failed','needs_review'].includes(item.status) && item.useResolution === 'frozen'
+      return !item.workbenchHandledAt && item.provider === 'zzshu' && ['failed','needs_review'].includes(item.status) && item.useResolution === 'frozen'
         ? '<button class="secondary" data-action="release-zzshu-use" data-order-id="' + escapeHtml(item.id) + '">解锁冻结</button>' : '';
     }
     function renderResponseHistory(item) {
@@ -1181,10 +1186,10 @@ function serveRecoveryAdmin(res) {
           + '<td><div class="account-email" title="' + escapeHtml(item.userEmail || "") + '">' + escapeHtml(item.userEmail || "-") + '</div><div class="muted mono">UUID：' + escapeHtml(shortValue(item.accountId) || "未留存") + (item.accountId ? ' <button class="copy-inline" data-action="copy-uuid" data-order-id="' + id + '" aria-label="复制完整账号 UUID">复制</button>' : '') + '</div></td>'
           + '<td><div class="mono">' + escapeHtml(shortValue(cardValue(item))) + ' <button class="copy-inline" data-action="copy-card" data-order-id="' + id + '" aria-label="复制完整客户卡密">复制</button></div><div class="muted">' + escapeHtml(isPro(item) ? (item.plan === "pro_x5" ? "Pro 5x" : "Pro 20x") : "Plus") + ' · ' + escapeHtml(item.fulfillmentMode === "manual" ? "人工" : ({zzshu:"ZZS",h:"嗨付",hifupay:"嗨付"})[item.provider] || item.provider || "-") + '</div>' + (item.provider === 'zzshu' && item.sessionPlanConverted ? '<div class="muted">JSON：Plus → Free</div>' : '') + (item.salesChannel ? '<span class="sales-channel">销售渠道：' + escapeHtml(item.salesChannel) + '</span>' : '<span class="muted">销售渠道：未记录</span>') + '</td>'
           + '<td class="mono">' + window.paymentCardTraceUI.summary(item) + '</td>'
-          + '<td><span class="state-badge ' + badge + '">' + escapeHtml(statusLabel(item.status)) + '</span><div class="muted status-note">' + escapeHtml(note) + '</div>' + (item.workbenchHandledAt ? '<div class="muted">已处理 · 用户确认充值成功</div>' : '') + '</td>'
+          + '<td><span class="state-badge ' + badge + '">' + escapeHtml(item.workbenchHandledAt?'已结案':statusLabel(item.status)) + '</span><div class="muted status-note">' + escapeHtml(note) + '</div>' + (item.workbenchHandledAt ? '<div class="muted">已结案 · 历史记录保留</div>' : '') + '</td>'
           + '<td><time>' + escapeHtml(date).split(' ').map((part, index) => index ? '<span class="muted">' + part + '</span>' : part).join('<br>') + '</time></td>'
           + '<td class="action-cell"><div class="row-actions">' + '<button class="detail-toggle" data-action="toggle-details" data-order-id="' + id + '" aria-expanded="' + expanded + '">' + (expanded ? '收起' : '详情 / 处理') + '</button>' + renderFrozenUseAction(item) + (item.hasOriginalJson ? '<button class="secondary" data-action="copy-json" data-order-id="' + id + '">复制原始 JSON</button>' : '<span class="muted">未留存 JSON</span>') + '</div></td></tr>'
-          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div>' + renderSessionSubmission(item) + (item.provider === 'zzshu' ? '<div><span class="detail-label">ZZS 上游订单号</span><div class="mono">' + escapeHtml(item.upstreamTaskId || "尚未取得") + '</div></div><div><span class="detail-label">最近查单</span><div>' + escapeHtml(item.lastCheckAt ? formatDate(item.lastCheckAt) + ' · ' + ({paid:'已确认付款',unpaid:'明确未付',processing:'处理中',needs_review:'结果待核查',verification_required:'需要持卡人验证',unknown:'未知结果',api_rejected:'API 凭据被拒绝',upstream_error:'上游接口错误',invalid_response:'响应格式异常',order_mismatch:'订单信息不匹配',network_error:'连接失败或超时'})[item.lastCheckResult] + (item.lastCheckHttpStatus ? ' · HTTP ' + item.lastCheckHttpStatus : '') + (item.lastCheckCode !== null && item.lastCheckCode !== undefined ? ' · code ' + item.lastCheckCode : '') : '尚无查单记录') + '</div></div>' : '') + '</div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再选择核查依据确认成功。</p>' : '') + window.paymentCardTraceUI.detail(item) + renderResponseHistory(item) + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
+          + (expanded ? '<tr class="detail-row"><td colspan="6"><div class="detail-grid"><div><span class="detail-label">完整账号 UUID</span><div class="mono">' + escapeHtml(item.accountId || "未留存") + '</div></div><div><span class="detail-label">完整客户卡密</span><div class="mono">' + escapeHtml(cardValue(item)) + '</div></div><div><span class="detail-label">销售渠道</span><div>' + escapeHtml(item.salesChannel || "未记录") + '</div></div><div><span class="detail-label">订单编号</span><div class="mono">' + id + '</div></div><div><span class="detail-label">结果说明</span><div>' + escapeHtml(message || "暂无说明") + '</div></div>' + renderSessionSubmission(item) + (item.provider === 'zzshu' ? '<div><span class="detail-label">ZZS 上游订单号</span><div class="mono">' + escapeHtml(item.upstreamTaskId || "尚未取得") + '</div></div><div><span class="detail-label">最近查单</span><div>' + escapeHtml(item.lastCheckAt ? formatDate(item.lastCheckAt) + ' · ' + ({paid:'已确认付款',unpaid:'明确未付',processing:'处理中',needs_review:'结果待核查',verification_required:'需要持卡人验证',unknown:'未知结果',api_rejected:'API 凭据被拒绝',upstream_error:'上游接口错误',invalid_response:'响应格式异常',order_mismatch:'订单信息不匹配',network_error:'连接失败或超时'})[item.lastCheckResult] + (item.lastCheckHttpStatus ? ' · HTTP ' + item.lastCheckHttpStatus : '') + (item.lastCheckCode !== null && item.lastCheckCode !== undefined ? ' · code ' + item.lastCheckCode : '') : '尚无查单记录') + '</div></div>' : '') + '</div>' + (item.provider === 'zzshu' && item.status === 'processing' ? '<p class="hint">上游尚未返回明确的已付款结果。可先安全补查；确认外部付款凭据后，再选择核查依据确认成功。</p>' : '') + window.paymentCardTraceUI.detail(item) + renderSubmissionAttempts(item) + renderResponseHistory(item) + '<div class="row-actions detail-actions">' + renderRecoveryActions(item) + '</div></td></tr>' : '');
       }).join("");
     }
     async function lookupCardBinding() {
@@ -1214,7 +1219,7 @@ function serveRecoveryAdmin(res) {
       const records = allRecords.filter(item => {
         const matchesToday = !todaySuccessOnly || item.status === 'success' && beijingDay(item.createdAt) === beijingDay(Date.now());
         const matchesStatus = !status || (status === "attention" ? needsFollowup(item) : item.status === status);
-        return (!selectedCardId || item.customerCardId === selectedCardId)
+        return !item.supersededBy && (!selectedCardId || item.customerCardId === selectedCardId)
           && (!keyword || [item.userEmail, item.accountId, item.customerCardCode, item.customerCardMask, item.cardMask, item.paymentCardLastFour, item.hifupayCardLastFour, item.salesChannel, item.id]
             .some(value => String(value || "").toLowerCase().includes(keyword)))
           && matchesToday && matchesStatus && (!provider || item.provider === provider) && (!salesChannel || item.salesChannel === salesChannel);
@@ -2198,6 +2203,9 @@ if (isMainModule) {
   server.listen(config.port, config.host, () => {
     console.log(`Recharge center MVP listening on http://${config.host}:${config.port}`);
   });
+  rechargeService.runOrderHousekeeping();
+  const housekeepingTimer=setInterval(()=>{try{rechargeService.runOrderHousekeeping();}catch{/* Retry on the next interval without dropping history. */}},60000);
+  housekeepingTimer.unref?.();
   const initialSyncTimer = setTimeout(() => {
     runZzshuReconcile().catch(() => {});
     runHifupayStatusSync().catch(() => {

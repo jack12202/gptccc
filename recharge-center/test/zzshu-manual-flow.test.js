@@ -29,7 +29,7 @@ test("manual import persists encrypted cards and spends A, A, B exactly once", a
   const first = await service.importCards({text:`${a},12/40,${cvv}\n${a},12/40,${cvv}\nbad`,source:"fixture",maxSuccess:2});
   assert.deepEqual(first.rows.map(row => row.status), ["imported","duplicate","error"]);
   assert.equal((await service.importCards({text:`${b},12/40,${cvv}`,source:"fixture",maxSuccess:1})).rows[0].status,"imported");
-  assert.equal((await service.importCards({text:`${a},12/40,${cvv}`,source:"fixture",maxSuccess:99})).rows[0].status,"duplicate");
+  assert.equal((await service.importCards({text:`${a},12/40,${cvv}`,source:"fixture",maxSuccess:2})).rows[0].status,"updated");
   const originalCards = service.store.listCards();
   assert.equal(originalCards.find(card => card.lastFour === "4242").maxSuccess,2);
   const visible = JSON.stringify({cards:originalCards,preview:service.preview(`${a},12/40,${cvv}`),rows:first.rows});

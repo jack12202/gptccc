@@ -27,6 +27,7 @@
     $('poolSelected').textContent='已选 '+state.poolSelected.size+' 张';
   }
   function orderActions(order,detail=false) {
+    if(order.workbenchHandledAt)return '<span class="small">已结案，历史和 JSON 保留</span>';
     const id=order.id,isPro=['pro_x5','pro_x20'].includes(order.plan),pending=['processing','needs_review'].includes(order.status);
     let html=order.hasOriginalJson?button('order-json','复制 JSON',id):'';
     if(order.plan==='plus'&&order.fulfillmentMode==='manual'){if(detail&&['manual_queued','manual_processing','needs_info'].includes(order.status))html+=button('plus-manual-processing','人工处理中',id)+button('plus-needs-info','需补资料',id)+button('plus-mark-success','确认人工成功',id);
@@ -147,6 +148,7 @@
     const order=await findOrder(id),isPro=['pro_x5','pro_x20'].includes(order.plan);
     let body='<p>'+esc(order.userEmail||'未知账号')+' · '+plan(order.plan)+' · '+(order.fulfillmentMode==='manual'?'人工':channel(order.provider))+' · '+badge(order.status)+'</p><div class="detail-grid"><div><p>订单编号</p><span class="mono">'+esc(id)+'</span></div><div><p>提交时间</p>'+date(order.createdAt)+'</div><div><p>账号 UUID</p><span class="mono">'+esc(order.accountId||'—')+'</span> '+(order.accountId?button('order-uuid','复制 UUID',id):'')+'</div><div><p>客户卡密</p><span class="mono">'+esc(order.customerCardCode||order.customerCardMask||'—')+'</span> '+(order.customerCardCode?button('order-code','复制卡密',id):'')+'</div></div><p>'+esc(order.processingNote||order.message||'暂无说明')+'</p><div class="actions">'+orderActions(order,true)+'</div>';
     body+=window.paymentCardTraceUI.detail(order);
+    if(order.submissionAttempts?.length>1)body+='<details><summary>提交记录（'+order.submissionAttempts.length+' 次，同一卡密合并显示）</summary>'+order.submissionAttempts.map(row=>'<p>'+date(row.createdAt)+' · '+esc(labels[row.status]||row.status)+' · '+esc(row.id)+(row.hasOriginalJson?button('order-json','复制本次 JSON',row.id):'')+'</p>').join('')+'</details>';
     if(order.manualPaymentUse)body+='<p>人工用卡：'+esc(order.manualPaymentUse.cardUid?'•••• '+order.manualPaymentUse.lastFour+' · '+order.manualPaymentUse.source+' · 消耗 '+order.manualPaymentUse.uses+' 次':'未记录支付卡')+'</p>';
     if(order.hasSubmittedJson)body+='<div class="actions">'+button('order-submitted-json','复制发送 JSON',id)+'</div>';
     if(isPro){
@@ -283,8 +285,8 @@
     if(action==='card-detail'){if(card)cardDetail(card);return;}
     if(action.startsWith('card-')){if(!card)throw Error('支付卡状态已变化，请刷新。');await cardSetting(card,action);return;}
     if(action==='preview-import'){
-      const text=$('importText').value,data=await post('/api/admin/zzshu/preview',{text});if($('importText').value!==text){state.importPreview=false;$('confirmImport').disabled=true;notify('支付卡资料已变化，请重新预览。',true);return;}state.importPreview=data.some(row=>['ready','restore'].includes(row.status));$('confirmImport').disabled=!state.importPreview;
-      $('importMessage').textContent=data.map(row=>'第 '+row.line+' 行 · '+(row.masked||'')+' · '+({ready:'可导入',duplicate:'重复跳过',restore:'可恢复',pending:'待核查',error:'格式错误'})[row.status]+(row.error?' · '+row.error:'')).join('\n');return;
+      const text=$('importText').value,data=await post('/api/admin/zzshu/preview',{text});if($('importText').value!==text){state.importPreview=false;$('confirmImport').disabled=true;notify('支付卡资料已变化，请重新预览。',true);return;}state.importPreview=data.some(row=>['ready','update'].includes(row.status));$('confirmImport').disabled=!state.importPreview;
+      $('importMessage').textContent=data.map(row=>'第 '+row.line+' 行 · '+(row.masked||'')+' · '+({ready:'可导入',duplicate:'重复跳过',update:'按本次次数更新',pending:'待核查',error:'格式错误'})[row.status]+(row.remainingUses!=null?' · 当前可用 '+row.remainingUses+' 次':'')+(row.error?' · '+row.error:'')).join('\n');return;
     }
     if(action==='order-filter'){state.params.orderView=id;state.params.orderPage=1;await refresh();return;}
     if(action==='voucher-filter'){state.params.voucherStatus=id;state.params.voucherPage=1;await refresh();return;}
@@ -353,8 +355,8 @@
   $('generateSource').onchange=()=>{const custom=$('generateSource').value==='custom';$('generateCustom').hidden=!custom;$('generateCustom').required=custom;};
   $('importText').oninput=()=>{state.importPreview=false;$('confirmImport').disabled=true;};
   $('importForm').onsubmit=event=>{event.preventDefault();perform('import',async()=>{if(!state.importPreview)throw Error('请先检查脱敏预览。');const result=await post('/api/admin/zzshu/import',{text:$('importText').value,source:window.paymentCardSourceUI.importSource($('importSource'),$('importCustomSource')),note:$('importNote').value,maxSuccess:Number($('importCap').value),enabled:$('importEnabled').checked});
-    const successful=result.filter(row=>['imported','restored'].includes(row.status));$('importMessage').textContent=result.map(row=>'第 '+row.line+' 行 · '+(row.masked||'')+' · '+({imported:'已导入',restored:'已恢复',duplicate:'重复跳过',error:'导入失败',pending:'待核查'})[row.status]+(row.error?' · '+row.error:'')).join('\n');
-    if(successful.length){$('importText').value='';importFormatter.refresh();state.importPreview=false;$('confirmImport').disabled=true;state.poolView='all';$('poolSearch').value='';await saved('已导入 / 恢复 '+successful.length+' 张支付卡。');}else notify('未新增支付卡，请查看逐行结果。',true);
+    const successful=result.filter(row=>['imported','updated'].includes(row.status));$('importMessage').textContent=result.map(row=>'第 '+row.line+' 行 · '+(row.masked||'')+' · '+({imported:'已导入',updated:'已更新',duplicate:'重复跳过',error:'导入失败',pending:'待核查'})[row.status]+(row.remainingUses!=null?' · 当前可用 '+row.remainingUses+' 次':'')+(row.error?' · '+row.error:'')).join('\n');
+    if(successful.length){$('importText').value='';importFormatter.refresh();state.importPreview=false;$('confirmImport').disabled=true;state.poolView='all';$('poolSearch').value='';await saved('已新增 / 更新 '+successful.length+' 张支付卡。');}else notify('未新增支付卡，请查看逐行结果。',true);
   },$('confirmImport'));};
   $('generateForm').onsubmit=event=>{event.preventDefault();perform('generate',async()=>{const source=$('generateSource').value==='custom'?$('generateCustom').value.trim():$('generateSource').value;if(!source)throw Error('请填写销售渠道。');const result=await post('/api/admin/h-cards',{count:Number($('generateCount').value),source,plan:$('generatePlan').value,productId:3});state.generated=result.cards;
     state.params.batch=result.cards[0]?.batchId||'';state.params.voucherStatus='';state.params.voucherPage=1;state.params.voucherSearch='';for(const key of ['voucherPlan','voucherSource','voucherDate']){state.params[key]='';$(key).value='';}$('voucherSearch').value='';$('generatedExports').hidden=false;$('generatedInfo').textContent='已生成 '+result.cards.length+' 张';await saved('卡密已生成，当前列表显示本次批次。');$('batchFilter').value=state.params.batch;

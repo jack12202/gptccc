@@ -1,7 +1,8 @@
+import {isExpiredOrder,housekeepingReason,annotateRepeatedOrders} from './order-housekeeping.js';
 import {paymentCardTrace,readPaymentCardTrace} from './payment-card-trace.js';
 import {createManualPlusService} from './manual-plus.js';
 import {markHistoricalOrdersHandled,annotateHandledOrders} from './workbench-history.js';
-import { buildWorkbench,workbenchPaymentCards } from './admin-workbench.js';
+import { needsWorkbenchAttention,buildWorkbench,workbenchPaymentCards } from './admin-workbench.js';
 import { buildCardInventory } from './customer-card-inventory.js';
 import { config } from "./config.js";
 import { getProviderAdapter, listProviders } from "./providers/index.js";
@@ -776,7 +777,25 @@ export const rechargeService = {
         store.updateOrder(intake.id, { status:native.status, completedAt:native.completedAt || intake.completedAt || "", message:native.message, retryAllowed:native.canRetry, actionRequired:native.actionRequired });
     }
   },
+  runOrderHousekeeping(now=Date.now()) {
+    const active=zzshuService.activeOrderIds(),native=zzshuService.store.listOrders();
+    const selected=native.filter(order=>!active.has(order.id)&&isExpiredOrder(order,now)).map(order=>order.id);
+    const at=new Date(now).toISOString();
+    const closed=zzshuService.store.archiveOrders(selected,housekeepingReason,at);
+    for(const id of closed)zzshuService.syncUnifiedOrder(id);
+    const primary=store.read().orders;
+    const linked=new Map(zzshuService.store.listOrders().map(order=>[order.id,order]));
+    const ids=primary.filter(order=>{
+      if(active.has(order.upstreamTaskId))return false;
+      const upstream=linked.get(order.upstreamTaskId);
+      return order.provider==='zzshu'&&upstream?.workbenchHandledAt || isExpiredOrder(order,now);
+    }).map(order=>order.id);
+    const reasons=Object.fromEntries(primary.map(order=>[order.id,linked.get(order.upstreamTaskId)?.workbenchHandledReason||housekeepingReason]));
+    const primaryClosed=store.archiveWorkbenchOrders(ids,reasons,at);
+    return {nativeClosed:closed.length,primaryClosed:primaryClosed.length};
+  },
   listRechargeSubmissions() {
+    this.runOrderHousekeeping();
     this.syncZzshuIntakes();
     const customerCards = store.listHCards(1, true, true, true);
     const cardsById = new Map(customerCards.map(card => [card.id, card]));
@@ -795,6 +814,7 @@ export const rechargeService = {
       ...item,
       ...(item.provider === "zzshu" ? { ...submissionJsonRecord(item.upstreamTaskId || ""),
         ...(item.upstreamTaskId ? (() => { const native=zzshuService.store.order(item.upstreamTaskId); return native ? {
+          workbenchOriginalStatus:native.workbench_original_status||'',workbenchHandledAt:native.workbench_handled_at||'',workbenchHandledReason:native.workbench_handled_reason||'',
           adminFrozen:Boolean(native.admin_frozen), autoQuery:Boolean(native.auto_query), hasUpstreamQueryKey:Boolean(native.upstream_card_key),
           useResolution:native.use_resolution, processingNote:native.review_reason, failureKind:native.failure_kind,
           upstreamOrderNo:native.upstream_order_no || '', lastCheckAt:native.last_check_at, lastCheckResult:native.last_check_result,
@@ -811,6 +831,7 @@ export const rechargeService = {
         salesChannel: linkedCard?.source || item.voucherSource || "",
         ...(legacyCode ? { customerCardCode: legacyCode, customerCardMask: maskCard(legacyCode) } : {}),
         ...submissionJsonRecord(item.id),
+        workbenchOriginalStatus:item.workbenchOriginalStatus||'',workbenchHandledAt:item.workbenchHandledAt||'',workbenchHandledReason:item.workbenchHandledReason||'',
         id: item.id, provider: "zzshu", cardMask: item.lastFour ? `****${item.lastFour}` : "", productId: config.hifupayProductId,
         paymentCardLastFour: item.lastFour || "",
         plan: "plus", fulfillmentMode: "auto", processingNote: item.reviewReason || "", adminFrozen:Boolean(item.adminFrozen), retryAllowed:Boolean(item.retryAllowed), failureKind:item.failureKind || "", useResolution: item.useResolution || "", paymentConfirmed: item.status === "success",
@@ -839,15 +860,15 @@ export const rechargeService = {
       return {...order,paymentCardTrace:trace,paymentCardLastFour:trace?.lastFour||order.paymentCardLastFour||'',
         paymentCardAttempts:native?traces(native):(order.paymentCardAttempts||[]).map(t=>({trace:readPaymentCardTrace(t),at:t.at,orderId:order.id,status:t.status||(t.cardId===trace?.cardId?order.status:'结果未留存')}))};
     };
-    const records = [...primaryRecords, ...zzshuRecords].map(enrich)
-      .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")) || String(right.id).localeCompare(String(left.id)));
+    const records = annotateRepeatedOrders([...primaryRecords, ...zzshuRecords].map(enrich)
+      .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")) || String(right.id).localeCompare(String(left.id))));
     return {
       ok: true,
       status: 200,
       data: {
         records:annotateHandledOrders(records,store.read().workbenchHistoryHandling),
         totalCount: records.length,
-        pendingCount: records.filter(item => ["failed", "needs_review", "manual_queued", "manual_processing", "needs_info"].includes(item.status) || item.needsAttention).length
+        pendingCount: records.filter(needsWorkbenchAttention).length
       }
     };
   },
@@ -1539,6 +1560,7 @@ export const rechargeService = {
   async queryTaskStatus(input, options = {}) {
     const statusCard=input.cardInfo?store.getHCardByCode(canonicalLocalCardCode(input.cardInfo)):null;
     const intake = input.orderId ? store.getOrder(input.orderId) : input.taskId ? store.getOrder(input.taskId) : statusCard?.orderId?store.getOrder(statusCard.orderId):null;
+    if(intake?.workbenchHandledAt)return {ok:true,status:200,data:{orderId:intake.id,status:intake.status,message:intake.message,canRetry:false,actionRequired:'contact_support'}};
     if(intake?.plan==='plus'&&intake.fulfillmentMode==='manual')return {ok:true,status:200,data:manualPlus.publicOrder(intake)};
     if (intake?.provider === "zzshu") {
       if (intake.upstreamTaskId) {
@@ -1602,6 +1624,8 @@ export const rechargeService = {
       cardInfo: input.cardInfo || ""
     });
 
+    const latest=order?store.getOrder(order.id):null;
+    if(latest?.workbenchHandledAt)return {ok:true,status:200,data:{orderId:latest.id,status:latest.status,message:latest.message,canRetry:false}};
     const taskData = selectedProvider === "czgpt"
       ? await reconcileCzgptStatus(adapter, upstream.data || {}, input.cardInfo || "")
       : upstream.data || {};

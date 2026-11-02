@@ -81,7 +81,7 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   const store=new JsonStore(process.env.DATA_FILE);
   const cards=rechargeService.createHCards({count:30,source:'fixture'}).data.cards;
   const order=store.createOrder({provider:'h',status:'needs_review',hCardId:cards[0].id},{userEmail:'old@example.test',accountId:'old-account'});
-  store.updateOrder(order.id,{createdAt:'2020-01-01T00:00:00Z'});
+  store.updateOrder(order.id,{createdAt:new Date(Date.now()-12*60*60*1000).toISOString()});
   for(let i=1;i<15;i++)store.createOrder({provider:'h',status:'success',hCardId:cards[i].id},{userEmail:'user-'+i+'@example.test'});
   await zzshuService.importCards({text:'4242424242424242,12/40,123\n4000056655665556,12/40,123',source:'手动导入',note:'天空',maxSuccess:4});
   const [active,stopped]=zzshuService.store.listCards();zzshuService.store.updateCard(stopped.id,{enabled:false});
