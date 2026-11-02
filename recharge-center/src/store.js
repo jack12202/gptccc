@@ -684,7 +684,7 @@ export class JsonStore {
     card.hasSubmission ||= Boolean(voucher.orderId);
     if (voucher.email) card.boundEmail = voucher.email;
     if (voucher.accountId) card.boundAccountId = voucher.accountId;
-    if (next === "used") card.usedAt ||= nowIso();
+    if (next === "used") card.usedAt ||= voucher.completedAt || "";
     card.updatedAt = nowIso();
     this.write(state);
     return true;

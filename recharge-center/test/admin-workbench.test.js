@@ -94,7 +94,7 @@ test('home and assets require the shared session; bounded snapshot joins card, v
   const headers={Cookie:cookie,Origin:'https://www.gptc.cc','X-CSRF-Token':csrf,'Content-Type':'application/json'};
   const get=suffix=>fetch(base+suffix,{headers:{Cookie:cookie}});
   const snap=async query=>(await (await get('/api/admin/workbench'+(query?'?'+query:''))).json()).data;
-  const html=await (await get('/admin')).text();assert.match(html,/class="area-title">支付卡/);assert.match(html,/class="area-title">卡密库存/);assert.match(html,/class="area-title">充值订单/);assert.equal((html.match(/class="panel (?:settings )?work-area"/g)||[]).length,5);assert.match(html,/录入支付卡/);
+  const html=await (await get('/admin')).text();assert.match(html,/class="tile-heading">支付卡/);assert.match(html,/class="tile-heading">卡密库存/);assert.match(html,/class="tile-heading">充值订单/);assert.equal((html.match(/class="workspace-tile"/g)||[]).length,4);assert.match(html,/id="workspaceDetails" hidden/);assert.match(html,/录入支付卡/);
   assert.match(html,/id="importFormatter"/);
   for(const asset of ['workbench.js','workbench-settings.js','payment-card-source-ui.js','payment-card-formatter.js']){const response=await get('/admin/cards/'+asset);assert.equal(response.status,200);new vm.Script(await response.text());}
   const parserAsset=await get('/admin/cards/payment-card-input.js');
@@ -135,7 +135,7 @@ test('home and assets require the shared session; bounded snapshot joins card, v
 });
 
  test('home attention summary is independent of recent filters and stock excludes bound or submitted vouchers',()=>{
-  const records=Array.from({length:16},(_,i)=>({id:'order-'+i,status:i<10?'success':'needs_review',createdAt:new Date().toISOString(),useResolution:i===15?'frozen':'',customerCardId:i===15?'submitted':'',userEmail:'fixture@example.test'}));
+  const records=Array.from({length:16},(_,i)=>({id:'order-'+i,status:i<10?'success':'needs_review',createdAt:new Date().toISOString(),completedAt:i<10?new Date().toISOString():'',useResolution:i===15?'frozen':'',customerCardId:i===15?'submitted':'',userEmail:'fixture@example.test'}));
   const input={hifupay:[],usageCards:[],plusProvider:'zzshu',records,customerCards:[{id:'ready',status:'unused',code:'fixture-ready',plan:'plus'},{id:'bound',status:'unused',boundEmail:'bound@example.test'},{id:'submitted',status:'unused'},{id:'old-attempt',status:'unused',hasSubmission:true},{id:'bound-at',status:'unused',boundAt:new Date().toISOString(),code:'bound-at',plan:'plus'},{id:'expired',status:'unused',expiresAt:'2020-01-01',code:'expired',plan:'plus'}]};
   const result=buildWorkbench(input,{orderView:'',orderSearch:'order-0',voucherStatus:'stock'});
   assert.equal(result.orders.items.length,1);
@@ -148,7 +148,7 @@ test('home and assets require the shared session; bounded snapshot joins card, v
  test('today-success workbench view matches the counter and excludes other days and pending orders',()=>{
   const now=new Date().toISOString();
   const result=buildWorkbench({hifupay:[],usageCards:[],customerCards:[],plusProvider:'zzshu',records:[
-    {id:'today-success',status:'success',createdAt:now},
+    {id:'today-success',status:'success',createdAt:now,completedAt:now},
     {id:'today-pending',status:'needs_review',createdAt:now},
     {id:'old-success',status:'success',createdAt:'2020-01-01T00:00:00Z'},
     {id:'handled',status:'success',createdAt:now,workbenchHandledAt:now}

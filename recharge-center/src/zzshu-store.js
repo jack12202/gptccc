@@ -486,7 +486,7 @@ export class ZzshuStore {
       ...(reveal ? { submittedCipher: row?.submitted_session_cipher || "" } : {}) };
   }
   sessionCipher(id) { return this.db.prepare("SELECT session_cipher AS cipher FROM orders WHERE id=?").get(id)?.cipher || ""; }
-  listOrders() { return this.db.prepare(`SELECT o.id,o.card_id AS paymentCardId,o.payment_card_snapshot AS paymentCardSnapshot,c.credential_ref AS paymentCredentialRef,c.source AS paymentSource,c.note AS paymentNote,o.email,o.account_id AS accountId,o.status,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
+  listOrders() { return this.db.prepare(`SELECT o.id,o.card_id AS paymentCardId,o.payment_card_snapshot AS paymentCardSnapshot,c.credential_ref AS paymentCredentialRef,c.source AS paymentSource,c.note AS paymentNote,o.email,o.account_id AS accountId,o.status,o.completed_at AS completedAt,o.use_resolution AS useResolution,o.upstream_order_no AS upstreamOrderNo,
     o.workbench_original_status AS workbenchOriginalStatus,o.workbench_handled_at AS workbenchHandledAt,o.workbench_handled_reason AS workbenchHandledReason,o.review_reason AS reviewReason,o.failure_kind AS failureKind,o.retry_allowed AS retryAllowed,o.admin_frozen AS adminFrozen,o.cancellation,o.auto_query AS autoQuery,(o.upstream_card_key IS NOT NULL) AS hasUpstreamQueryKey,
     o.last_check_at AS lastCheckAt,o.last_check_result AS lastCheckResult,
     o.last_check_http_status AS lastCheckHttpStatus,o.last_check_code AS lastCheckCode,c.last_four AS lastFour,

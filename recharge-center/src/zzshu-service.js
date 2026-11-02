@@ -246,7 +246,7 @@ export const zzshuService = {
   syncUnifiedOrder(id) {
     if (!store.order(id)) return;
     const code = decryptSecretText(store.voucherCipherForOrder(id), config.recoveryEncryptionKey, "zzshu-voucher");
-    if (/^HPLUS[0-9A-F]{32}$/.test(code)) hifupayStore.syncUnifiedPlus(code, store.voucher(code));
+    if (/^HPLUS[0-9A-F]{32}$/.test(code)) hifupayStore.syncUnifiedPlus(code, {...store.voucher(code),completedAt:store.order(id).completed_at||''});
   },
   async confirm(input) {
     const code = cleanCode(input.cardInfo);

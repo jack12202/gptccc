@@ -642,7 +642,7 @@ export const rechargeService = {
   getAdminWorkbench(query = {}) {
     const records = this.listRechargeSubmissions().data.records;
     return {...buildWorkbench({hifupay:store.listHifupayCards(),usageCards:zzshuService.store.listCards(),
-      customerCards:store.listHCards(1,true,true,false),records,plusProvider:store.getSettings().plusProvider,
+      customerCards:store.listHCards(1,true,true,true),records,plusProvider:store.getSettings().plusProvider,
       chargeThreshold:Math.max(0,config.hifupayEstimatedPlusChargeUsd+config.hifupaySafetyBufferUsd)},query),plusFulfillmentMode:store.getSettings().plusFulfillmentMode==='manual'?'manual':'auto',recoveryReasons,historyHandling:(()=>{const h=store.read().workbenchHistoryHandling;return h?{cutoff:h.cutoff,handledAt:h.handledAt,count:h.orderIds.length}:null;})()};
   },
 
@@ -814,7 +814,7 @@ export const rechargeService = {
       ...item,
       ...(item.provider === "zzshu" ? { ...submissionJsonRecord(item.upstreamTaskId || ""),
         ...(item.upstreamTaskId ? (() => { const native=zzshuService.store.order(item.upstreamTaskId); return native ? {
-          workbenchOriginalStatus:native.workbench_original_status||'',workbenchHandledAt:native.workbench_handled_at||'',workbenchHandledReason:native.workbench_handled_reason||'',
+          completedAt:native.completed_at||item.completedAt||'',workbenchOriginalStatus:native.workbench_original_status||'',workbenchHandledAt:native.workbench_handled_at||'',workbenchHandledReason:native.workbench_handled_reason||'',
           adminFrozen:Boolean(native.admin_frozen), autoQuery:Boolean(native.auto_query), hasUpstreamQueryKey:Boolean(native.upstream_card_key),
           useResolution:native.use_resolution, processingNote:native.review_reason, failureKind:native.failure_kind,
           upstreamOrderNo:native.upstream_order_no || '', lastCheckAt:native.last_check_at, lastCheckResult:native.last_check_result,
@@ -847,7 +847,7 @@ export const rechargeService = {
         autoQuery: Boolean(item.autoQuery),
         lastCheckAt: item.lastCheckAt || "", lastCheckResult: item.lastCheckResult || "",
         lastCheckHttpStatus: item.lastCheckHttpStatus, lastCheckCode: item.lastCheckCode,
-        createdAt: item.createdAt, updatedAt: item.updatedAt,
+        createdAt: item.createdAt, updatedAt: item.updatedAt,completedAt:item.completedAt||'',
         hasSecret: Boolean(zzshuService.store.sessionCipher(item.id)), hasOriginalJson: Boolean(zzshuService.store.sessionCipher(item.id)), hCardCodeAvailable: false
       };
     });
