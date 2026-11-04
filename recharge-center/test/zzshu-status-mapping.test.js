@@ -29,6 +29,19 @@ test("ZZS 上游状态完整映射为充值系统状态", async t => {
     assert.equal(result.ok, true);
     assert.equal(result.data.status, expected);
   }
+  for (const [upstream, expected] of [
+    [{status:'failed',failure_reason:'401 token过期'},true],
+    [{status:'failed',payment_result:{success:false,status:'failed',failure_detail:'Access Token expired'}},true],
+    [{status:'processing',failure_reason:'401 token过期'},false],
+    [{status:'failed',failure_reason:'401 API token expired'},false],
+    [{status:'failed',failure_code:40106,failure_reason:'token过期'},false],
+    [{status:'failed',failure_reason:'401'},false],
+    [{status:'success',failure_reason:'401 token过期',payment_result:{success:true,status:'paid'}},false],
+    [{status:'failed',failure_reason:'401 token过期',verification:{required:true}},false]
+  ]) {
+    responseData=upstream;
+    assert.equal((await zzshuAdapter.status('key-1')).data.sessionExpired,expected);
+  }
   responseData = { status: "success", payment_result: { success: true, status: "paid" }, is_subscription_cancelled: "1" };
   assert.equal((await zzshuAdapter.status("key-1")).data.cancellation, "cancelled");
 });

@@ -27,6 +27,7 @@ test("documented pre-create rejection releases voucher; cardholder verification 
     sessionToken: "fixture-session", expires: "2040-01-01T00:00:00Z" });
   let directCalls = 0;
   let status = "processing";
+  let failureReason = null;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
     const endpoint = new URL(url).pathname;
@@ -39,7 +40,7 @@ test("documented pre-create rejection releases voucher; cardholder verification 
         : { ok: true, status: 201, json: async () => ({ code: 0, data: { order_no: "up-2", card_key: "DIRECT-2" } }) };
     }
     if (endpoint.endsWith("/status")) return { ok: true, status: 200, json: async () => ({ code: 0, data: {
-      order_no: "up-2", card_key: "DIRECT-2", plan_type: "plus", status,
+      order_no: "up-2", card_key: "DIRECT-2", plan_type: "plus", status, failure_reason: failureReason,
       verification: status === "processing" ? { client_secret: "secret-must-not-leak" } : null,
       payment_result: status === "success" ? { success: true, status: "paid" } : null,
       is_subscription_cancelled: 1
@@ -91,4 +92,19 @@ test("documented pre-create rejection releases voucher; cardholder verification 
   assert.match(expiredSession.message, /账号授权已失效/);
   assert.equal(service.store.voucher(vouchers[0].code).status, "unused");
   assert.equal(service.store.listCards()[0].remainingUses, 1);
+  // A task can be accepted first, then report the frontend's “401 token过期”.
+  const retry = await service.confirm({ cardInfo: vouchers[0].code, secretJsonText: session });
+  assert.equal(retry.data.status, 'processing');
+  status = 'failed'; failureReason = '401 token过期';
+  const failed = await service.refresh(retry.data.orderId);
+  assert.equal(failed.data.status, 'failed');
+  assert.equal(failed.data.canRetry, true);
+  assert.equal(failed.data.actionRequired, 'update_session');
+  assert.equal(service.store.voucher(vouchers[0].code).status, 'unused');
+  assert.equal(service.store.listCards()[0].remainingUses, 1);
+  assert.equal(service.store.listCards()[0].frozenUses, 0);
+  assert.equal(service.store.order(retry.data.orderId).auto_query, 0);
+  await service.refresh(retry.data.orderId);
+  assert.equal(service.store.listCards()[0].remainingUses, 1);
+  assert.equal(service.store.order(retry.data.orderId).submitted_session_cipher.length > 0, true);
 });

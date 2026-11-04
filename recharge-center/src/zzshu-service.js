@@ -412,6 +412,7 @@ export const zzshuService = {
       const data = result.data;
       if (!order.admin_frozen) {
         if (data.status === "success" && data.paid) store.settle(id,"success",data.cancellation);
+        else if (data.sessionExpired) store.releaseExpiredSession(id);
         else if (data.status === "unpaid" && data.unpaid && !data.paid) store.review(id,"上游报告未支付，仍需核实账号权益与支付记录后解锁卡密");
       }
       if (!order.admin_frozen && data.status === "verification_required") store.review(id,"支付需要银行卡持有人验证");

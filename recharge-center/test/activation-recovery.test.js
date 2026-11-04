@@ -93,7 +93,7 @@ test('expired authorization offers same-card JSON replacement without keeping th
       actionRequired:'update_session',message:'账号授权已失效，请获取新的 Session JSON，使用原卡密重新提交。'}})};
   });
   await p.run('confirmRecharge()');
-  assert.match(p.node('resultBox').innerHTML,/使用原卡密，更新 JSON/);
+  assert.match(p.node('resultBox').innerHTML,/重新提取并提交/);
   assert.doesNotMatch(p.node('resultBox').innerHTML,/401|已提交，等待处理/);
   p.run('beginSessionRetry()');
   assert.equal(p.run('currentTaskId'), '');

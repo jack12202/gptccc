@@ -13,6 +13,13 @@ export function recoveryEvidence(outcome, body = {}, operator = 'admin') {
   return { reason: label + (note ? '；备注：' + note : ''), operator, reasonCode: body.reasonCode };
 }
 export const tokenExpiredMessage = '账号授权已失效，请获取新的 Session JSON，使用原卡密为原账号重新提交。';
+// This is the account Session error, never the channel's X-API-Key error.
+export function isExpiredSession(code, reason) {
+  if ([40106, 40107, 40306].includes(Number(code))) return false;
+  const text = String(reason || '');
+  if (/(?:api[ _-]?key|x-api-key|api[ _-]?token|api凭据)/i.test(text)) return false;
+  return Number(code) === 40027 || /(?:access[ _-]?token|session[ _-]?token|token|session).*(?:expired|invalid|失效|过期|无效)/i.test(text);
+}
 export function classifyCreation(result) {
   const code = Number(result.code);
   const data = result.data;

@@ -626,6 +626,20 @@ export class ZzshuStore {
       return true;
     });
   }
+  releaseExpiredSession(id) {
+    return this.transaction(() => {
+      const order = this.order(id);
+      if (!order || order.workbench_handled_at || order.admin_frozen || !['processing','needs_review'].includes(order.status) || order.use_resolution === 'consumed') return false;
+      const voucher = this.voucherForOrder(id);
+      if (!voucher || voucher.status === 'used' || voucher.order_id !== id) return false;
+      if (order.use_resolution === 'frozen') this.db.prepare("UPDATE payment_cards SET frozen_count=MAX(0,frozen_count-1) WHERE id=?").run(order.card_id);
+      this.db.prepare("UPDATE vouchers SET status='unused',order_id=NULL WHERE id=? AND order_id=?").run(order.voucher_id,id);
+      this.db.prepare("UPDATE orders SET status='failed',use_resolution='released',failure_kind='token_expired',retry_allowed=1,auto_query=0,review_reason=?,updated_at=? WHERE id=?")
+        .run('上游明确返回账号 Token 失效，原卡密可更新 Session 后重试',new Date().toISOString(),id);
+      this.audit(id,'session_expired_auto_released','上游终态明确账号授权失效，释放本次支付预留，保留原订单和 JSON');
+      return true;
+    });
+  }
   settle(id, state, cancellation = "unconfirmed") {
     return this.transaction(() => this.settleUncommitted(id, state, cancellation));
   }

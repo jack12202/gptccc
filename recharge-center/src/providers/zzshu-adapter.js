@@ -1,3 +1,4 @@
+import { isExpiredSession } from "../zzshu-recovery.js";
 import { config } from "../config.js";
 import { zzshuCredentialStore } from "../zzshu-credential-store.js";
 import { zzshuFetch } from "../zzshu-proxy.js";
@@ -88,6 +89,8 @@ export const zzshuAdapter = {
       orderNo: String(data.order_no ?? ""), cardKey: String(data.card_key ?? ""),
       planType: String(data.plan_type ?? ""), status, upstreamStatus,
       paid, unpaid, verificationRequired,
+      sessionExpired: !paid && !verificationRequired && ['failed','cancelled','canceled','closed','error'].includes(upstreamStatus) &&
+        isExpiredSession(data.failure_code ?? data.payment_result?.code, [data.failure_reason, data.payment_result?.failure_detail, data.payment_result?.message].filter(Boolean).join(' ')),
       cancellation: [1, true, "1", "true"].includes(data.is_subscription_cancelled) ? "cancelled" : "unconfirmed"
     } };
   }

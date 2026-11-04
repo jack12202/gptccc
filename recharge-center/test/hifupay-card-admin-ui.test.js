@@ -69,11 +69,11 @@ test("one payment-card page lists H and manual cards with shared counts and sour
   assert.match(rows.innerHTML, /团购/);
   assert.match(rows.innerHTML, /data-card-source="manual:m-1"/);
   assert.match(rows.innerHTML, /data-action="copy-standard"/);
-  assert.match(rows.innerHTML, /冻结 1/);
+  assert.doesNotMatch(rows.innerHTML, /冻结 1/);
   assert.match(rows.innerHTML, /ZZS/);
   assert.match(document.getElementById("stats").innerHTML, /卡池总数/);
   assert.match(document.getElementById("stats").innerHTML, /<strong>4<\/strong><small>当前可轮选次数/);
-  assert.match(rows.innerHTML, /剩余 <strong>2<\/strong> \/ 总 4/);
+  assert.match(rows.innerHTML, /可用 <strong>2<\/strong> 次/);
   assert.match(document.getElementById("total").textContent, /2 \/ 2/);
   vm.runInContext("expanded.add('manual:m-1');render()", context);
   assert.match(rows.innerHTML, /class="history-item"/);
