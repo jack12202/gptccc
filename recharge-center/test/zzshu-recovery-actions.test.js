@@ -153,5 +153,5 @@ test('same-card retry, explicit freezing and audited administrator resolution wo
   for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)) new vm.Script(script[1]);
   const activate=fs.readFileSync(path.resolve('activate/index.html'),'utf8');
   for(const script of activate.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)) new vm.Script(script[1]);
-  assert.match(activate,/重新提取并提交/);
+  assert.match(activate,/复制充值链接/);
 });

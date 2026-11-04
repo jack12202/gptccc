@@ -93,7 +93,7 @@ test('expired authorization offers same-card JSON replacement without keeping th
       actionRequired:'update_session',message:'账号授权已失效，请获取新的 Session JSON，使用原卡密重新提交。'}})};
   });
   await p.run('confirmRecharge()');
-  assert.match(p.node('resultBox').innerHTML,/重新提取并提交/);
+  assert.match(p.node('resultBox').innerHTML,/复制充值链接/);
   assert.doesNotMatch(p.node('resultBox').innerHTML,/401|已提交，等待处理/);
   p.run('beginSessionRetry()');
   assert.equal(p.run('currentTaskId'), '');
@@ -137,4 +137,32 @@ test('verified plan badge distinguishes all three plans', () => {
     assert.equal(p.node('verifiedPlan').dataset.plan,plan);
     assert.equal(p.node('confirmPlan').textContent,label);
   }
+});
+
+
+test('incognito retry copies only a recharge link, restores the original card and clears the address fragment',async()=>{
+  const p=page(async()=>{throw Error('no request expected before verification');});
+  p.run('currentProvider="zzshu"');
+  const link=p.run('sessionRetryLink()');
+  const url=new URL(link);
+  assert.equal(url.search,'');
+  assert.equal(url.pathname,'/activate/');
+  assert.equal(new URLSearchParams(url.hash.slice(1)).get('retryCard'),p.node('cardInfo').value);
+  assert.equal(link.includes('fixture'),false);
+  p.context.navigator.clipboard={writeText:async text=>{assert.equal(text,link);}};
+  p.run('renderRetryBox({canRetry:true,actionRequired:"update_session"})');
+  const content=p.node('resultBox').innerHTML;
+  assert.match(content,/① 打开无痕窗口/);
+  assert.match(content,/② 复制充值链接/);
+  assert.doesNotMatch(content,/<details[^>]* open/);
+  await p.run('copySessionRetryLink(document.getElementById("copyButton"))');
+  assert.equal(p.node('copyButton').textContent,'已复制充值链接');
+  p.node('cardInfo').value='';
+  let cleaned='';
+  p.context.window.location={search:'',hash:url.hash,pathname:'/activate/'};
+  p.context.window.history={replaceState:(_a,_b,value)=>{cleaned=value;}};
+  p.run('applyCardFromQuery()');
+  assert.equal(p.node('cardInfo').value,'HPLUS'+'A'.repeat(32));
+  assert.equal(p.run('currentProvider'),'zzshu');
+  assert.equal(cleaned,'/activate/');
 });

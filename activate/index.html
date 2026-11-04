@@ -829,7 +829,7 @@
       }
       #stage-1 .notice { margin-top: 14px; margin-bottom: 0; }
     }
-  .session-retry-guide { margin:16px 0; text-align:left; line-height:1.7; overflow-wrap:anywhere; } .session-retry-guide summary { cursor:pointer; font-weight:700; } .session-retry-guide ol { padding-left:24px; } .session-retry-guide li { margin:12px 0; } .session-retry-guide p { margin:6px 0; }
+  .session-retry-guide { margin:4px 0 12px; text-align:left; line-height:1.7; overflow-wrap:anywhere; } .session-retry-guide summary { cursor:pointer; font-weight:700; } .session-retry-guide ol { padding-left:24px; } .session-retry-guide li { margin:12px 0; } .session-retry-guide p { margin:6px 0; }
 </style>
 <script>
 var _hmt = window._hmt || [];
@@ -1338,11 +1338,32 @@ window._hmt = _hmt;
     }
 
     function sessionRetryGuide() {
-      return '<details class="session-retry-guide" open><summary>查看提取步骤</summary><ol>' +
-        '<li><strong>打开新的无痕窗口</strong><p>电脑 Chrome：右上角 ⋮ → 打开新的无痕窗口。Edge：右上角 … → 新建 InPrivate 窗口。Windows 快捷键 Ctrl + Shift + N，Mac 快捷键 ⌘ + Shift + N。Mac Safari：文件 → 新建无痕浏览窗口（⌘ + Shift + N）。</p><p>手机 Chrome：点 ⋮／… → 打开新的无痕标签页；iPhone Safari：打开标签页界面 → 切换到“无痕浏览”→ 点 ＋ 新建页面。不同版本入口名称可能略有不同。</p></li>' +
-        '<li><strong>登录需要充值的账号</strong><p>在刚打开的无痕窗口访问 <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>，重新登录。确认邮箱与本次充值账号一致，不要登录其他账号。</p></li>' +
-        '<li><strong>在同一个无痕窗口提取最新资料</strong><p>登录完成后，在该无痕窗口新建标签页，打开 <a href="https://chatgpt.com/api/auth/session" target="_blank" rel="noopener noreferrer">获取登录资料</a>。如果当前充值页面不在无痕窗口，请复制此链接到无痕窗口打开。复制页面返回的完整 JSON，从开头的 { 到结尾的 }；不要只复制 accessToken，也不要使用之前保存的旧内容。若内容为空、显示 {} 或要求登录，请先在同一个窗口完成登录再刷新。</p></li>' +
-        '<li><strong>返回这里重新提交</strong><p>点击“重新提取并提交”，粘贴最新完整 JSON，核对账号后再次确认充值。原充值卡密仍可使用，无需重新购买。登录资料只粘贴到本充值页面，不要发给他人。</p></li></ol></details>';
+      return '<details class="session-retry-guide"><summary>如何打开无痕窗口？</summary><p><strong>电脑 Chrome / Edge：</strong>右上角 ⋮ / … → 新建无痕窗口 / InPrivate 窗口。Windows：Ctrl + Shift + N；Mac：⌘ + Shift + N。</p><p><strong>手机 Chrome：</strong>点 ⋮ / … → 打开新的无痕标签页。</p><p><strong>iPhone Safari：</strong>进入标签页界面 → 无痕浏览 → ＋。Mac Safari：文件 → 新建无痕浏览窗口。</p></details>';
+    }
+    function sessionRetryInstructions() {
+      return '<div class="session-retry-steps"><p><strong>① 打开无痕窗口</strong></p>' + sessionRetryGuide() +
+        '<p><strong>② 复制充值链接，在无痕窗口中打开</strong></p><p><strong>③ 按页面提示登录账号，获取最新密钥并提交</strong></p></div>' +
+        '<div class="result-actions"><button type="button" class="green" onclick="copySessionRetryLink(this)">复制充值链接</button></div><p class="session-retry-footnote">原卡密仍可使用，无需重新购买。请勿将链接转发给他人。</p><p id="retryCopyStatus" role="status" aria-live="polite"></p>';
+    }
+    function sessionRetryLink() {
+      const fragment = new URLSearchParams({retryCard: document.getElementById('cardInfo').value.trim(), provider: currentProvider || ''});
+      return 'https://www.gptc.cc/activate/#' + fragment.toString();
+    }
+    async function copySessionRetryLink(button) {
+      const text = sessionRetryLink();
+      try {
+        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+        else {
+          const input = document.createElement('textarea');
+          input.value = text; input.style.position = 'fixed'; input.style.opacity = '0';
+          document.body.appendChild(input); input.select();
+          try { if (!document.execCommand('copy')) throw Error('copy failed'); } finally { input.remove(); }
+        }
+        button.textContent = '已复制充值链接';
+        document.getElementById('retryCopyStatus').textContent = '请切换到无痕窗口，在地址栏粘贴链接并打开。';
+      } catch {
+        document.getElementById('retryCopyStatus').innerHTML = '复制未成功，请长按或选中下方链接复制：<input aria-label="充值重试链接" readonly value="' + escapeHtml(text) + '">';
+      }
     }
     let retryInstruction = null;
     function renderRetryBox(task) {
@@ -1354,8 +1375,11 @@ window._hmt = _hmt;
       const box = document.getElementById('resultBox');
       box.className = 'result-card review';
       box.style.display = 'block';
-      box.innerHTML = '<div class="result-heading"><h3 class="result-title">' + (task.actionRequired === 'update_session' ? '账号登录信息已失效，本次充值未完成' : '原卡密可以重新提交') + '</h3><p>' + escapeHtml(task.message || '原卡密权益已恢复，可以为原账号重新提交。') + '</p></div>' + (task.actionRequired === 'update_session' ? sessionRetryGuide() : '') + '<div class="result-actions"><button type="button" class="green" onclick="beginSessionRetry()">' + (task.actionRequired === 'update_session' ? '重新提取并提交' : '使用原卡密重新提交') + '</button></div>';
-      setNotice('step3Notice','原卡密权益已保留',task.message || '请为原账号重新提交。','info');
+      box.innerHTML = task.actionRequired === 'update_session'
+        ? '<div class="result-heading"><h3 class="result-title">登录信息已过期，请在无痕窗口重试</h3></div>' + sessionRetryInstructions()
+        : '<div class="result-heading"><h3 class="result-title">原卡密可以重新提交</h3><p>' + escapeHtml(task.message || '原卡密权益已保留。') + '</p></div><div class="result-actions"><button type="button" class="green" onclick="beginSessionRetry()">使用原卡密重新提交</button></div>';
+      if (task.actionRequired === 'update_session') { document.getElementById('step3Notice').innerHTML = ''; document.getElementById('step3Notice').classList.add('is-empty'); }
+      else setNotice('step3Notice','原卡密权益已保留',task.message || '请为原账号重新提交。','info');
     }
     function beginSessionRetry() {
       if (!retryInstruction?.canRetry) return;
@@ -1872,6 +1896,13 @@ window._hmt = _hmt;
 
     function applyCardFromQuery() {
       const params = new URLSearchParams(window.location.search);
+      const fragment = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+      if (fragment.has('retryCard')) {
+        params.set('card', fragment.get('retryCard'));
+        params.set('provider', fragment.get('provider') || '');
+        // Consume locally; the card is never sent as a URL query or Referer.
+        window.history?.replaceState(null, '', window.location.pathname + window.location.search);
+      }
       const rawProvider = normalizeProvider(params.get("provider"));
       if (rawProvider) setCurrentProvider(rawProvider, { locked: true });
 
