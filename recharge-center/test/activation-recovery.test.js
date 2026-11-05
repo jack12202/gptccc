@@ -22,7 +22,7 @@ function page(fetch) {
   node('cardInfo').value='HPLUS'+'A'.repeat(32);
   node('secretJson').value='fixture';
   vm.runInContext('currentProvider="h";currentParsedSecret={userEmail:"first@example.test",userGptToken:"fixture",fullAuthData:{}}',context);
-  return {node,context,memory,run:code=>vm.runInContext(code,context)};
+  return {node,context,memory,timers,run:code=>vm.runInContext(code,context)};
 }
 
 test('lost submit response blocks another submit and refresh queries the original card',async()=>{
@@ -165,4 +165,39 @@ test('incognito retry copies only a recharge link, restores the original card an
   assert.equal(p.node('cardInfo').value,'HPLUS'+'A'.repeat(32));
   assert.equal(p.run('currentProvider'),'zzshu');
   assert.equal(cleaned,'/activate/');
+});
+
+
+test('retryable expiry clears old task lock and allows same-browser submission with fresh JSON',async()=>{
+  const p=page(async()=>({text:async()=>JSON.stringify({success:false,data:{orderId:'expired-task',canRetry:true,actionRequired:'update_session'}})}));
+  await p.run('confirmRecharge()');
+  assert.equal(p.run('currentTaskId'),'');
+  assert.equal(p.run('currentOrderId'),'');
+  assert.equal(p.run('submissionPending'),false);
+  assert.equal(p.node('confirmRechargeBtn').textContent,'确认充值');
+  assert.match(p.node('resultBox').innerHTML,/onclick="beginSessionRetry\(\)">重新提交/);
+  p.run('beginSessionRetry()');
+  assert.equal(p.run('currentStep'),2);
+  assert.equal(p.node('secretJson').value,'');
+  assert.equal(p.node('cardInfo').value,'HPLUS'+'A'.repeat(32));
+  p.run('currentParsedSecret={userEmail:"first@example.test",fullAuthData:{}};document.getElementById("overwriteRecharge").checked=true;updateConfirmButtonState()');
+  assert.equal(p.node('confirmRechargeBtn').disabled,false);
+});
+
+test('copied retry link verifies original card and enters fresh session step without old failure panel',async()=>{
+  const paths=[];
+  const p=page(async path=>{
+    paths.push(path);
+    return {text:async()=>JSON.stringify(path.endsWith('h-card-status')
+      ? {success:true,data:{status:'failed',canRetry:true,canRecharge:true,actionRequired:'update_session'}}
+      : {success:true,data:{success:true,provider:'zzshu',plan:'plus'}})};
+  });
+  p.context.window.location={search:'',hash:'#retryCard=HPLUS'+ 'A'.repeat(32)+'&provider=zzshu',pathname:'/activate/'};
+  p.run('applyCardFromQuery()');
+  p.timers.shift()();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(paths,['/api/recharge/h-card-status','/api/recharge/verify-card']);
+  assert.equal(p.run('currentStep'),2);
+  assert.equal(p.node('resultBox').innerHTML,undefined);
+  assert.equal(p.run('currentTaskId'),'');
 });

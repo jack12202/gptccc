@@ -1338,12 +1338,12 @@ window._hmt = _hmt;
     }
 
     function sessionRetryGuide() {
-      return '<details class="session-retry-guide"><summary>如何打开无痕窗口？</summary><p><strong>电脑 Chrome / Edge：</strong>右上角 ⋮ / … → 新建无痕窗口 / InPrivate 窗口。Windows：Ctrl + Shift + N；Mac：⌘ + Shift + N。</p><p><strong>手机 Chrome：</strong>点 ⋮ / … → 打开新的无痕标签页。</p><p><strong>iPhone Safari：</strong>进入标签页界面 → 无痕浏览 → ＋。Mac Safari：文件 → 新建无痕浏览窗口。</p></details>';
+      return '<details class="session-retry-guide"><summary>如何打开无痕窗口？</summary><p><strong>电脑 Chrome / Edge：</strong>右上角 ⋮ / … → 新建无痕窗口 / InPrivate 窗口。Windows：Ctrl + Shift + N；Mac：⌘ + Shift + N。</p><p><strong>手机 Chrome：</strong>点 ⋮ / … → 打开新的无痕标签页。</p><p><strong>iPhone / iPad Safari：</strong>打开 Safari，点“标签页”按钮（两个重叠方框），点标签页分组名称（如“起始页”或“几个标签页”），选择“无痕浏览”，再点 ＋ 打开新页面。部分版本可在标签页界面直接切换到“无痕浏览”。</p><p><strong>Mac Safari：</strong>点击屏幕顶部菜单“文件” → “新建无痕浏览窗口”，或按快捷键 ⌘ + Shift + N。</p></details>';
     }
     function sessionRetryInstructions() {
-      return '<div class="session-retry-steps"><p><strong>① 打开无痕窗口</strong></p>' + sessionRetryGuide() +
+      return '<details class="session-retry-guide"><summary>仍然失败？可在无痕窗口重试</summary><div class="session-retry-steps"><p><strong>① 打开无痕窗口</strong></p>' + sessionRetryGuide() +
         '<p><strong>② 复制充值链接，在无痕窗口中打开</strong></p><p><strong>③ 按页面提示登录账号，获取最新密钥并提交</strong></p></div>' +
-        '<div class="result-actions"><button type="button" class="green" onclick="copySessionRetryLink(this)">复制充值链接</button></div><p class="session-retry-footnote">原卡密仍可使用，无需重新购买。请勿将链接转发给他人。</p><p id="retryCopyStatus" role="status" aria-live="polite"></p>';
+        '<div class="result-actions"><button type="button" class="green" onclick="copySessionRetryLink(this)">复制充值链接</button></div><p class="session-retry-footnote">原卡密仍可使用，无需重新购买。请勿将链接转发给他人。</p><p id="retryCopyStatus" role="status" aria-live="polite"></p></details>';
     }
     function sessionRetryLink() {
       const fragment = new URLSearchParams({retryCard: document.getElementById('cardInfo').value.trim(), provider: currentProvider || ''});
@@ -1371,12 +1371,15 @@ window._hmt = _hmt;
       clearTimeout(pollTimer);
       clearTimeout(cardStatusTimer);
       setSubmissionPending(false);
+      currentTaskId = ''; currentOrderId = '';
+      document.getElementById('confirmRechargeBtn').textContent = '确认充值';
+      updateConfirmButtonState();
       document.getElementById('progressBox').style.display = 'none';
       const box = document.getElementById('resultBox');
       box.className = 'result-card review';
       box.style.display = 'block';
       box.innerHTML = task.actionRequired === 'update_session'
-        ? '<div class="result-heading"><h3 class="result-title">登录信息已过期，请在无痕窗口重试</h3></div>' + sessionRetryInstructions()
+        ? '<div class="result-heading"><h3 class="result-title">登录信息已过期，请获取最新资料后重新提交</h3></div><div class="result-actions"><button type="button" class="green" onclick="beginSessionRetry()">重新提交</button></div>' + sessionRetryInstructions()
         : '<div class="result-heading"><h3 class="result-title">原卡密可以重新提交</h3><p>' + escapeHtml(task.message || '原卡密权益已保留。') + '</p></div><div class="result-actions"><button type="button" class="green" onclick="beginSessionRetry()">使用原卡密重新提交</button></div>';
       if (task.actionRequired === 'update_session') { document.getElementById('step3Notice').innerHTML = ''; document.getElementById('step3Notice').classList.add('is-empty'); }
       else setNotice('step3Notice','原卡密权益已保留',task.message || '请为原账号重新提交。','info');
@@ -1391,7 +1394,6 @@ window._hmt = _hmt;
       document.getElementById('confirmRechargeBtn').textContent = '确认充值';
       document.getElementById('resultBox').style.display = 'none';
       setNotice('step2Notice','请获取新的账号资料',retryInstruction.message || '使用原卡密，为原账号获取新的 Session JSON 后提交。','info');
-      if (retryInstruction.actionRequired === 'update_session') document.getElementById('step2Notice').innerHTML += sessionRetryGuide();
       retryInstruction = null;
       updateConfirmButtonState();
       goStep(2);
@@ -1784,7 +1786,7 @@ window._hmt = _hmt;
         const task = data.data || {};
         setSubmissionPending(false);
         currentOrderId = task.orderId || "";
-        if (data.success && task.canRetry) { renderRetryBox(task); return; }
+        if (task.canRetry) { renderRetryBox(task); return; }
         if (!data.success || task.success === false || (!task.taskId && !task.plan?.startsWith("pro_"))) {
           const message = currentOrderId ? "提交记录已保留，正在等待人工核查和处理。如等候时间较长，请联系人工客服。" : mapRechargeMessage(task.message || data.message, "failed");
           setNotice("step3Notice", currentOrderId ? "已提交，等待处理" : "暂未完成提交", message, currentOrderId ? "info" : "error");
